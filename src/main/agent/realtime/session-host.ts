@@ -64,6 +64,16 @@ export async function startRealtimeSession(
   const wsConfig = codec.getWebSocketConfig({ token, url });
   const ws = new WebSocket(wsConfig.url, wsConfig.protocols);
 
+  // Connection timeout — if server never responds, reject after 15s
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      ws.close();
+      reject(new Error("WebSocket connection timed out after 15s"));
+    }, 15_000);
+    ws.addEventListener("open", () => { clearTimeout(timeout); resolve(); }, { once: true });
+    ws.addEventListener("error", () => { clearTimeout(timeout); reject(new Error("WebSocket connection failed")); }, { once: true });
+  });
+
   const { sessionId } = opts;
   const host: SessionHost = {
     ws,

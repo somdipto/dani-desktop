@@ -22,32 +22,36 @@ export const webSearchSkill: Skill = {
               "Web search is unavailable — the operator has not configured a TAVILY_API_KEY.",
           };
         }
-        const res = await fetch("https://api.tavily.com/search", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            api_key: apiKey,
-            query,
-            search_depth: "basic",
-            max_results: 5,
-            include_answer: true,
-          }),
-        });
-        if (!res.ok) {
-          return { error: `Search failed: ${res.status} ${res.statusText}` };
+        try {
+          const res = await fetch("https://api.tavily.com/search", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              api_key: apiKey,
+              query,
+              search_depth: "basic",
+              max_results: 5,
+              include_answer: true,
+            }),
+          });
+          if (!res.ok) {
+            return { error: `Search failed: ${res.status} ${res.statusText}` };
+          }
+          const data = (await res.json()) as {
+            answer?: string;
+            results: Array<{ title: string; url: string; content: string }>;
+          };
+          return {
+            answer: data.answer,
+            results: data.results.slice(0, 5).map((r) => ({
+              title: r.title,
+              url: r.url,
+              snippet: r.content.slice(0, 400),
+            })),
+          };
+        } catch (err) {
+          return { error: `Search failed: ${err instanceof Error ? err.message : String(err)}` };
         }
-        const data = (await res.json()) as {
-          answer?: string;
-          results: Array<{ title: string; url: string; content: string }>;
-        };
-        return {
-          answer: data.answer,
-          results: data.results.slice(0, 5).map((r) => ({
-            title: r.title,
-            url: r.url,
-            snippet: r.content.slice(0, 400),
-          })),
-        };
       },
     },
   ],

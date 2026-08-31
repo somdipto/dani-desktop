@@ -18,6 +18,7 @@ import {
   defaultModelFor,
   isProviderReady,
   useAppleAvailability,
+  useOllamaAvailability,
 } from "@/components/llm/provider-picker";
 import { useSystemVoices } from "@/lib/use-system-voices";
 import { ThemePicker } from "@/components/themes/theme-picker";
@@ -108,6 +109,7 @@ export function OnboardingWizard({
   // pick before continuing past the model step.
   const [chosenProvider, setChosenProvider] = useState<LlmProvider | null>(null);
   const apple = useAppleAvailability();
+  const ollama = useOllamaAvailability();
   const { config, secrets } = data;
   const voices = useSystemVoices();
 
@@ -140,6 +142,7 @@ export function OnboardingWizard({
         <ProviderPicker
           data={data}
           selected={chosenProvider}
+          ollama={ollama}
           onSelect={(id) => {
             setChosenProvider(id);
             setConfig({ llm: { provider: id, model: defaultModelFor(id) } });
@@ -380,7 +383,7 @@ export function OnboardingWizard({
   // Block advancing past the model step until a provider is chosen and usable,
   // and past the realtime step until the gateway key is saved.
   const blocked =
-    (step.key === "llm" && !isProviderReady(data, chosenProvider, apple)) ||
+    (step.key === "llm" && !isProviderReady(data, chosenProvider, apple, ollama)) ||
     (step.key === "realtime" && !secrets.AI_GATEWAY_API_KEY);
 
   return (

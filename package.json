@@ -1,7 +1,7 @@
 {
   "name": "opendex",
   "version": "1.1.14",
-  "description": "OpenDex — a voice-first agentic harness for the desktop.",
+  "description": "OpenDex \u2014 a voice-first agentic harness for the desktop.",
   "private": true,
   "packageManager": "pnpm@10.8.1",
   "author": {
@@ -19,6 +19,7 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "smoke:chat": "tsx scripts/smoke-chat.ts",
+    "smoke:dani": "tsx scripts/smoke-dani-rpc.ts",
     "smoke:realtime": "tsx scripts/smoke-realtime.ts",
     "dist": "electron-vite build && electron-builder",
     "release": "electron-vite build && electron-builder --publish always",
@@ -115,7 +116,6 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": true,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "OpenDex listens to your voice to run agentic commands.",
         "NSCameraUsageDescription": "OpenDex may capture the screen to see and control your desktop."

@@ -1491,7 +1491,7 @@ export function useDex(options: UseDexOptions): UseDexResult {
   }, [options.voiceMode, closeRealtime]);
 
   const engage = useCallback(async () => {
-    if (!isSpeechRecognitionSupported()) {
+    if (needsWebSpeech && !isSpeechRecognitionSupported()) {
       setStatus("unsupported");
       return;
     }

@@ -1,6 +1,12 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { app, safeStorage } from "electron";
+import { join, dirname } from "node:path";
+import { homedir } from "node:os";
+// Electron is only available inside the Electron runtime.
+// Outside it (e.g. smoke tests), app/safeStorage are undefined — guarded by lazy paths.
+let app: any; let safeStorage: any;
+try { ({ app, safeStorage } = require("electron")); } catch {}
+import type { XaiOAuthTokens } from "../auth/xai-oauth";
+
 import {
   DEFAULT_CONFIG,
   SECRET_NAMES,
@@ -92,12 +98,20 @@ function persistSecrets() {
       values[name] = Buffer.from(value, "utf8").toString("base64");
     }
   }
-  writeFileSync(secretsPath, JSON.stringify({ enc, values }, null, 2), "utf8");
+  try {
+    writeFileSync(secretsPath, JSON.stringify({ enc, values }, null, 2), "utf8");
+  } catch (err) {
+    console.error("[opendex config] failed to write secrets.json", err);
+  }
 }
 
 function persistConfig() {
   ensurePaths();
-  writeFileSync(configPath, JSON.stringify(cachedConfig, null, 2), "utf8");
+  try {
+    writeFileSync(configPath, JSON.stringify(cachedConfig, null, 2), "utf8");
+  } catch (err) {
+    console.error("[opendex config] failed to write config.json", err);
+  }
 }
 
 /** Push config-derived values into process.env so agent/TTS read them as before.
@@ -136,6 +150,8 @@ function secretsPresence(): SecretsPresence {
     OPENAI_API_KEY: hasSecret("OPENAI_API_KEY"),
     ANTHROPIC_API_KEY: hasSecret("ANTHROPIC_API_KEY"),
     XAI_API_KEY: hasSecret("XAI_API_KEY"),
+    XAI_OAUTH_ACCESS_TOKEN: hasSecret("XAI_OAUTH_ACCESS_TOKEN"),
+    OPENCODE_API_KEY: hasSecret("OPENCODE_API_KEY"),
   };
 }
 
@@ -185,6 +201,87 @@ export function resetConfig(): PublicConfig {
   }
   cachedSecrets = {};
   cachedConfig = structuredClone(DEFAULT_CONFIG);
+  // Clear secrets from process.env so they don't survive a factory reset
+  for (const name of SECRET_NAMES) {
+    delete process.env[name];
+  }
   applyToEnv();
   return getPublicConfig();
+}
+
+// ── OAuth token storage ────────────────────────────────────────────────
+// OAuth tokens are stored in a separate JSON file, encrypted via safeStorage.
+
+
+let oauthTokensPath: string | null = null;
+function getOAuthTokensPath(): string {
+  if (!oauthTokensPath && app) oauthTokensPath = join(app.getPath("userData"), "oauth-tokens.json");
+  if (!oauthTokensPath) oauthTokensPath = join(homedir(), ".opendex", "oauth-tokens.json");
+  return oauthTokensPath;
+}
+let cachedOAuthTokens: Record<string, XaiOAuthTokens> = {};
+
+function loadOAuthTokens(): void {
+  try {
+    if (existsSync(getOAuthTokensPath())) {
+      const raw = readFileSync(getOAuthTokensPath(), "utf-8");
+      cachedOAuthTokens = JSON.parse(raw);
+    }
+  } catch {
+    cachedOAuthTokens = {};
+  }
+  
+  // Auto-import from grok CLI if we don't have xAI tokens yet
+  if (!cachedOAuthTokens.xai) {
+    try {
+      const authPath = join(homedir(), ".grok", "auth.json");
+      if (existsSync(authPath)) {
+        const raw = readFileSync(authPath, "utf-8");
+        const authStore = JSON.parse(raw);
+        for (const [, entry] of Object.entries(authStore)) {
+          if (!entry || typeof entry !== "object") continue;
+          const e = entry as Record<string, unknown>;
+          const key = e.key as string | undefined;
+          if (!key) continue;
+          const expiresAt = e.expires_at as string | undefined;
+          const refreshToken = e.refresh_token as string | undefined;
+          const email = e.email as string | undefined;
+          cachedOAuthTokens.xai = {
+            access_token: key,
+            refresh_token: refreshToken,
+            expires_at: expiresAt,
+            email,
+          };
+          persistOAuthTokens();
+          break;
+        }
+      }
+    } catch {
+      // Ignore import errors
+    }
+  }
+}
+
+function persistOAuthTokens(): void {
+  try {
+    mkdirSync(dirname(getOAuthTokensPath()), { recursive: true });
+    writeFileSync(getOAuthTokensPath(), JSON.stringify(cachedOAuthTokens, null, 2));
+  } catch (err) {
+    console.error(`[opendex config] failed to persist OAuth tokens`, err);
+  }
+}
+
+export function getOAuthTokens(provider: string): XaiOAuthTokens | null {
+  if (!Object.keys(cachedOAuthTokens).length) loadOAuthTokens();
+  return cachedOAuthTokens[provider] ?? null;
+}
+
+export function setOAuthTokens(provider: string, tokens: XaiOAuthTokens): void {
+  cachedOAuthTokens[provider] = tokens;
+  persistOAuthTokens();
+}
+
+export function clearOAuthTokens(provider: string): void {
+  delete cachedOAuthTokens[provider];
+  persistOAuthTokens();
 }

@@ -37,6 +37,7 @@ import {
   ProviderPicker,
   defaultModelFor,
   useAppleAvailability,
+  useOllamaAvailability,
 } from "@/components/llm/provider-picker";
 
 export interface SectionProps {
@@ -190,7 +191,7 @@ function VoiceInputSection({ data, setConfig, setSecret }: SectionProps) {
         }
         value={config.voiceInput.wakeMode}
         options={[
-          { value: "manual", label: "Push to talk (click / ⌘⇧Space)" },
+          { value: "manual", label: "Push to talk (click / ⌥⌘Space)" },
           { value: "vosk", label: "Wake word (Vosk — free, offline)" },
           { value: "webspeech", label: "Wake word (Web Speech — browser)" },
         ]}
@@ -400,11 +401,13 @@ function SkillsSection({ data, setConfig }: SectionProps) {
 function ModelSection({ data, setConfig, setSecret }: SectionProps) {
   const { config, secrets } = data;
   const apple = useAppleAvailability();
+  const ollama = useOllamaAvailability();
   return (
     <>
       <ProviderPicker
         data={data}
         selected={config.llm.provider}
+        ollama={ollama}
         onSelect={(id) =>
           // Keep the current model only if switching back to the same provider;
           // otherwise reset to that provider's default id.

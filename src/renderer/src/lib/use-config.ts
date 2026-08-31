@@ -61,7 +61,7 @@ export function useConfig(): UseConfigResult {
   }, []);
 
   const resetConfig = useCallback(async () => {
-    setData(await window.opendex.resetConfig());
+    setData(await window.opendex.resetConfig("CONFIRM_FACTORY_RESET"));
   }, []);
 
   return {

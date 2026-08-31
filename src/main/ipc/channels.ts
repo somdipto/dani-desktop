@@ -39,13 +39,16 @@ export const IPC = {
   transcribe: "stt:transcribe",
   // LLM: probe Apple on-device model availability (for the provider picker)
   llmAppleAvailability: "llm:apple-availability",
+  // LLM: probe whether Ollama is running locally (for the provider picker)
+  llmOllamaAvailability: "llm:ollama-availability",
+  // xAI OAuth: start device code flow, get status, disconnect
+  xaiOAuthStart: "xai:oauth-start",
+  xaiOAuthStatus: "xai:oauth-status",
+  xaiOAuthDisconnect: "xai:oauth-disconnect",
   // main → renderer event: global push-to-talk hotkey pressed
   pushToTalk: "push-to-talk",
   // main → renderer event: global emergency-stop hotkey pressed
   interrupt: "interrupt",
-  // Session-state relay: the main window pushes a snapshot of the live voice
-  // session (what the assistant is doing right now) to main, which re-broadcasts
-  // it to the overlay HUD and any other view-only surface.
   sessionUpdate: "session:update",
   sessionChanged: "session:changed",
   // Window mode (full ↔ notch) + Spotlight-style summon:

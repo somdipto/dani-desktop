@@ -37,12 +37,20 @@ export const REALTIME_MODELS: RealtimeModelMeta[] = [
     transcribes: true,
   },
   {
-    id: "xai/grok-voice-think-fast-1.0",
-    label: "xAI Grok Voice (think fast)",
+    id: "xai/grok-voice-latest",
+    label: "xAI Grok Voice",
     blurb:
-      "xAI's realtime voice model. Speech-to-speech only — no transcripts, so the conversation won't show as text.",
+      "xAI's realtime voice model (speech-to-speech). Requires xAI API key — OAuth tokens don't work for the voice WebSocket.",
     voices: [],
     transcribes: false,
+  },
+  {
+    id: "local",
+    label: "Offline Voice (local)",
+    blurb:
+      "Fully offline speech-to-speech using Whisper STT + your local LLM + system TTS. No API key, no internet needed.",
+    voices: [],
+    transcribes: true,
   },
 ];
 

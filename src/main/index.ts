@@ -22,7 +22,8 @@ import {
   type WindowMode,
 } from "./ipc/channels";
 import { streamChat } from "./agent/chat";
-import { resolveModel, checkAppleAvailability } from "./agent/llm/resolve-model";
+import { resolveModel, checkAppleAvailability, checkOllamaAvailability } from "./agent/llm/resolve-model";
+import { startDeviceCodeFlow, openAuthPage, getOAuthStatus, type XaiOAuthTokens } from "./auth/xai-oauth";
 import { buildRealtimeInstructions, buildSystemPrompt } from "./agent/system-prompt";
 import {
   endRealtimeSession,
@@ -45,6 +46,9 @@ import {
   completeOnboarding,
   getConfig,
   getPublicConfig,
+  getOAuthTokens,
+  setOAuthTokens,
+  clearOAuthTokens,
   initConfig,
   resetConfig,
   setSecret,
@@ -52,6 +56,18 @@ import {
 } from "./config/store";
 import type { DeepPartial, OpenDexConfig, SecretName, SttProvider } from "./config/schema";
 import { initAutoUpdater } from "./updater";
+
+/** Only allow http/https links to be opened externally. */
+function safeOpenExternal(url: string): void {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      void shell.openExternal(url);
+    }
+  } catch {
+    // Invalid URL — ignore
+  }
+}
 import { initAnalytics, track } from "./analytics";
 
 // Load a dev .env first; initConfig() then layers the user's saved config on
@@ -143,7 +159,7 @@ function createWindow() {
   attachAutoModeListeners(win);
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    safeOpenExternal(url);
     return { action: "deny" };
   });
 
@@ -462,7 +478,7 @@ function openSettingsWindow() {
     settingsWindow = null;
   });
   settingsWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    safeOpenExternal(url);
     return { action: "deny" };
   });
 
@@ -593,7 +609,12 @@ function registerIpc() {
   });
 
   ipcMain.handle(IPC.ttsSynthesize, async (_event, text: string) => {
-    const buffer = await synthesizeSpeech(text);
+    const MAX_TTS_CHARS = 5000;
+    const trimmed = text.trim();
+    if (trimmed.length > MAX_TTS_CHARS) {
+      throw new Error(`TTS text too long (${trimmed.length} chars, max ${MAX_TTS_CHARS}).`);
+    }
+    const buffer = await synthesizeSpeech(trimmed);
     return buffer.buffer.slice(
       buffer.byteOffset,
       buffer.byteOffset + buffer.byteLength,
@@ -699,7 +720,11 @@ function registerIpc() {
     return result;
   });
 
-  ipcMain.handle(IPC.configReset, () => {
+  ipcMain.handle(IPC.configReset, (_event, confirmationToken?: string) => {
+    // Require explicit confirmation to prevent accidental factory reset
+    if (confirmationToken !== "CONFIRM_FACTORY_RESET") {
+      throw new Error("Factory reset requires explicit confirmation. Pass 'CONFIRM_FACTORY_RESET' as the confirmation token.");
+    }
     const result = resetConfig();
     broadcastConfig();
     track("config_reset");
@@ -730,12 +755,56 @@ function registerIpc() {
   ipcMain.handle(
     IPC.transcribe,
     async (_event, provider: SttProvider, wav: ArrayBuffer) => {
+      const MAX_WAV_BYTES = 25 * 1024 * 1024; // 25MB
+      if (wav.byteLength > MAX_WAV_BYTES) {
+        throw new Error(`Audio too large (${Math.round(wav.byteLength / 1024 / 1024)}MB, max 25MB).`);
+      }
       return transcribe(provider, Buffer.from(wav));
     },
   );
 
   // Probe whether the Apple on-device model can run (gates the provider picker).
   ipcMain.handle(IPC.llmAppleAvailability, () => checkAppleAvailability());
+  // Probe whether Ollama is running locally (gates the provider picker).
+  ipcMain.handle(IPC.llmOllamaAvailability, () => checkOllamaAvailability());
+  // xAI OAuth: start device code flow
+  ipcMain.handle(IPC.xaiOAuthStart, async () => {
+    const { deviceInfo, waitForAuth } = await startDeviceCodeFlow();
+    // Open verification_uri_complete so the code is pre-filled for the user
+    openAuthPage(deviceInfo.verification_uri_complete || deviceInfo.verification_uri);
+    // Wait for auth in background (don't block the renderer)
+    waitForAuth()
+      .then((tokens) => {
+        // Store tokens via the config store
+        setOAuthTokens("xai", tokens);
+        // Notify all windows that auth completed with full status (includes email)
+        const status = getOAuthStatus(tokens);
+        BrowserWindow.getAllWindows().forEach((w) =>
+          w.webContents.send(IPC.xaiOAuthStatus, status),
+        );
+      })
+      .catch((err) => {
+        BrowserWindow.getAllWindows().forEach((w) =>
+          w.webContents.send(IPC.xaiOAuthStatus, { connected: false, error: String(err) }),
+        );
+      });
+    // Use verification_uri_complete so the code is pre-filled in the browser
+    return { userCode: deviceInfo.user_code, verificationUri: deviceInfo.verification_uri_complete || deviceInfo.verification_uri };
+  });
+
+  // xAI OAuth: get current status
+  ipcMain.handle(IPC.xaiOAuthStatus, () => {
+    const tokens = getOAuthTokens("xai");
+    return getOAuthStatus(tokens);
+  });
+
+  // xAI OAuth: disconnect
+  ipcMain.handle(IPC.xaiOAuthDisconnect, () => {
+    clearOAuthTokens("xai");
+    return { connected: false };
+  });
+
+  // Permission gate: the renderer answers a sensitive-tool prompt.
 
   // Permission gate: the renderer answers a sensitive-tool prompt.
   ipcMain.on(
@@ -789,7 +858,7 @@ function registerIpc() {
 function registerPushToTalkHotkey() {
   // Global push-to-talk for manual wake mode. The renderer ignores it unless
   // wakeMode === "manual".
-  const accelerator = "CommandOrControl+Shift+Space";
+  const accelerator = "Alt+Command+Space";
   try {
     globalShortcut.register(accelerator, () => {
       mainWindow?.webContents.send(IPC.pushToTalk);

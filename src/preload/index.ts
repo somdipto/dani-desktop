@@ -43,6 +43,8 @@ const opendex = {
   /** The host OS platform (e.g. "darwin"), so the renderer can adapt its chrome
    *  to the frameless title bar (traffic-light clearance, drag regions). */
   platform: process.platform as NodeJS.Platform,
+  /** The host CPU architecture — "arm64" for Apple Silicon, "x64" for Intel. */
+  arch: process.arch as NodeJS.Architecture,
 
   /**
    * Stream a chat reply. Text deltas arrive via `onDelta`; the returned promise
@@ -164,8 +166,8 @@ const opendex = {
   },
 
   /** Factory reset: wipe stored prefs + secrets and re-run onboarding. */
-  resetConfig(): Promise<PublicConfig> {
-    return ipcRenderer.invoke(IPC.configReset);
+  resetConfig(confirmationToken?: string): Promise<PublicConfig> {
+    return ipcRenderer.invoke(IPC.configReset, confirmationToken);
   },
 
   /** Open the dedicated settings window (creates it, or focuses if already open). */
@@ -190,6 +192,29 @@ const opendex = {
   /** Probe whether the Apple on-device model can run (provider picker gate). */
   appleAvailability(): Promise<{ available: boolean; reason?: string }> {
     return ipcRenderer.invoke(IPC.llmAppleAvailability);
+  },
+  /** Probe whether Ollama is running locally (provider picker gate). */
+  ollamaAvailability(): Promise<{ available: boolean; reason?: string }> {
+    return ipcRenderer.invoke(IPC.llmOllamaAvailability);
+  },
+
+  /** Start xAI OAuth device code flow. Opens browser, returns user code. */
+  xaiOAuthStart(): Promise<{ userCode: string; verificationUri: string }> {
+    return ipcRenderer.invoke(IPC.xaiOAuthStart);
+  },
+  /** Get current xAI OAuth status. */
+  xaiOAuthStatus(): Promise<{ connected: boolean; email?: string; expired?: boolean }> {
+    return ipcRenderer.invoke(IPC.xaiOAuthStatus);
+  },
+  /** Disconnect xAI OAuth. */
+  xaiOAuthDisconnect(): Promise<{ connected: boolean }> {
+    return ipcRenderer.invoke(IPC.xaiOAuthDisconnect);
+  },
+  /** Subscribe to xAI OAuth status changes (connected/disconnected). */
+  onXaiOAuthStatus(handler: (status: { connected: boolean; email?: string }) => void): () => void {
+    const listener = (_event: Electron.IpcRendererEvent, status: { connected: boolean; email?: string }) => handler(status);
+    ipcRenderer.on(IPC.xaiOAuthStatus, listener);
+    return () => ipcRenderer.removeListener(IPC.xaiOAuthStatus, listener);
   },
 
   /** Subscribe to the global push-to-talk hotkey. Returns an unsubscribe fn. */

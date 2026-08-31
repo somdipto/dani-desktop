@@ -39,10 +39,20 @@ export async function synthesizeSpeech(text: string): Promise<Buffer> {
 
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
+  const timeoutMs = 30_000;
+  try {
+    while (true) {
+      const readPromise = reader.read();
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("ElevenLabs stream timed out after 30s")), timeoutMs),
+      );
+      const { value, done } = await Promise.race([readPromise, timeoutPromise]);
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+  } catch (err) {
+    reader.cancel().catch(() => {});
+    throw err;
   }
   return Buffer.concat(chunks);
 }

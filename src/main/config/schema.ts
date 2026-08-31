@@ -22,17 +22,20 @@ export type RealtimeProvider = "gateway" | "openai";
  *  `openai`/`anthropic`/`xai` are bring-your-own-key; `gateway` is the Vercel AI
  *  Gateway (one key, any provider); `opendex` is our hosted subscription
  *  (reserved — not implemented yet). */
-export type LlmProvider = "apple" | "openai" | "anthropic" | "xai" | "gateway" | "opendex";
-/** How a provider authenticates: `none` (local), `key` (user-pasted secret), or
- *  `account` (a session we manage — reserved for the OpenDex subscription). */
-export type ProviderAuth = "none" | "key" | "account";
+export type LlmProvider = "apple" | "openai" | "anthropic" | "xai" | "gateway" | "opendex" | "ollama" | "opencode";
+/** How a provider authenticates: `none` (local), `key` (user-pasted secret),
+ *  `account` (a session we manage — reserved for the OpenDex subscription), or
+ *  `oauth` (browser/device-code flow, e.g. xAI Grok). */
+export type ProviderAuth = "none" | "key" | "account" | "oauth";
 export type SecretName =
   | "AI_GATEWAY_API_KEY"
   | "ELEVENLABS_API_KEY"
   | "TAVILY_API_KEY"
   | "OPENAI_API_KEY"
   | "ANTHROPIC_API_KEY"
-  | "XAI_API_KEY";
+  | "XAI_API_KEY"
+  | "XAI_OAUTH_ACCESS_TOKEN"
+  | "OPENCODE_API_KEY";
 
 export interface OpenDexConfig {
   version: 1;
@@ -126,6 +129,8 @@ export interface SecretsPresence {
   OPENAI_API_KEY: boolean;
   ANTHROPIC_API_KEY: boolean;
   XAI_API_KEY: boolean;
+  XAI_OAUTH_ACCESS_TOKEN: boolean;
+  OPENCODE_API_KEY: boolean;
 }
 
 /** What the renderer receives — config plus which secrets are set (never the values). */
@@ -139,47 +144,32 @@ export interface PublicConfig {
 export const DEFAULT_CONFIG: OpenDexConfig = {
   version: 1,
   assistant: { name: "Dex", wakeWord: "dex", userGender: "unspecified", persona: "" },
-  // Defaults to the gateway so configs written before the provider field
-  // (which only had `llm.model`) keep working after upgrade. First-run
-  // onboarding forces an explicit choice regardless.
-  llm: { provider: "gateway", model: "anthropic/claude-sonnet-4-6" },
+  llm: { provider: "ollama", model: "qwen2.5:32b" },
   tts: {
-    engine: "elevenlabs",
+    engine: "system",
     elevenLabs: { voiceId: "JBFqnCBsd6RMkjVDRZzb", modelId: "eleven_turbo_v2_5" },
     system: { voiceURI: null, rate: 1, pitch: 1 },
   },
   greeting: { mode: "none", customPrompt: "" },
-  // Pipeline by default — realtime is an explicit choice (it needs a gateway
-  // key and bills per session). mergeConfig back-fills these sections into
-  // configs written before they existed.
   voice: { mode: "pipeline" },
   realtime: {
     provider: "gateway",
     model: "openai/gpt-realtime-2",
     voice: "marin",
-    // Short follow-up window: sessions bill by the minute, so hang up quickly
-    // once nobody is talking (the timer never counts mid-speech or during
-    // playback — see realtime-session.ts resetIdle).
     idleDisconnectSec: 10,
   },
   voiceInput: {
-    // Free, offline defaults: Vosk wake word + local Whisper transcription.
-    wakeMode: "vosk",
+    wakeMode: "manual",
     sttProvider: "whisper-local",
     whisperModel: "Xenova/whisper-base.en",
   },
   appearance: { theme: "editorial", showToolActivity: true },
-  // `Alt+Space` reads as ⌥Space on macOS (low-conflict). On Windows Alt+Space
-  // opens the system window menu and won't register; the registrar falls back to
-  // a secondary accelerator in that case (see registerSummonHotkey in index.ts).
   hotkeys: { summon: "Alt+Space" },
   skills: {
-    // `computer` is opt-in (off until the user enables it in Settings).
     enabled: { open: true, computer: false },
     permissions: { open: "ask", computer: "ask" },
   },
   computer: { animateCursor: true },
-  // Anonymous usage analytics, on by default (opt-out in onboarding/Settings).
   analytics: { enabled: true },
   onboarding: { completed: false },
 };
@@ -191,25 +181,35 @@ export const SECRET_NAMES: SecretName[] = [
   "OPENAI_API_KEY",
   "ANTHROPIC_API_KEY",
   "XAI_API_KEY",
+  "XAI_OAUTH_ACCESS_TOKEN",
+  "OPENCODE_API_KEY",
 ];
 
-/** Deep-merge a partial patch into a config (one level of nesting is enough here). */
+/** Deep-merge a partial patch into a config. Nested objects are merged
+ *  recursively so partial updates don't clobber sibling fields. */
 export function mergeConfig(
   base: OpenDexConfig,
   patch: DeepPartial<OpenDexConfig>,
 ): OpenDexConfig {
-  const out: OpenDexConfig = structuredClone(base);
-  for (const key of Object.keys(patch) as (keyof OpenDexConfig)[]) {
-    const value = patch[key];
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      // @ts-expect-error - shallow section merge
-      out[key] = { ...out[key], ...value };
-    } else if (value !== undefined) {
-      // @ts-expect-error - scalar assignment
-      out[key] = value;
+  function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+    const out = { ...target };
+    for (const key of Object.keys(source)) {
+      const val = source[key];
+      if (val && typeof val === "object" && !Array.isArray(val)) {
+        out[key] = deepMerge(
+          (out[key] as Record<string, unknown>) ?? {},
+          val as Record<string, unknown>,
+        );
+      } else if (val !== undefined) {
+        out[key] = val;
+      }
     }
+    return out;
   }
-  return out;
+  return deepMerge(
+    structuredClone(base) as unknown as Record<string, unknown>,
+    patch as unknown as Record<string, unknown>,
+  ) as unknown as OpenDexConfig;
 }
 
 export type DeepPartial<T> = {
