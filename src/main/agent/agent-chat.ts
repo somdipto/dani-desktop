@@ -16,16 +16,14 @@ export interface FreeModel {
   label: string;
 }
 
-/** Free models available on OpenCode Zen. */
+/** Free models available on OpenCode Zen (rotating — verified Sep 2026). */
 export const OPENCODE_FREE_MODELS: FreeModel[] = [
-  { id: "opencode/big-pickle", label: "Big Pickle — general coding" },
-  { id: "opencode/mimo-v2.5-free", label: "MiMo V2.5 — reasoning" },
-  { id: "opencode/minimax-m2.5-free", label: "MiniMax M2.5 — coding, long context" },
+  { id: "opencode/mimo-v2.5-free", label: "MiMo V2.5 — reasoning (default)" },
+  { id: "opencode/qwen-3.6-plus-free", label: "Qwen 3.6 Plus — coding" },
+  { id: "opencode/minimax-m3-free", label: "MiniMax M3 — long context" },
   { id: "opencode/nemotron-3-ultra-free", label: "Nemotron 3 Ultra — NVIDIA" },
-  { id: "opencode/nemotron-3.5-lightning-free", label: "Nemotron 3.5 Lightning — fast" },
-  { id: "opencode/deepseek-v4-flash-free", label: "DeepSeek V4 Flash — reasoning" },
-  { id: "opencode/ling-3.0-flash-fin-free", label: "Ling 3.0 Flash — finance" },
-  { id: "opencode/muse-spark-1.2-contributor-free", label: "Muse Spark 1.2 — creative" },
+  { id: "opencode/north-mini-code-free", label: "North Mini Code — fast coding" },
+  { id: "opencode/big-pickle", label: "Big Pickle — general coding" },
 ];
 
 /** Free models available on Kilo Code. */
@@ -39,7 +37,7 @@ export const KILO_FREE_MODELS: FreeModel[] = [
 
 /** Default free model for each brain. */
 export const BRAIN_DEFAULTS: Record<BrainMode, { provider: OpenDexConfig["llm"]["provider"]; model: string }> = {
-  opencode: { provider: "opencode", model: "opencode/deepseek-v4-flash-free" },
+  opencode: { provider: "opencode", model: "opencode/mimo-v2.5-free" },
   kilo: { provider: "kilo", model: "kilo-auto/free" },
   anthropic: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   grok: { provider: "xai", model: "grok-3" },

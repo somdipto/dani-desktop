@@ -348,16 +348,14 @@ function HotkeyField({
 }
 
 
-/** Free models available on OpenCode Zen. */
+/** Free models available on OpenCode Zen (rotating — verified Sep 2026). */
 const OPENCODE_FREE_MODELS = [
-  { id: "opencode/big-pickle", label: "Big Pickle — general coding" },
-  { id: "opencode/mimo-v2.5-free", label: "MiMo V2.5 — reasoning" },
-  { id: "opencode/minimax-m2.5-free", label: "MiniMax M2.5 — coding, long context" },
+  { id: "opencode/mimo-v2.5-free", label: "MiMo V2.5 — reasoning (default)" },
+  { id: "opencode/qwen-3.6-plus-free", label: "Qwen 3.6 Plus — coding" },
+  { id: "opencode/minimax-m3-free", label: "MiniMax M3 — long context" },
   { id: "opencode/nemotron-3-ultra-free", label: "Nemotron 3 Ultra — NVIDIA" },
-  { id: "opencode/nemotron-3.5-lightning-free", label: "Nemotron 3.5 Lightning — fast" },
-  { id: "opencode/deepseek-v4-flash-free", label: "DeepSeek V4 Flash — reasoning" },
-  { id: "opencode/ling-3.0-flash-fin-free", label: "Ling 3.0 Flash — finance" },
-  { id: "opencode/muse-spark-1.2-contributor-free", label: "Muse Spark 1.2 — creative" },
+  { id: "opencode/north-mini-code-free", label: "North Mini Code — fast coding" },
+  { id: "opencode/big-pickle", label: "Big Pickle — general coding" },
 ];
 
 /** Free models available on Kilo Code. */
@@ -371,7 +369,7 @@ const KILO_FREE_MODELS = [
 
 /** Default model for each brain mode. */
 const BRAIN_DEFAULTS: Record<string, string> = {
-  opencode: "opencode/deepseek-v4-flash-free",
+  opencode: "opencode/mimo-v2.5-free",
   kilo: "kilo-auto/free",
   anthropic: "claude-sonnet-4-20250514",
   grok: "grok-3",
@@ -391,7 +389,7 @@ function BrainSection({ data, setConfig, setSecret }: SectionProps) {
         hint="Which AI powers the conversation. OpenCode and Kilo have free models."
         value={brain}
         options={[
-          { value: "opencode", label: "OpenCode (8 free models)" },
+          { value: "opencode", label: "OpenCode (6 free models)" },
           { value: "kilo", label: "Kilo Code (5 free models)" },
           { value: "anthropic", label: "Anthropic Claude (paid)" },
           { value: "grok", label: "xAI Grok (paid)" },

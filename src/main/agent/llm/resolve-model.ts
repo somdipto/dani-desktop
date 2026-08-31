@@ -72,18 +72,22 @@ export async function resolveModel(config: OpenDexConfig): Promise<LanguageModel
       return appleAI("apple-on-device");
     }
     case "opencode": {
-      if (!process.env.OPENCODE_API_KEY) throw new Error("no OpenCode API key is set");
+      // Free tier models (opencode/*) work without an API key.
+      // Paid models require OPENCODE_API_KEY.
+      const opencodeKey = process.env.OPENCODE_API_KEY || "free-tier";
       const opencode = createOpenAI({
         baseURL: "https://opencode.ai/zen/v1",
-        apiKey: process.env.OPENCODE_API_KEY,
+        apiKey: opencodeKey,
       });
       return opencode(model);
     }
     case "kilo": {
-      if (!process.env.KILO_API_KEY) throw new Error("no Kilo API key is set — get one at kilo.ai");
+      // Free tier models (kilo-auto/free, *:free) work without an API key.
+      // Paid models require KILO_API_KEY.
+      const kiloKey = process.env.KILO_API_KEY || "free-tier";
       const kilo = createOpenAI({
         baseURL: "https://api.kilo.ai/api/gateway",
-        apiKey: process.env.KILO_API_KEY,
+        apiKey: kiloKey,
       });
       return kilo(model);
     }
