@@ -1530,7 +1530,11 @@ export function useDex(options: UseDexOptions): UseDexResult {
   const submitText = useCallback(
     (raw: string) => {
       const text = raw.trim();
-      if (!text || statusRef.current === "error") return;
+      if (!text) return;
+      // If previous turn errored, let the user retry with a new message.
+      if (statusRef.current === "error") {
+        setStatus("idle");
+      }
 
       restartGuardRef.current = true;
       clearTimers();
