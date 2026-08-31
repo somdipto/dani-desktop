@@ -23,9 +23,14 @@ export type RealtimeProvider = "gateway" | "openai";
  *  Gateway (one key, any provider); `opendex` is our hosted subscription
  *  (reserved — not implemented yet). */
 export type LlmProvider = "apple" | "openai" | "anthropic" | "xai" | "gateway" | "opendex" | "ollama" | "opencode";
-/** Which brain drives the chat pipeline. `"openai"` = local provider via Vercel AI SDK
- *  (default, backward-compatible). `"dani"` = DANI CLI over OMP RPC (stdin/stdout NDJSON). */
-export type BrainMode = "openai" | "dani";
+/** Which brain drives the chat pipeline.
+ *  `"herdr"` = OMP/Herdr agent via OMP RPC (stdin/stdout NDJSON).
+ *  `"dani"` = DANI CLI via OMP RPC.
+ *  `"openai"`/`"anthropic"`/`"ollama"`/`"gateway"` = direct LLM via Vercel AI SDK. */
+export type BrainMode = "herdr" | "dani" | "openai" | "anthropic" | "ollama" | "gateway";
+/** Controls agent autonomy: what tools are enabled and whether it asks permission.
+ *  Chill = read-only, never ask. Normal = read+write, ask. Hard = execute, ask. Unhinged = everything. */
+export type HardnessLevel = "chill" | "normal" | "hard" | "unhinged";
 /** How a provider authenticates: `none` (local), `key` (user-pasted secret),
  *  `account` (a session we manage — reserved for the OpenDex subscription), or
  *  `oauth` (browser/device-code flow, e.g. xAI Grok). */
@@ -44,6 +49,8 @@ export interface OpenDexConfig {
   version: 1;
   /** Which brain drives the chat pipeline. */
   brain: BrainMode;
+  /** How much the agent does without asking. */
+  hardness: HardnessLevel;
   assistant: {
     /** Spoken persona name, used in the system prompt. */
     name: string;
@@ -153,6 +160,7 @@ export interface PublicConfig {
 export const DEFAULT_CONFIG: OpenDexConfig = {
   version: 1,
   brain: "openai",
+  hardness: "normal",
   assistant: { name: "Dex", wakeWord: "dex", userGender: "unspecified", persona: "" },
   llm: { provider: "ollama", model: "qwen2.5:32b" },
   tts: {

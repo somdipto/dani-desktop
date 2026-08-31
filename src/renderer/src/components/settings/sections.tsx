@@ -347,6 +347,67 @@ function HotkeyField({
   );
 }
 
+
+function BrainSection({ data, setConfig }: SectionProps) {
+  const { config } = data;
+  const isRpc = config.brain === "herdr" || config.brain === "dani";
+  return (
+    <>
+      <SelectField
+        label="Brain / Harness"
+        hint="Which agent drives the conversation. OMP/Herdr and DANI use a local CLI process. Direct LLM options use API keys."
+        value={config.brain}
+        options={[
+          { value: "herdr", label: "OMP / Herdr" },
+          { value: "dani", label: "DANI (Claude via Bedrock)" },
+          { value: "openai", label: "OpenAI (direct API)" },
+          { value: "anthropic", label: "Anthropic (direct API)" },
+          { value: "ollama", label: "Ollama (local)" },
+          { value: "gateway", label: "Vercel AI Gateway" },
+        ]}
+        onChange={(v) => setConfig({ brain: v })}
+      />
+      {isRpc && (
+        <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
+          RPC mode: uses <code className="font-mono">{config.brain} --mode rpc</code> via stdin/stdout.
+          Make sure the binary is on your PATH.
+        </div>
+      )}
+      {!isRpc && (
+        <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
+          Direct LLM mode: configure your API key in the Language model section below.
+        </div>
+      )}
+    </>
+  );
+}
+
+function HardnessSection({ data, setConfig }: SectionProps) {
+  const { config } = data;
+  return (
+    <>
+      <SelectField
+        label="Hardness"
+        hint="How much the agent does without asking. Chill = read-only. Normal = read+write with confirmation. Hard = full tools with confirmation. Unhinged = autonomous."
+        value={config.hardness}
+        options={[
+          { value: "chill", label: "Chill — read only, never ask" },
+          { value: "normal", label: "Normal — read+write, ask first" },
+          { value: "hard", label: "Hard — full tools, ask first" },
+          { value: "unhinged", label: "Unhinged — autonomous, never ask" },
+        ]}
+        onChange={(v) => setConfig({ hardness: v })}
+      />
+      <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
+        {config.hardness === "chill" && "Read-only tools (grep, find, ls, read). No file writes, no execution."}
+        {config.hardness === "normal" && "Read + write tools. The agent asks before modifying any files."}
+        {config.hardness === "hard" && "Full tool access including code execution. The agent asks before destructive commands."}
+        {config.hardness === "unhinged" && "Full autonomous access. Never asks permission. Speed over caution."}
+      </div>
+    </>
+  );
+}
+
 function SkillsSection({ data, setConfig }: SectionProps) {
   const { config } = data;
   return (
@@ -629,6 +690,8 @@ export interface SettingsSection {
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: "assistant", label: "Assistant", Icon: User, Component: AssistantSection },
+  { id: "brain", label: "Brain", Icon: Cpu, Component: BrainSection },
+  { id: "hardness", label: "Hardness", Icon: ShieldCheck, Component: HardnessSection },
   { id: "voice-mode", label: "Voice mode", Icon: AudioWaveform, Component: VoiceModeSection },
   { id: "voice-input", label: "Voice input", Icon: Mic, Component: VoiceInputSection },
   { id: "appearance", label: "Appearance", Icon: Palette, Component: AppearanceSection },
