@@ -152,6 +152,7 @@ function secretsPresence(): SecretsPresence {
     XAI_API_KEY: hasSecret("XAI_API_KEY"),
     XAI_OAUTH_ACCESS_TOKEN: hasSecret("XAI_OAUTH_ACCESS_TOKEN"),
     OPENCODE_API_KEY: hasSecret("OPENCODE_API_KEY"),
+    KILO_API_KEY: hasSecret("KILO_API_KEY"),
   };
 }
 

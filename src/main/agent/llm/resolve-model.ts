@@ -79,6 +79,14 @@ export async function resolveModel(config: OpenDexConfig): Promise<LanguageModel
       });
       return opencode(model);
     }
+    case "kilo": {
+      if (!process.env.KILO_API_KEY) throw new Error("no Kilo API key is set — get one at kilo.ai");
+      const kilo = createOpenAI({
+        baseURL: "https://api.kilo.ai/api/gateway",
+        apiKey: process.env.KILO_API_KEY,
+      });
+      return kilo(model);
+    }
     case "gateway":
     default:
       // A bare model id routes through the SDK's global AI Gateway provider,

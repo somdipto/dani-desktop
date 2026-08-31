@@ -24,6 +24,7 @@ const PROVIDER_ICON: Record<LlmProvider, LucideIcon> = {
   opendex: Cloud,
   ollama: Monitor,
   opencode: Network,
+  kilo: Network,
 };
 
 const CUSTOM = "__custom__";

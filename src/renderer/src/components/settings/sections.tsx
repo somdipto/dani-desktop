@@ -348,35 +348,92 @@ function HotkeyField({
 }
 
 
-function BrainSection({ data, setConfig }: SectionProps) {
-  const { config } = data;
-  const isRpc = config.brain === "herdr" || config.brain === "dani";
+function BrainSection({ data, setConfig, setSecret }: SectionProps) {
+  const { config, secrets } = data;
   return (
     <>
       <SelectField
-        label="Brain / Harness"
-        hint="Which agent drives the conversation. OMP/Herdr and DANI use a local CLI process. Direct LLM options use API keys."
+        label="Brain"
+        hint="Which AI powers the conversation. OpenCode is free. Others need an API key."
         value={config.brain}
         options={[
-          { value: "herdr", label: "OMP / Herdr" },
-          { value: "dani", label: "DANI (Claude via Bedrock)" },
-          { value: "openai", label: "OpenAI (direct API)" },
-          { value: "anthropic", label: "Anthropic (direct API)" },
-          { value: "ollama", label: "Ollama (local)" },
-          { value: "gateway", label: "Vercel AI Gateway" },
+          { value: "opencode", label: "OpenCode (free)" },
+          { value: "kilo", label: "Kilo Code" },
+          { value: "anthropic", label: "Anthropic Claude" },
+          { value: "grok", label: "xAI Grok" },
+          { value: "codex", label: "OpenAI GPT-5" },
         ]}
         onChange={(v) => setConfig({ brain: v })}
       />
-      {isRpc && (
+
+      {/* Brain-specific auth status */}
+      {config.brain === "opencode" && (
         <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
-          RPC mode: uses <code className="font-mono">{config.brain} --mode rpc</code> via stdin/stdout.
-          Make sure the binary is on your PATH.
+          OpenCode free tier — no API key needed. Routes through opencode.ai with Claude Sonnet 4.6.
+          {secrets.OPENCODE_API_KEY && " (Using your API key for higher limits.)"}
         </div>
       )}
-      {!isRpc && (
-        <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
-          Direct LLM mode: configure your API key in the Language model section below.
-        </div>
+
+      {config.brain === "kilo" && (
+        <>
+          <SecretField
+            label="Kilo API Key"
+            hint="Get your key at kilo.ai/gateway — one key, 500+ models, zero markup."
+            present={secrets.KILO_API_KEY}
+            onSave={(v) => setSecret("KILO_API_KEY", v)}
+          />
+          {!secrets.KILO_API_KEY && (
+            <div className="text-xs text-amber-500 rounded-md bg-amber-500/10 px-3 py-2">
+              Kilo Code needs an API key to route requests.
+            </div>
+          )}
+        </>
+      )}
+
+      {config.brain === "anthropic" && (
+        <>
+          <SecretField
+            label="Anthropic API Key"
+            hint="Get your key at console.anthropic.com — uses Claude Sonnet/Opus directly."
+            present={secrets.ANTHROPIC_API_KEY}
+            onSave={(v) => setSecret("ANTHROPIC_API_KEY", v)}
+          />
+          {!secrets.ANTHROPIC_API_KEY && (
+            <div className="text-xs text-amber-500 rounded-md bg-amber-500/10 px-3 py-2">
+              Anthropic needs an API key to access Claude models.
+            </div>
+          )}
+        </>
+      )}
+
+      {config.brain === "grok" && (
+        <>
+          <SecretField
+            label="xAI API Key"
+            hint="Get your key at console.x.ai — or connect via OAuth below."
+            present={secrets.XAI_API_KEY}
+            onSave={(v) => setSecret("XAI_API_KEY", v)}
+          />
+          <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
+            Grok models: grok-3 (most capable), grok-3-mini (fast).
+          </div>
+        </>
+      )}
+
+      {config.brain === "codex" && (
+        <>
+          <SecretField
+            label="OpenAI API Key"
+            hint="Get your key at platform.openai.com — uses GPT-5 for code generation."
+            present={secrets.OPENAI_API_KEY}
+            onSave={(v) => setSecret("OPENAI_API_KEY", v)}
+          />
+          {!secrets.OPENAI_API_KEY && (
+            <div className="text-xs text-amber-500 rounded-md bg-amber-500/10 px-3 py-2">
+              OpenAI needs an API key to access GPT-5 models.
+            </div>
+          )}
+        </>
       )}
     </>
   );

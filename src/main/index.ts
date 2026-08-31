@@ -22,7 +22,7 @@ import {
   type WindowMode,
 } from "./ipc/channels";
 import { streamChat } from "./agent/chat";
-import { streamAgentChat, shutdownAgents } from "./agent/agent-chat";
+import { resolveProvider, defaultModel } from "./agent/agent-chat";
 import { resolveModel, checkAppleAvailability, checkOllamaAvailability } from "./agent/llm/resolve-model";
 import { startDeviceCodeFlow, openAuthPage, getOAuthStatus, type XaiOAuthTokens } from "./auth/xai-oauth";
 import { buildRealtimeInstructions, buildSystemPrompt } from "./agent/system-prompt";
@@ -562,42 +562,16 @@ function registerIpc() {
       // Resolve the configured provider to a model (may throw for an unset key,
       // an unavailable Apple model, or the not-yet-built subscription). The
       // catch below turns it into a spoken apology.
-      let responseMessages: Awaited<ReturnType<typeof streamChat>>;
-      // Try RPC brain first (herdr/dani). Falls back to direct LLM if not RPC.
-      const rpcResult = await streamAgentChat({
-        brain: config.brain,
-        hardness: config.hardness,
-        messages,
-        system,
-        signal: ac.signal,
-        onDelta: (delta) => {
-          if (!ac.signal.aborted && !sender.isDestroyed()) {
-            sender.send(IPC.chatDelta(requestId), delta);
-          }
-        },
-        onToolCall: (call) => {
-          track("tool_used", { tool_name: call.toolName });
-          if (!ac.signal.aborted && !sender.isDestroyed()) {
-            sender.send(IPC.chatTool(requestId), call);
-          }
-        },
-        onToolResult: (result) => {
-          if (!ac.signal.aborted && !sender.isDestroyed()) {
-            sender.send(IPC.chatToolResult(requestId), {
-              ...result,
-              output: stripImageOutput(result.output),
-            });
-          }
-        },
-      });
+      // Map brain mode to the correct provider and model
+      const brainProvider = resolveProvider(config.brain);
+      const brainModel = defaultModel(config.brain);
+      const resolvedConfig = {
+        ...config,
+        llm: { provider: brainProvider, model: brainModel },
+      };
 
-      if (rpcResult) {
-        // RPC brain handled it (herdr/dani)
-        responseMessages = rpcResult;
-      } else {
-        // Direct LLM brain — use Vercel AI SDK
-        const model = await resolveModel(config);
-        responseMessages = await streamChat({
+      const model = await resolveModel(resolvedConfig);
+      const responseMessages = await streamChat({
           messages,
           system,
           model,
@@ -627,7 +601,6 @@ function registerIpc() {
             }
           },
         });
-      }
       if (!sender.isDestroyed()) {
         sender.send(IPC.chatDone(requestId), responseMessages);
       }
@@ -1018,7 +991,7 @@ app.on("before-quit", async () => {
   // Let the main window actually close instead of hiding (see its close handler).
   isQuitting = true;
   // Shut down DANI brain if active (best-effort).
-  await shutdownAgents().catch(() => {});
+  // No RPC processes to shut down — all brains use Vercel AI SDK
   // Best-effort — the process may exit before the request lands.
   track("app_quit");
 });
