@@ -47,8 +47,9 @@ export const IPC = {
   xaiOAuthDisconnect: "xai:oauth-disconnect",
   // main → renderer event: global push-to-talk hotkey pressed
   pushToTalk: "push-to-talk",
-  // main → renderer event: global emergency-stop hotkey pressed
   interrupt: "interrupt",
+  hotkeysSuspend: "hotkeys:suspend",
+  hotkeysResume: "hotkeys:resume",
   sessionUpdate: "session:update",
   sessionChanged: "session:changed",
   // Window mode (full ↔ notch) + Spotlight-style summon:

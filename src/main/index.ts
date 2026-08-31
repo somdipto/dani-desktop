@@ -709,8 +709,7 @@ function registerIpc() {
   ipcMain.handle(IPC.configSet, (_event, patch: DeepPartial<OpenDexConfig>) => {
     const result = updateConfig(patch);
     broadcastConfig();
-    // Re-bind the global summon shortcut if the user rebound it in Settings.
-    if (patch.hotkeys?.summon) registerSummonHotkey();
+    if (patch.hotkeys) registerAllHotkeys();
     return result;
   });
 
@@ -853,61 +852,52 @@ function registerIpc() {
   ipcMain.on(IPC.overlayInterrupt, () => {
     mainWindow?.webContents.send(IPC.interrupt);
   });
+  ipcMain.on(IPC.hotkeysSuspend, () => unregisterAllHotkeys());
+  ipcMain.on(IPC.hotkeysResume, () => registerAllHotkeys());
 }
 
-function registerPushToTalkHotkey() {
-  // Global push-to-talk for manual wake mode. The renderer ignores it unless
-  // wakeMode === "manual".
-  const accelerator = "Alt+Command+Space";
-  try {
-    globalShortcut.register(accelerator, () => {
-      mainWindow?.webContents.send(IPC.pushToTalk);
-    });
-  } catch (err) {
-    console.error("[opendex] failed to register push-to-talk hotkey", err);
-  }
-}
+const boundHotkeys: { talk: string; interrupt: string; summon: string } = {
+  talk: "",
+  interrupt: "",
+  summon: "",
+};
 
-function registerInterruptHotkey() {
-  // Global emergency stop — works even while another app has focus (essential
-  // during computer-use, where OpenDex isn't the focused window). Aborts the
-  // running command in the renderer.
-  const accelerator = "CommandOrControl+Escape";
-  try {
-    globalShortcut.register(accelerator, () => {
-      mainWindow?.webContents.send(IPC.interrupt);
-    });
-  } catch (err) {
-    console.error("[opendex] failed to register interrupt hotkey", err);
-  }
-}
-
-let summonAccelerator = "";
-
-// Spotlight/Siri-style summon: toggle the main window from anywhere. Tries the
-// configured accelerator first; if it can't be registered (e.g. Alt+Space is
-// reserved for the system window menu on Windows), falls back to a safe chord.
-function registerSummonHotkey() {
-  if (summonAccelerator) {
-    globalShortcut.unregister(summonAccelerator);
-    summonAccelerator = "";
-  }
-  const configured = getConfig().hotkeys.summon;
-  const candidates = [configured, "Control+Alt+Space", "Control+Shift+Space"];
-  for (const accelerator of candidates) {
-    if (!accelerator || globalShortcut.isRegistered(accelerator)) continue;
+function unregisterAllHotkeys() {
+  for (const slot of ["talk", "interrupt", "summon"] as const) {
+    const accel = boundHotkeys[slot];
+    if (!accel) continue;
     try {
-      const ok = globalShortcut.register(accelerator, () => summonWindow());
-      if (ok) {
-        summonAccelerator = accelerator;
-        return;
-      }
+      globalShortcut.unregister(accel);
     } catch {
-      // try the next candidate
+      /* already gone */
     }
+    boundHotkeys[slot] = "";
   }
-  console.error("[opendex] failed to register a summon hotkey");
 }
+
+function bindHotkey(slot: keyof typeof boundHotkeys, accelerator: string, handler: () => void) {
+  if (!accelerator) return;
+  try {
+    const ok = globalShortcut.register(accelerator, handler);
+    if (ok) boundHotkeys[slot] = accelerator;
+    else console.error(`[opendex] hotkey not registered: ${slot} ${accelerator}`);
+  } catch (err) {
+    console.error(`[opendex] failed to register ${slot} hotkey`, err);
+  }
+}
+
+function registerAllHotkeys() {
+  unregisterAllHotkeys();
+  const { talk, interrupt, summon } = getConfig().hotkeys;
+  bindHotkey("talk", talk, () => {
+    mainWindow?.webContents.send(IPC.pushToTalk);
+  });
+  bindHotkey("interrupt", interrupt, () => {
+    mainWindow?.webContents.send(IPC.interrupt);
+  });
+  bindHotkey("summon", summon, () => summonWindow());
+}
+
 
 function createTray() {
   if (tray) return;
@@ -971,9 +961,7 @@ app.whenReady().then(() => {
     },
   });
 
-  registerPushToTalkHotkey();
-  registerInterruptHotkey();
-  registerSummonHotkey();
+  registerAllHotkeys();
   initAutoUpdater();
 
   app.on("activate", () => {

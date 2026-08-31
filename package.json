@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit",
     "smoke:chat": "tsx scripts/smoke-chat.ts",
     "smoke:dani": "tsx scripts/smoke-dani-rpc.ts",
+    "smoke:hotkeys": "tsx scripts/smoke-hotkeys.ts",
     "smoke:realtime": "tsx scripts/smoke-realtime.ts",
     "dist": "electron-vite build && electron-builder",
     "release": "electron-vite build && electron-builder --publish always",

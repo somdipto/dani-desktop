@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from "react";
+import { useState, useRef, useEffect, type ComponentType } from "react";
 import {
   User,
   Mic,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "../ui/button";
 import type { PublicConfig } from "../../../../main/config/schema";
+import { acceleratorFromKeyEvent } from "../../../../main/hotkeys";
 import type {
   DeepPartial,
   OpenDexConfig,
@@ -264,17 +265,26 @@ function AppearanceSection({ data, setConfig }: SectionProps) {
         />
       </ToggleRow>
       <HotkeyField
+        label="Talk hotkey"
+        hint="Hold-style global shortcut to start listening (push-to-talk)."
+        value={config.hotkeys.talk}
+        onChange={(accelerator) => setConfig({ hotkeys: { talk: accelerator } })}
+      />
+      <HotkeyField
         label="Summon hotkey"
         hint="Global shortcut to show / hide OpenDex from anywhere (Spotlight-style)."
         value={config.hotkeys.summon}
         onChange={(accelerator) => setConfig({ hotkeys: { summon: accelerator } })}
       />
+      <HotkeyField
+        label="Stop hotkey"
+        hint="Abort the current command even if another app is focused."
+        value={config.hotkeys.interrupt}
+        onChange={(accelerator) => setConfig({ hotkeys: { interrupt: accelerator } })}
+      />
     </>
   );
 }
-
-// Captures a key chord and stores it as an Electron accelerator string
-// ("CommandOrControl+Shift+Space"). Focus the box and press the combination.
 function HotkeyField({
   label,
   hint,
@@ -287,25 +297,34 @@ function HotkeyField({
   onChange: (accelerator: string) => void;
 }) {
   const [capturing, setCapturing] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const capturingRef = useRef(false);
+
+  useEffect(() => {
+    if (capturing) btnRef.current?.focus();
+  }, [capturing]);
+
+  const startCapture = () => {
+    capturingRef.current = true;
+    window.opendex.suspendHotkeys();
+    setCapturing(true);
+  };
+
+  const endCapture = () => {
+    if (!capturingRef.current) return;
+    capturingRef.current = false;
+    setCapturing(false);
+    window.opendex.resumeHotkeys();
+  };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!capturingRef.current) return;
     e.preventDefault();
-    const key = e.key;
-    // Ignore lone modifier presses — wait for a real key.
-    if (["Control", "Shift", "Alt", "Meta"].includes(key)) return;
-    const parts: string[] = [];
-    if (e.metaKey || e.ctrlKey) parts.push("CommandOrControl");
-    if (e.altKey) parts.push("Alt");
-    if (e.shiftKey) parts.push("Shift");
-    const main =
-      key === " "
-        ? "Space"
-        : key.length === 1
-          ? key.toUpperCase()
-          : key;
-    parts.push(main);
-    onChange(parts.join("+"));
-    setCapturing(false);
+    e.stopPropagation();
+    const accelerator = acceleratorFromKeyEvent(e.nativeEvent);
+    if (!accelerator) return;
+    onChange(accelerator);
+    endCapture();
   };
 
   return (
@@ -315,13 +334,14 @@ function HotkeyField({
         <div className="text-xs text-muted-foreground">{hint}</div>
       </div>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setCapturing(true)}
-        onBlur={() => setCapturing(false)}
-        onKeyDown={capturing ? onKeyDown : undefined}
+        onClick={startCapture}
+        onBlur={endCapture}
+        onKeyDown={onKeyDown}
         className="min-w-[160px] rounded-md border border-input bg-dex-surface/60 px-3 py-1.5 text-center font-mono text-xs text-foreground/90 outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {capturing ? "Press a key combination…" : value}
+        {capturing ? "Press a key combination\u2026" : value || "Click to set"}
       </button>
     </div>
   );

@@ -217,19 +217,25 @@ const opendex = {
     return () => ipcRenderer.removeListener(IPC.xaiOAuthStatus, listener);
   },
 
-  /** Subscribe to the global push-to-talk hotkey. Returns an unsubscribe fn. */
   onPushToTalk(handler: () => void): () => void {
     const listener = () => handler();
     ipcRenderer.on(IPC.pushToTalk, listener);
     return () => ipcRenderer.removeListener(IPC.pushToTalk, listener);
   },
 
-  /** Subscribe to the global emergency-stop hotkey. Returns an unsubscribe fn. */
   onInterrupt(handler: () => void): () => void {
     const listener = () => handler();
     ipcRenderer.on(IPC.interrupt, listener);
     return () => ipcRenderer.removeListener(IPC.interrupt, listener);
   },
+
+  suspendHotkeys(): void {
+    ipcRenderer.send(IPC.hotkeysSuspend);
+  },
+  resumeHotkeys(): void {
+    ipcRenderer.send(IPC.hotkeysResume);
+  },
+
 
   // ── Session state relay (main window → view surfaces) ─────────────────────
 

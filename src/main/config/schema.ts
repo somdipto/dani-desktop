@@ -102,6 +102,10 @@ export interface OpenDexConfig {
   hotkeys: {
     /** Global accelerator that summons / hides the main window (Spotlight-style). */
     summon: string;
+    /** Global push-to-talk. */
+    talk: string;
+    /** Global emergency stop. */
+    interrupt: string;
   };
   skills: {
     /** Per-skill enablement; a skill is on unless explicitly false. */
@@ -164,7 +168,11 @@ export const DEFAULT_CONFIG: OpenDexConfig = {
     whisperModel: "Xenova/whisper-base.en",
   },
   appearance: { theme: "editorial", showToolActivity: true },
-  hotkeys: { summon: "Alt+Space" },
+  hotkeys: {
+    summon: "Alt+Space",
+    talk: "CommandOrControl+Alt+Space",
+    interrupt: "CommandOrControl+Escape",
+  },
   skills: {
     enabled: { open: true, computer: false },
     permissions: { open: "ask", computer: "ask" },
