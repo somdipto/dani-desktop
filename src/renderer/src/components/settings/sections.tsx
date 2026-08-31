@@ -348,91 +348,154 @@ function HotkeyField({
 }
 
 
+/** Free models available on OpenCode Zen. */
+const OPENCODE_FREE_MODELS = [
+  { id: "opencode/big-pickle", label: "Big Pickle — general coding" },
+  { id: "opencode/mimo-v2.5-free", label: "MiMo V2.5 — reasoning" },
+  { id: "opencode/minimax-m2.5-free", label: "MiniMax M2.5 — coding, long context" },
+  { id: "opencode/nemotron-3-ultra-free", label: "Nemotron 3 Ultra — NVIDIA" },
+  { id: "opencode/nemotron-3.5-lightning-free", label: "Nemotron 3.5 Lightning — fast" },
+  { id: "opencode/deepseek-v4-flash-free", label: "DeepSeek V4 Flash — reasoning" },
+  { id: "opencode/ling-3.0-flash-fin-free", label: "Ling 3.0 Flash — finance" },
+  { id: "opencode/muse-spark-1.2-contributor-free", label: "Muse Spark 1.2 — creative" },
+];
+
+/** Free models available on Kilo Code. */
+const KILO_FREE_MODELS = [
+  { id: "kilo-auto/free", label: "Auto-route to best free model" },
+  { id: "stepfun/step-3.7-flash:free", label: "StepFun Step 3.7 Flash" },
+  { id: "poolside/laguna-s-2.1:free", label: "Poolside Laguna S 2.1" },
+  { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "NVIDIA Nemotron 3 Ultra" },
+  { id: "tencent/hy3:free", label: "Tencent HY3" },
+];
+
+/** Default model for each brain mode. */
+const BRAIN_DEFAULTS: Record<string, string> = {
+  opencode: "opencode/deepseek-v4-flash-free",
+  kilo: "kilo-auto/free",
+  anthropic: "claude-sonnet-4-20250514",
+  grok: "grok-3",
+  codex: "gpt-5",
+};
+
 function BrainSection({ data, setConfig, setSecret }: SectionProps) {
   const { config, secrets } = data;
+  const brain = config.brain;
+  const freeModels = brain === "opencode" ? OPENCODE_FREE_MODELS : brain === "kilo" ? KILO_FREE_MODELS : [];
+  const currentModel = config.llm.model || BRAIN_DEFAULTS[brain] || "";
+
   return (
     <>
       <SelectField
         label="Brain"
-        hint="Which AI powers the conversation. OpenCode is free. Others need an API key."
-        value={config.brain}
+        hint="Which AI powers the conversation. OpenCode and Kilo have free models."
+        value={brain}
         options={[
-          { value: "opencode", label: "OpenCode (free)" },
-          { value: "kilo", label: "Kilo Code" },
-          { value: "anthropic", label: "Anthropic Claude" },
-          { value: "grok", label: "xAI Grok" },
-          { value: "codex", label: "OpenAI GPT-5" },
+          { value: "opencode", label: "OpenCode (8 free models)" },
+          { value: "kilo", label: "Kilo Code (5 free models)" },
+          { value: "anthropic", label: "Anthropic Claude (paid)" },
+          { value: "grok", label: "xAI Grok (paid)" },
+          { value: "codex", label: "OpenAI GPT-5 (paid)" },
         ]}
-        onChange={(v) => setConfig({ brain: v })}
+        onChange={(v) => setConfig({ brain: v, llm: { ...config.llm, model: BRAIN_DEFAULTS[v] || "" } })}
       />
 
-      {/* Brain-specific auth status */}
-      {config.brain === "opencode" && (
-        <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
-          OpenCode free tier — no API key needed. Routes through opencode.ai with Claude Sonnet 4.6.
-          {secrets.OPENCODE_API_KEY && " (Using your API key for higher limits.)"}
-        </div>
+      {/* Free model picker for OpenCode */}
+      {brain === "opencode" && (
+        <>
+          <div className="text-xs text-green-500 rounded-md bg-green-500/10 px-3 py-2">
+            8 free models — no API key needed. Routes through opencode.ai/zen/v1.
+          </div>
+          <SelectField
+            label="Free model"
+            hint="Pick a free model. DeepSeek V4 Flash is recommended for coding."
+            value={currentModel}
+            options={OPENCODE_FREE_MODELS.map((m) => ({ value: m.id, label: m.label }))}
+            onChange={(v) => setConfig({ llm: { ...config.llm, model: v } })}
+          />
+        </>
       )}
 
-      {config.brain === "kilo" && (
+      {/* Free model picker for Kilo */}
+      {brain === "kilo" && (
         <>
+          <div className="text-xs text-green-500 rounded-md bg-green-500/10 px-3 py-2">
+            5 free models — auto-routes to best available. No key needed for free tier.
+          </div>
+          <SelectField
+            label="Free model"
+            hint="Auto-route picks the best free model. Or choose a specific one."
+            value={currentModel}
+            options={KILO_FREE_MODELS.map((m) => ({ value: m.id, label: m.label }))}
+            onChange={(v) => setConfig({ llm: { ...config.llm, model: v } })}
+          />
           <SecretField
-            label="Kilo API Key"
-            hint="Get your key at kilo.ai/gateway — one key, 500+ models, zero markup."
+            label="Kilo API Key (optional)"
+            hint="Optional: your own key for higher rate limits and paid models."
             present={secrets.KILO_API_KEY}
             onSave={(v) => setSecret("KILO_API_KEY", v)}
           />
-          {!secrets.KILO_API_KEY && (
-            <div className="text-xs text-amber-500 rounded-md bg-amber-500/10 px-3 py-2">
-              Kilo Code needs an API key to route requests.
-            </div>
-          )}
         </>
       )}
 
-      {config.brain === "anthropic" && (
+      {/* Paid brains */}
+      {brain === "anthropic" && (
         <>
           <SecretField
             label="Anthropic API Key"
-            hint="Get your key at console.anthropic.com — uses Claude Sonnet/Opus directly."
+            hint="Get your key at console.anthropic.com."
             present={secrets.ANTHROPIC_API_KEY}
             onSave={(v) => setSecret("ANTHROPIC_API_KEY", v)}
           />
-          {!secrets.ANTHROPIC_API_KEY && (
-            <div className="text-xs text-amber-500 rounded-md bg-amber-500/10 px-3 py-2">
-              Anthropic needs an API key to access Claude models.
-            </div>
-          )}
+          <SelectField
+            label="Model"
+            value={currentModel}
+            options={[
+              { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4 (recommended)" },
+              { value: "claude-opus-4-20250514", label: "Claude Opus 4 (most capable)" },
+            ]}
+            onChange={(v) => setConfig({ llm: { ...config.llm, model: v } })}
+          />
         </>
       )}
 
-      {config.brain === "grok" && (
+      {brain === "grok" && (
         <>
           <SecretField
             label="xAI API Key"
-            hint="Get your key at console.x.ai — or connect via OAuth below."
+            hint="Get your key at console.x.ai."
             present={secrets.XAI_API_KEY}
             onSave={(v) => setSecret("XAI_API_KEY", v)}
           />
-          <div className="text-xs text-muted-foreground rounded-md bg-muted/50 px-3 py-2">
-            Grok models: grok-3 (most capable), grok-3-mini (fast).
-          </div>
+          <SelectField
+            label="Model"
+            value={currentModel}
+            options={[
+              { value: "grok-3", label: "Grok 3 (most capable)" },
+              { value: "grok-3-mini", label: "Grok 3 Mini (fast)" },
+            ]}
+            onChange={(v) => setConfig({ llm: { ...config.llm, model: v } })}
+          />
         </>
       )}
 
-      {config.brain === "codex" && (
+      {brain === "codex" && (
         <>
           <SecretField
             label="OpenAI API Key"
-            hint="Get your key at platform.openai.com — uses GPT-5 for code generation."
+            hint="Get your key at platform.openai.com."
             present={secrets.OPENAI_API_KEY}
             onSave={(v) => setSecret("OPENAI_API_KEY", v)}
           />
-          {!secrets.OPENAI_API_KEY && (
-            <div className="text-xs text-amber-500 rounded-md bg-amber-500/10 px-3 py-2">
-              OpenAI needs an API key to access GPT-5 models.
-            </div>
-          )}
+          <SelectField
+            label="Model"
+            value={currentModel}
+            options={[
+              { value: "gpt-5", label: "GPT-5" },
+              { value: "gpt-4.1", label: "GPT-4.1" },
+            ]}
+            onChange={(v) => setConfig({ llm: { ...config.llm, model: v } })}
+          />
         </>
       )}
     </>
