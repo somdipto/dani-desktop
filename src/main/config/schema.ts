@@ -23,6 +23,9 @@ export type RealtimeProvider = "gateway" | "openai";
  *  Gateway (one key, any provider); `opendex` is our hosted subscription
  *  (reserved — not implemented yet). */
 export type LlmProvider = "apple" | "openai" | "anthropic" | "xai" | "gateway" | "opendex" | "ollama" | "opencode";
+/** Which brain drives the chat pipeline. `"openai"` = local provider via Vercel AI SDK
+ *  (default, backward-compatible). `"dani"` = DANI CLI over OMP RPC (stdin/stdout NDJSON). */
+export type BrainMode = "openai" | "dani";
 /** How a provider authenticates: `none` (local), `key` (user-pasted secret),
  *  `account` (a session we manage — reserved for the OpenDex subscription), or
  *  `oauth` (browser/device-code flow, e.g. xAI Grok). */
@@ -39,6 +42,8 @@ export type SecretName =
 
 export interface OpenDexConfig {
   version: 1;
+  /** Which brain drives the chat pipeline. */
+  brain: BrainMode;
   assistant: {
     /** Spoken persona name, used in the system prompt. */
     name: string;
@@ -147,6 +152,7 @@ export interface PublicConfig {
 
 export const DEFAULT_CONFIG: OpenDexConfig = {
   version: 1,
+  brain: "openai",
   assistant: { name: "Dex", wakeWord: "dex", userGender: "unspecified", persona: "" },
   llm: { provider: "ollama", model: "qwen2.5:32b" },
   tts: {

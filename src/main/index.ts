@@ -22,6 +22,7 @@ import {
   type WindowMode,
 } from "./ipc/channels";
 import { streamChat } from "./agent/chat";
+import { streamDaniChat, shutdownDani } from "./agent/dani-chat";
 import { resolveModel, checkAppleAvailability, checkOllamaAvailability } from "./agent/llm/resolve-model";
 import { startDeviceCodeFlow, openAuthPage, getOAuthStatus, type XaiOAuthTokens } from "./auth/xai-oauth";
 import { buildRealtimeInstructions, buildSystemPrompt } from "./agent/system-prompt";
@@ -561,37 +562,67 @@ function registerIpc() {
       // Resolve the configured provider to a model (may throw for an unset key,
       // an unavailable Apple model, or the not-yet-built subscription). The
       // catch below turns it into a spoken apology.
-      const model = await resolveModel(config);
-      const responseMessages = await streamChat({
-        messages,
-        system,
-        model,
-        tools,
-        briefing,
-        signal: ac.signal,
-        onDelta: (delta) => {
-          if (!ac.signal.aborted && !sender.isDestroyed()) {
-            sender.send(IPC.chatDelta(requestId), delta);
-          }
-        },
-        onToolCall: (call) => {
-          // Tool name only — never the input args.
-          track("tool_used", { tool_name: call.toolName });
-          if (!ac.signal.aborted && !sender.isDestroyed()) {
-            sender.send(IPC.chatTool(requestId), call);
-          }
-        },
-        onToolResult: (result) => {
-          if (!ac.signal.aborted && !sender.isDestroyed()) {
-            sender.send(IPC.chatToolResult(requestId), {
-              ...result,
-              // Computer-use returns full screenshots; don't ship megabytes of
-              // base64 to the activity UI (which never renders them as cards).
-              output: stripImageOutput(result.output),
-            });
-          }
-        },
-      });
+      let responseMessages: Awaited<ReturnType<typeof streamChat>>;
+      if (config.brain === "dani") {
+        // DANI brain — route through OMP RPC
+        responseMessages = await streamDaniChat({
+          messages,
+          system,
+          signal: ac.signal,
+          onDelta: (delta) => {
+            if (!ac.signal.aborted && !sender.isDestroyed()) {
+              sender.send(IPC.chatDelta(requestId), delta);
+            }
+          },
+          onToolCall: (call) => {
+            track("tool_used", { tool_name: call.toolName });
+            if (!ac.signal.aborted && !sender.isDestroyed()) {
+              sender.send(IPC.chatTool(requestId), call);
+            }
+          },
+          onToolResult: (result) => {
+            if (!ac.signal.aborted && !sender.isDestroyed()) {
+              sender.send(IPC.chatToolResult(requestId), {
+                ...result,
+                output: stripImageOutput(result.output),
+              });
+            }
+          },
+        });
+      } else {
+        // Default AI SDK path
+        const model = await resolveModel(config);
+        responseMessages = await streamChat({
+          messages,
+          system,
+          model,
+          tools,
+          briefing,
+          signal: ac.signal,
+          onDelta: (delta) => {
+            if (!ac.signal.aborted && !sender.isDestroyed()) {
+              sender.send(IPC.chatDelta(requestId), delta);
+            }
+          },
+          onToolCall: (call) => {
+            // Tool name only — never the input args.
+            track("tool_used", { tool_name: call.toolName });
+            if (!ac.signal.aborted && !sender.isDestroyed()) {
+              sender.send(IPC.chatTool(requestId), call);
+            }
+          },
+          onToolResult: (result) => {
+            if (!ac.signal.aborted && !sender.isDestroyed()) {
+              sender.send(IPC.chatToolResult(requestId), {
+                ...result,
+                // Computer-use returns full screenshots; don't ship megabytes of
+                // base64 to the activity UI (which never renders them as cards).
+                output: stripImageOutput(result.output),
+              });
+            }
+          },
+        });
+      }
       if (!sender.isDestroyed()) {
         sender.send(IPC.chatDone(requestId), responseMessages);
       }
@@ -929,6 +960,14 @@ function createTray() {
   tray.on("click", () => summonWindow());
 }
 
+// Global error handlers — prevent silent main-process crashes.
+process.on("uncaughtException", (err) => {
+  console.error("[opendex] uncaughtException:", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[opendex] unhandledRejection:", reason);
+});
+
 app.whenReady().then(() => {
   initConfig();
   initAnalytics();
@@ -970,14 +1009,14 @@ app.whenReady().then(() => {
     summonWindow({ toggle: false });
   });
 });
-
-app.on("before-quit", () => {
+app.on("before-quit", async () => {
   // Let the main window actually close instead of hiding (see its close handler).
   isQuitting = true;
+  // Shut down DANI brain if active (best-effort).
+  await shutdownDani().catch(() => {});
   // Best-effort — the process may exit before the request lands.
   track("app_quit");
 });
-
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
 });
