@@ -789,6 +789,9 @@ export function useDex(options: UseDexOptions): UseDexResult {
       }
 
       vlog("realtime:connect:start", { briefing: Boolean(convOpts?.briefing) });
+      // ponytail: guard against missing API key — show message and bail
+      // instead of hitting the gateway error. Check periodically if the key
+      // is set; for now, the gateway-token.ts error is surfaced below.
       // Claim the connect slot: any older in-flight connect is now stale and
       // will abandon at its next checkpoint.
       const gen = ++realtimeGenRef.current;
