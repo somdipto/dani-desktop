@@ -1553,19 +1553,8 @@ export function useDex(options: UseDexOptions): UseDexResult {
         runningCommandRef.current = null;
       }
 
-      // Realtime mode: send into the open session (interrupting its reply,
-      // like a barge), or connect one with the text as the opening message.
-      if (optionsRef.current.voiceMode === "realtime") {
-        if (realtimeSessionRef.current) {
-          void startRealtimeConversation({ initialText: text });
-        } else {
-          realtimePendingRef.current = { initialText: text };
-          startModeRef.current?.("command");
-        }
-        return;
-      }
-
-      // Make sure a TTS engine exists even if the voice session never engaged.
+      // ponytail: typed text always uses the normal chat pipeline,
+      // even in realtime voice mode. Realtime is voice-to-voice only.
       ensureTts();
       void runCommand(text, { resumeMode: "wake" });
     },
