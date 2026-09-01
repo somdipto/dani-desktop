@@ -1,8 +1,9 @@
-// Metadata describing the LLM providers OpenDex can route chat through. This
-// file is intentionally dependency-free (no electron/node/ai imports) so it can
-// be imported as a *value* from both the main process (the model resolver in
-// agent/llm/resolve-model.ts) and the renderer (the provider picker UI). The
-// resolver maps each provider id to a concrete AI SDK model instance.
+// Metadata describing the model providers OMP (the DANI CLI harness) can route
+// chat through. This file is intentionally dependency-free (no electron/node/ai
+// imports) so it can be imported as a *value* by the renderer (provider picker
+// UI). OMP — not this app — owns provider resolution, credentials, and model
+// routing; the desktop only records which provider/model the harness is told
+// to use (config.llm) and passes it through on spawn.
 
 import type { LlmProvider, ProviderAuth, SecretName } from "./schema";
 
@@ -41,13 +42,27 @@ export const LLM_PROVIDERS: LlmProviderMeta[] = [
   {
     id: "dani",
     label: "DANI (OMP)",
-    blurb: "OMP harness — free models via DANI CLI",
+    blurb: "OMP harness — free models via DANI CLI. Provider/model ids are routed by OMP.",
     kind: "local",
     auth: "none",
+    note: "OMP owns provider credentials — no API keys are stored by the desktop. Free-tier models need no key.",
     models: [
       { id: "clawhud/grok-4.5", label: "Grok 4.5 (ClawHUD)" },
       { id: "moonshot/kimi-k3", label: "Kimi K3 (Moonshot)" },
       { id: "wynb/grok-4.5", label: "Grok 4.5 (Wynb)" },
+      // OpenCode Zen free tier (rotating — verified Sep 2026), routed by OMP.
+      { id: "opencode/mimo-v2.5-free", label: "MiMo V2.5 — reasoning (free)" },
+      { id: "opencode/qwen-3.6-plus-free", label: "Qwen 3.6 Plus — coding (free)" },
+      { id: "opencode/minimax-m3-free", label: "MiniMax M3 — long context (free)" },
+      { id: "opencode/nemotron-3-ultra-free", label: "Nemotron 3 Ultra — NVIDIA (free)" },
+      { id: "opencode/north-mini-code-free", label: "North Mini Code — fast coding (free)" },
+      { id: "opencode/big-pickle", label: "Big Pickle — general coding (free)" },
+      // Kilo Code free tier, routed by OMP.
+      { id: "kilo-auto/free", label: "Kilo — auto-route to best free model" },
+      { id: "stepfun/step-3.7-flash:free", label: "StepFun Step 3.7 Flash (free)" },
+      { id: "poolside/laguna-s-2.1:free", label: "Poolside Laguna S 2.1 (free)" },
+      { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "NVIDIA Nemotron 3 Ultra 550B (free)" },
+      { id: "tencent/hy3:free", label: "Tencent HY3 (free)" },
     ],
     supportsTools: true,
   },

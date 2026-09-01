@@ -18,18 +18,11 @@ export type VoiceMode = "pipeline" | "realtime";
  *  (one key, OpenAI + xAI realtime models); `openai` is reserved for a direct
  *  BYOK connection (not implemented yet). */
 export type RealtimeProvider = "gateway" | "openai";
-/** Which provider routes chat completions. `apple` is free + on-device (macOS);
- *  `openai`/`anthropic`/`xai` are bring-your-own-key; `gateway` is the Vercel AI
- *  Gateway (one key, any provider); `opendex` is our hosted subscription
- *  (reserved — not implemented yet). */
+/** Which model provider the OMP harness (DANI CLI) is told to use. The
+ *  desktop never talks to providers directly — OMP owns provider resolution,
+ *  credentials, and model routing. `apple`/`ollama` availability is probed for
+ *  the picker UI; `opendex` is our hosted subscription (reserved). */
 export type LlmProvider = "dani" | "apple" | "openai" | "anthropic" | "xai" | "gateway" | "opendex" | "ollama" | "opencode" | "kilo";
-/** Which brain drives the chat pipeline.
- *  `"opencode"` = OpenCode free model (default, no key needed for free tier).
- *  `"kilo"` = Kilo Code gateway (OpenAI-compatible, needs KILO_API_KEY).
- *  `"anthropic"` = Anthropic direct (needs ANTHROPIC_API_KEY).
- *  `"grok"` = xAI Grok (OAuth device flow or XAI_API_KEY).
- *  `"codex"` = OpenAI GPT-5 (needs OPENAI_API_KEY). */
-export type BrainMode = "opencode" | "kilo" | "anthropic" | "grok" | "codex";
 /** Controls agent autonomy: what tools are enabled and whether it asks permission.
  *  Chill = read-only, never ask. Normal = read+write, ask. Hard = execute, ask. Unhinged = everything. */
 export type HardnessLevel = "chill" | "normal" | "hard" | "unhinged";
@@ -50,8 +43,6 @@ export type SecretName =
 
 export interface OpenDexConfig {
   version: 1;
-  /** Which brain drives the chat pipeline. */
-  brain: BrainMode;
   /** How much the agent does without asking. */
   hardness: HardnessLevel;
   assistant: {
@@ -159,7 +150,6 @@ export interface PublicConfig {
 
 export const DEFAULT_CONFIG: OpenDexConfig = {
   version: 1,
-  brain: "opencode",
   hardness: "normal",
   assistant: { name: "Dex", wakeWord: "dex", userGender: "unspecified", persona: "" },
   llm: { provider: "dani", model: "clawhud/grok-4.5" },

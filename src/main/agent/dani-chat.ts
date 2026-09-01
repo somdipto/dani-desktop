@@ -1,8 +1,9 @@
 /**
- * DANI brain adapter — routes chat through DANI CLI via OMP RPC.
+ * DANI chat adapter — routes chat through DANI CLI via OMP RPC.
  *
  * Manages a persistent DANI process across prompts. The runtime stays alive
- * until the app quits or the user switches back to "openai" brain mode.
+ * until the app quits. OMP is the only agent harness; provider/model selection
+ * is passed through to OMP on spawn (config.llm).
  */
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -72,7 +73,7 @@ async function ensureRuntime(): Promise<OmpRpcRuntime> {
   return runtime;
 }
 
-/** Shut down the DANI runtime (call on app quit or brain switch). */
+/** Shut down the DANI runtime (call on app quit). */
 export async function shutdownDani(): Promise<void> {
   if (runtime) {
     await runtime.stop();
