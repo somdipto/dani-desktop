@@ -186,10 +186,13 @@ export function useDex(options: UseDexOptions): UseDexResult {
   const meterRef = useRef<AudioMeter | null>(null);
   const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
   const [liveCaption, setLiveCaption] = useState("");
+  const liveCaptionRef = useRef("");
   // The assistant text *spoken so far* this turn. Tracks TTS playback (which lags
   // the model's faster token stream) so UIs can show speech-synced text instead
   // of racing ahead. Replaced on the first spoken chunk of a new turn (not at
   // turn start) so the previous reply stays on screen during the thinking gap.
+  // Keep ref in sync so pushToTalk can read the latest caption without re-rendering.
+  useEffect(() => { liveCaptionRef.current = liveCaption; }, [liveCaption]);
   const [spokenCaption, setSpokenCaption] = useState("");
   const spokenFreshRef = useRef(true);
   const [isMuted, setIsMuted] = useState(false);
@@ -1384,12 +1387,19 @@ export function useDex(options: UseDexOptions): UseDexResult {
 
   startModeRef.current = startMode;
 
-  // Manual push-to-talk: jump straight to command capture (orb click / hotkey).
+  // Manual push-to-talk: toggle between idle and recording.
+  // First press starts command capture; second press submits whatever was captured.
   const pushToTalk = useCallback(() => {
     if (optionsRef.current.wakeMode !== "manual" || mutedRef.current) return;
     const s = statusRef.current;
     if (s === "listening_wake" || s === "idle") {
       startModeRef.current?.("command");
+    } else if (s === "active_listening" || s === "follow_up_listening") {
+      // Already recording — submit the live caption as a command.
+      const text = liveCaptionRef.current?.trim();
+      if (text) {
+        submitText(text);
+      }
     }
   }, []);
 
@@ -1757,6 +1767,19 @@ export function useDex(options: UseDexOptions): UseDexResult {
     const off = window.opendex.onPushToTalk(() => pushToTalk());
     return off;
   }, [pushToTalk]);
+
+  // Hold-to-talk: key released → submit whatever was captured.
+  useEffect(() => {
+    const off = window.opendex.onPushToTalkRelease(() => {
+      if (optionsRef.current.wakeMode !== "manual" || mutedRef.current) return;
+      const s = statusRef.current;
+      if (s === "active_listening" || s === "follow_up_listening") {
+        const text = liveCaptionRef.current?.trim();
+        if (text) submitText(text);
+      }
+    });
+    return off;
+  }, [submitText]);
 
   // Global emergency-stop hotkey (⌘/Ctrl+Esc) → abort the current command.
   useEffect(() => {

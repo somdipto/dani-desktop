@@ -266,7 +266,7 @@ function AppearanceSection({ data, setConfig }: SectionProps) {
       </ToggleRow>
       <HotkeyField
         label="Talk hotkey"
-        hint="Hold-style global shortcut to start listening (push-to-talk)."
+        hint="Press to start listening; press again to submit."
         value={config.hotkeys.talk}
         onChange={(accelerator) => setConfig({ hotkeys: { talk: accelerator } })}
       />
@@ -572,23 +572,6 @@ function SkillsSection({ data, setConfig }: SectionProps) {
                   })
                 }
               />
-            )}
-            {enabled && skill.id === "computer" && (
-              <ToggleRow
-                title="Animate cursor"
-                description="Move the pointer smoothly so you can follow along. Turn off for the fastest actions (instant jumps)."
-              >
-                <SegmentedControl
-                  value={config.computer.animateCursor ? "on" : "off"}
-                  options={[
-                    { value: "on", label: "On" },
-                    { value: "off", label: "Off" },
-                  ]}
-                  onChange={(v) =>
-                    setConfig({ computer: { animateCursor: v === "on" } })
-                  }
-                />
-              </ToggleRow>
             )}
           </div>
         );

@@ -47,6 +47,8 @@ export const IPC = {
   xaiOAuthDisconnect: "xai:oauth-disconnect",
   // main → renderer event: global push-to-talk hotkey pressed
   pushToTalk: "push-to-talk",
+  // main → renderer event: push-to-talk key released (hold-to-talk)
+  pushToTalkRelease: "push-to-talk-release",
   interrupt: "interrupt",
   hotkeysSuspend: "hotkeys:suspend",
   hotkeysResume: "hotkeys:resume",

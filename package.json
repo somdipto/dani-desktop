@@ -18,7 +18,6 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "smoke:chat": "tsx scripts/smoke-chat.ts",
     "smoke:dani": "tsx scripts/smoke-dani-rpc.ts",
     "smoke:hotkeys": "tsx scripts/smoke-hotkeys.ts",
     "smoke:realtime": "tsx scripts/smoke-realtime.ts",
@@ -31,19 +30,16 @@
     "review:pr": "tsx scripts/review-pr.ts origin/main HEAD"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.86",
     "@ai-sdk/gateway": "4.0.0-canary.107",
-    "@ai-sdk/openai": "^3.0.74",
-    "@ai-sdk/xai": "^3.0.104",
     "@elevenlabs/elevenlabs-js": "^2.49.1",
     "@huggingface/transformers": "^4.2.0",
     "@meridius-labs/apple-on-device-ai": "^1.6.2",
-    "@nut-tree-fork/nut-js": "^4.2.6",
     "@picovoice/web-voice-processor": "^4.0.10",
     "ai": "^6.0.193",
     "dotenv": "^17.4.2",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.6.2",
+    "uiohook-napi": "^1.5.5",
     "vosk-browser": "^0.0.8",
     "zod": "^4.4.3"
   },
@@ -91,9 +87,7 @@
       "out/**/*",
       "package.json"
     ],
-    "asarUnpack": [
-      "node_modules/@nut-tree-fork/**/*"
-    ],
+    "asarUnpack": [],
     "mac": {
       "target": [
         {
@@ -140,6 +134,9 @@
       ],
       "category": "Utility",
       "artifactName": "${productName}-linux.${ext}"
+    },
+    "asar": {
+      "unpack": "node_modules/uiohook-napi/**/*"
     }
   }
 }

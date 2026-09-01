@@ -1,0 +1,4 @@
+# DANI config overlay for OpenDex desktop — enables computer-use tool
+computer:
+  enabled: true
+  display: all

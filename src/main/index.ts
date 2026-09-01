@@ -21,9 +21,8 @@ import {
   type ViewCommand,
   type WindowMode,
 } from "./ipc/channels";
-import { streamChat } from "./agent/chat";
-import { resolveProvider, defaultModel } from "./agent/agent-chat";
-import { resolveModel, checkAppleAvailability, checkOllamaAvailability } from "./agent/llm/resolve-model";
+import { streamDaniChat, shutdownDani } from "./agent/dani-chat";
+import { checkAppleAvailability, checkOllamaAvailability } from "./agent/llm/resolve-model";
 import { startDeviceCodeFlow, openAuthPage, getOAuthStatus, type XaiOAuthTokens } from "./auth/xai-oauth";
 import { buildRealtimeInstructions, buildSystemPrompt } from "./agent/system-prompt";
 import {
@@ -70,6 +69,7 @@ function safeOpenExternal(url: string): void {
   }
 }
 import { initAnalytics, track } from "./analytics";
+import { uIOhook, UiohookKey } from "uiohook-napi";
 
 // Load a dev .env first; initConfig() then layers the user's saved config on
 // top (config values win; .env remains a fallback for unset secrets).
@@ -554,29 +554,12 @@ function registerIpc() {
       briefing,
       skillPrompts: briefing ? [] : skillSystemPrompts(config),
     });
-    const tools = buildToolSet({
-      config,
-      requestPermission: makePermissionRequester(sender),
-    });
     try {
-      // Resolve the configured provider to a model (may throw for an unset key,
-      // an unavailable Apple model, or the not-yet-built subscription). The
-      // catch below turns it into a spoken apology.
-      // Map brain mode to the correct provider and model
-      const brainProvider = resolveProvider(config.brain);
-      const brainModel = defaultModel(config.brain);
-      const resolvedConfig = {
-        ...config,
-        llm: { provider: brainProvider, model: brainModel },
-      };
-
-      const model = await resolveModel(resolvedConfig);
-      const responseMessages = await streamChat({
+      // Route through OMP (DANI CLI) — the only agent harness.
+      // OMP owns provider resolution, model selection, and tool execution.
+      const responseMessages = await streamDaniChat({
           messages,
           system,
-          model,
-          tools,
-          briefing,
           signal: ac.signal,
           onDelta: (delta) => {
             if (!ac.signal.aborted && !sender.isDestroyed()) {
@@ -584,7 +567,6 @@ function registerIpc() {
             }
           },
           onToolCall: (call) => {
-            // Tool name only — never the input args.
             track("tool_used", { tool_name: call.toolName });
             if (!ac.signal.aborted && !sender.isDestroyed()) {
               sender.send(IPC.chatTool(requestId), call);
@@ -594,10 +576,25 @@ function registerIpc() {
             if (!ac.signal.aborted && !sender.isDestroyed()) {
               sender.send(IPC.chatToolResult(requestId), {
                 ...result,
-                // Computer-use returns full screenshots; don't ship megabytes of
-                // base64 to the activity UI (which never renders them as cards).
                 output: stripImageOutput(result.output),
               });
+            }
+          },
+          onStateChange: (event) => {
+            // Map canonical product state to renderer DexStatus
+            if (ac.signal.aborted || sender.isDestroyed()) return;
+            const statusMap: Record<string, string> = {
+              idle: "idle",
+              thinking: "thinking",
+              working: "speaking",
+              needs_user: "thinking",
+              done: "idle",
+              error: "error",
+            };
+            const status = statusMap[event.state] ?? "idle";
+            if (latestSessionState) {
+              latestSessionState.status = status;
+              broadcastSessionState(latestSessionState);
             }
           },
         });
@@ -898,6 +895,7 @@ function bindHotkey(slot: keyof typeof boundHotkeys, accelerator: string, handle
 function registerAllHotkeys() {
   unregisterAllHotkeys();
   const { talk, interrupt, summon } = getConfig().hotkeys;
+  talkModifiers = parseAcceleratorModifiers(talk);
   bindHotkey("talk", talk, () => {
     mainWindow?.webContents.send(IPC.pushToTalk);
   });
@@ -905,6 +903,61 @@ function registerAllHotkeys() {
     mainWindow?.webContents.send(IPC.interrupt);
   });
   bindHotkey("summon", summon, () => summonWindow());
+}
+
+// ── uiohook-napi: global keyup listener for hold-to-talk ──
+// Parses the talk accelerator (e.g. "CommandOrControl+Alt") into modifier flags
+// so we can detect when the combo is released.
+function parseAcceleratorModifiers(accel: string): { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean } {
+  const parts = accel.split("+").map(p => p.trim().toLowerCase());
+  return {
+    ctrl: parts.some(p => p === "commandorcontrol" || p === "ctrl" || p === "control"),
+    alt: parts.some(p => p === "alt" || p === "option"),
+    shift: parts.some(p => p === "shift"),
+    meta: parts.some(p => p === "commandorcontrol" || p === "command" || p === "meta" || p === "super"),
+  };
+}
+
+let uiohookRunning = false;
+let talkModifiers = parseAcceleratorModifiers(getConfig().hotkeys.talk);
+
+function startUiohookKeyListener() {
+  if (uiohookRunning) return;
+  uiohookRunning = true;
+
+  uIOhook.on("keyup", (e) => {
+    // Check if the released key matches any of the talk hotkey's modifiers.
+    // On macOS, Option and Command are modifier keys that don't fire their own
+    // keydown/keyup events in uiohook, so we detect release by checking if the
+    // modifier bit flipped from pressed → released.
+    const isReleaseOfTalkCombo =
+      (talkModifiers.alt && !e.altKey) ||
+      (talkModifiers.meta && !e.metaKey) ||
+      (talkModifiers.ctrl && !e.ctrlKey) ||
+      (talkModifiers.shift && !e.shiftKey);
+
+    // Only fire if at least one required modifier was just released
+    // and no other modifier is unexpectedly held
+    if (isReleaseOfTalkCombo) {
+      mainWindow?.webContents.send(IPC.pushToTalkRelease);
+    }
+  });
+
+  try {
+    uIOhook.start();
+    console.log("[opendex] uiohook keyup listener started");
+  } catch (err) {
+    console.error("[opendex] failed to start uiohook", err);
+    uiohookRunning = false;
+  }
+}
+
+function stopUiohookKeyListener() {
+  if (!uiohookRunning) return;
+  try {
+    uIOhook.stop();
+  } catch { /* ignore */ }
+  uiohookRunning = false;
 }
 
 
@@ -979,6 +1032,7 @@ app.whenReady().then(() => {
   });
 
   registerAllHotkeys();
+  startUiohookKeyListener();
   initAutoUpdater();
 
   app.on("activate", () => {
@@ -990,13 +1044,13 @@ app.whenReady().then(() => {
 app.on("before-quit", async () => {
   // Let the main window actually close instead of hiding (see its close handler).
   isQuitting = true;
-  // Shut down DANI brain if active (best-effort).
-  // No RPC processes to shut down — all brains use Vercel AI SDK
-  // Best-effort — the process may exit before the request lands.
+  // Shut down DANI OMP runtime (best-effort — process may exit first).
+  await shutdownDani().catch(() => {});
   track("app_quit");
 });
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
+  stopUiohookKeyListener();
 });
 
 app.on("window-all-closed", () => {

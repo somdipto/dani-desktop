@@ -39,6 +39,19 @@ export interface LlmProviderMeta {
 
 export const LLM_PROVIDERS: LlmProviderMeta[] = [
   {
+    id: "dani",
+    label: "DANI (OMP)",
+    blurb: "OMP harness — free models via DANI CLI",
+    kind: "local",
+    auth: "none",
+    models: [
+      { id: "clawhud/grok-4.5", label: "Grok 4.5 (ClawHUD)" },
+      { id: "moonshot/kimi-k3", label: "Kimi K3 (Moonshot)" },
+      { id: "wynb/grok-4.5", label: "Grok 4.5 (Wynb)" },
+    ],
+    supportsTools: true,
+  },
+  {
     id: "opendex",
     label: "OpenDex",
     blurb: "A simple, private and secure subscription service.",

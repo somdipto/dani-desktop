@@ -3,7 +3,6 @@ import { clockSkill } from "./clock/skill";
 import { weatherSkill } from "./weather/skill";
 import { webSearchSkill } from "./web-search/skill";
 import { openSkill } from "./open/skill";
-import { computerSkill } from "./computer/skill";
 import type { OpenDexConfig } from "../main/config/schema";
 import type { PermissionRequester, Skill, SkillMeta } from "./types";
 
@@ -16,7 +15,6 @@ export const BUILTIN_SKILLS: Skill[] = [
   weatherSkill,
   webSearchSkill,
   openSkill,
-  computerSkill,
 ];
 
 /** Renderer-safe metadata, derived from the built-ins (main-process use only;

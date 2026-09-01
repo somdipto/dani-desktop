@@ -223,6 +223,12 @@ const opendex = {
     return () => ipcRenderer.removeListener(IPC.pushToTalk, listener);
   },
 
+  onPushToTalkRelease(handler: () => void): () => void {
+    const listener = () => handler();
+    ipcRenderer.on(IPC.pushToTalkRelease, listener);
+    return () => ipcRenderer.removeListener(IPC.pushToTalkRelease, listener);
+  },
+
   onInterrupt(handler: () => void): () => void {
     const listener = () => handler();
     ipcRenderer.on(IPC.interrupt, listener);

@@ -4,17 +4,70 @@
  * Manages a persistent DANI process across prompts. The runtime stays alive
  * until the app quits or the user switches back to "openai" brain mode.
  */
+import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
+import { app } from "electron";
 import type { ModelMessage } from "ai";
+import { getConfig } from "../config/store";
 import { OmpRpcRuntime } from "../dani/omp-rpc-runtime";
-import type { DaniEvent } from "../dani/types";
-
+import type { DaniEvent, DaniRuntimeOptions } from "../dani/types";
+import { type ProductEvent, normalizeEvent } from "../dani/normalizer";
 let runtime: OmpRpcRuntime | null = null;
+let currentModel: string | null = null;
+
+/** Resolve the path to the DANI computer-use config overlay. */
+function resolveComputerConfig(): string {
+  // app.getAppPath() returns the app root in both dev and packaged mode
+  const appRoot = app.getAppPath();
+  const candidates = [
+    join(appRoot, "dani-computer.yml"),
+    join(appRoot, "resources", "dani-computer.yml"),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return join(appRoot, "dani-computer.yml");
+}
+
+/** Resolve the DANI binary path — works in both dev and packaged Electron. */
+function resolveDaniCommand(): string {
+  // 1. Try `which dani` (works when PATH includes /usr/local/bin)
+  try {
+    return execFileSync("which", ["dani"], { encoding: "utf-8" }).trim();
+  } catch { /* not in PATH */ }
+  // 2. Known fallback locations
+  for (const p of [
+    "/usr/local/bin/dani",
+    `${process.env.HOME}/.bun/bin/dani`,
+    `${process.env.HOME}/.bun/bin/omp`,
+  ]) {
+    if (existsSync(p)) return p;
+  }
+  throw new Error("DANI binary not found. Install: npm i -g @dani/pi-coding-agent");
+}
 
 async function ensureRuntime(): Promise<OmpRpcRuntime> {
+  const cfg = getConfig();
+  const model = cfg.llm.model || "clawhud/grok-4.5";
+  // Restart DANI if the model changed (each model is a separate process)
+  if (runtime && currentModel !== model) {
+    await runtime.stop();
+    runtime = null;
+  }
   if (runtime && runtime.health !== "failed" && runtime.health !== "disconnected") {
     return runtime;
   }
-  runtime = new OmpRpcRuntime();
+  const opts: DaniRuntimeOptions = {
+    command: resolveDaniCommand(),
+    args: [
+      "--mode", "rpc", "--no-session", "--allow-home", "--model", model,
+      "--tools", "computer",
+      "--config", resolveComputerConfig(),
+    ],
+  };
+  runtime = new OmpRpcRuntime(opts);
+  currentModel = model;
   await runtime.start();
   return runtime;
 }
@@ -25,6 +78,7 @@ export async function shutdownDani(): Promise<void> {
     await runtime.stop();
     runtime = null;
   }
+  currentModel = null;
 }
 
 export interface StreamDaniChatOptions {
@@ -34,6 +88,8 @@ export interface StreamDaniChatOptions {
   onDelta: (text: string) => void;
   onToolCall?: (call: { toolCallId: string; toolName: string; input: unknown }) => void;
   onToolResult?: (result: { toolCallId: string; toolName: string; output: unknown }) => void;
+  /** Canonical product state changes — drives UI status display. */
+  onStateChange?: (event: ProductEvent) => void;
 }
 
 /**
@@ -51,6 +107,7 @@ export async function streamDaniChat({
   onDelta,
   onToolCall,
   onToolResult,
+  onStateChange,
 }: StreamDaniChatOptions): Promise<ModelMessage[]> {
   const rt = await ensureRuntime();
 
@@ -82,6 +139,12 @@ export async function streamDaniChat({
       }
 
       const raw = event.raw;
+
+      // Normalize to canonical product state
+      if (onStateChange) {
+        const productEvent = normalizeEvent(event);
+        if (productEvent) onStateChange(productEvent);
+      }
 
       if (event.type === "message_start") {
         const msg = raw.message as { role?: string } | undefined;

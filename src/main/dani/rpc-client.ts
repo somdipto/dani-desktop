@@ -7,6 +7,9 @@ type Pending = {
   reject: (err: Error) => void;
 };
 
+/** Bounded restart delays in ms: 1s → 2s → 5s, then give up. */
+const RESTART_DELAYS = [1_000, 2_000, 5_000];
+
 export class DaniRpcClient {
   health: DaniHealth = "disconnected";
   private child: ChildProcessWithoutNullStreams | null = null;
@@ -17,6 +20,8 @@ export class DaniRpcClient {
   private listeners = new Set<(e: DaniEvent) => void>();
   private ready: { resolve: () => void; reject: (e: Error) => void } | null = null;
   private readyTimer: ReturnType<typeof setTimeout> | null = null;
+  private restartCount = 0;
+  private stopping = false;
 
   constructor(private readonly opts: DaniRuntimeOptions = {}) {}
 
@@ -24,13 +29,14 @@ export class DaniRpcClient {
     return this.stderr;
   }
 
-  subscribe(listener: (event: DaniEvent) => void): () => void {
+  subscribe(listener: (e: DaniEvent) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
 
   async start(): Promise<void> {
     if (this.child) throw new Error("DANI RPC already started");
+    this.stopping = false;
     this.health = "starting";
     const command = this.opts.command ?? "dani";
     const args = this.opts.args ?? ["--mode", "rpc", "--no-session"];
@@ -41,7 +47,7 @@ export class DaniRpcClient {
     });
     this.child = child;
 
-    const readyTimeout = this.opts.readyTimeoutMs ?? 20_000;
+    const readyTimeout = this.opts.readyTimeoutMs ?? 60_000;
     const { promise: readyPromise, resolve, reject } = Promise.withResolvers<void>();
     this.ready = { resolve, reject };
     this.readyTimer = setTimeout(() => {
@@ -55,16 +61,28 @@ export class DaniRpcClient {
       this.stderr = (this.stderr + chunk).slice(-65_536);
     });
     child.on("error", (err) => {
+      // ENOENT means the binary wasn't found — don't restart, just fail
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        this.fail(new Error(`DANI binary not found: ${command}`));
+        return;
+      }
       this.fail(err);
     });
     child.on("exit", (code, signal) => {
+      if (this.stopping) {
+        // Expected exit from stop()
+        this.health = "disconnected";
+        return;
+      }
+      // Unexpected exit — attempt bounded restart
       const err = new Error(`DANI RPC exited (code=${code} signal=${signal})`);
-      this.fail(err);
+      this.handleCrash(err);
     });
 
     try {
       await readyPromise;
       this.health = "ready";
+      this.restartCount = 0; // Reset on successful start
     } catch (err) {
       await this.stop();
       throw err;
@@ -72,6 +90,7 @@ export class DaniRpcClient {
   }
 
   async stop(): Promise<void> {
+    this.stopping = true;
     const child = this.child;
     this.child = null;
     this.clearReady(new Error("DANI RPC stopped"));
@@ -83,7 +102,7 @@ export class DaniRpcClient {
     const { promise, resolve } = Promise.withResolvers<void>();
     child.once("exit", () => resolve());
     child.kill("SIGTERM");
-    setTimeout(() => child.kill("SIGKILL"), 2000);
+    setTimeout(() => child.kill("SIGKILL"), 2_000);
     await promise;
     this.health = "disconnected";
   }
@@ -102,6 +121,25 @@ export class DaniRpcClient {
       }
     });
     return promise;
+  }
+
+  /** Handle unexpected child crash with bounded restart. */
+  private handleCrash(err: Error) {
+    if (this.stopping) return;
+    if (this.restartCount >= RESTART_DELAYS.length) {
+      this.fail(new Error(`DANI crashed ${this.restartCount} times, giving up: ${err.message}`));
+      return;
+    }
+    const delay = RESTART_DELAYS[this.restartCount];
+    this.restartCount++;
+    this.health = "restarting";
+    this.rejectAll(err);
+    this.clearReady();
+    this.child = null;
+    setTimeout(() => {
+      if (this.stopping) return;
+      this.start().catch((e) => this.fail(e));
+    }, delay);
   }
 
   private onStdout(chunk: string) {
@@ -147,7 +185,7 @@ export class DaniRpcClient {
   }
 
   private fail(err: Error) {
-    if (!this.child) return;
+    if (!this.child && this.health === "failed") return; // Already failed
     this.health = "failed";
     this.clearReady(err);
     this.rejectAll(err);

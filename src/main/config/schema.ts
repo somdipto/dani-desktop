@@ -22,7 +22,7 @@ export type RealtimeProvider = "gateway" | "openai";
  *  `openai`/`anthropic`/`xai` are bring-your-own-key; `gateway` is the Vercel AI
  *  Gateway (one key, any provider); `opendex` is our hosted subscription
  *  (reserved — not implemented yet). */
-export type LlmProvider = "apple" | "openai" | "anthropic" | "xai" | "gateway" | "opendex" | "ollama" | "opencode" | "kilo";
+export type LlmProvider = "dani" | "apple" | "openai" | "anthropic" | "xai" | "gateway" | "opendex" | "ollama" | "opencode" | "kilo";
 /** Which brain drives the chat pipeline.
  *  `"opencode"` = OpenCode free model (default, no key needed for free tier).
  *  `"kilo"` = Kilo Code gateway (OpenAI-compatible, needs KILO_API_KEY).
@@ -128,10 +128,6 @@ export interface OpenDexConfig {
     /** Standing permission decision per skill: ask each time / always / never. */
     permissions: Record<string, SkillPermission>;
   };
-  computer: {
-    /** Animate cursor moves (watchable) vs teleport instantly (fastest). */
-    animateCursor: boolean;
-  };
   analytics: {
     /** Send anonymous usage events (no voice, prompts, keys, URLs, or paths). */
     enabled: boolean;
@@ -166,7 +162,7 @@ export const DEFAULT_CONFIG: OpenDexConfig = {
   brain: "opencode",
   hardness: "normal",
   assistant: { name: "Dex", wakeWord: "dex", userGender: "unspecified", persona: "" },
-  llm: { provider: "ollama", model: "qwen2.5:32b" },
+  llm: { provider: "dani", model: "clawhud/grok-4.5" },
   tts: {
     engine: "system",
     elevenLabs: { voiceId: "JBFqnCBsd6RMkjVDRZzb", modelId: "eleven_turbo_v2_5" },
@@ -192,10 +188,9 @@ export const DEFAULT_CONFIG: OpenDexConfig = {
     interrupt: "CommandOrControl+Escape",
   },
   skills: {
-    enabled: { open: true, computer: false },
-    permissions: { open: "ask", computer: "ask" },
+    enabled: { open: true },
+    permissions: { open: "ask" },
   },
-  computer: { animateCursor: true },
   analytics: { enabled: true },
   onboarding: { completed: false },
 };

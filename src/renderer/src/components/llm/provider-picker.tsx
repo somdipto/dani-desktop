@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Cloud, Cpu, KeyRound, Monitor, Network, type LucideIcon } from "lucide-react";
+import { Check, Cloud, Cpu, KeyRound, Monitor, Network, Terminal, type LucideIcon } from "lucide-react";
 import type {
   DeepPartial,
   LlmProvider,
@@ -16,6 +16,7 @@ import { SecretField, SelectField, TextField } from "../ui/fields";
 
 /** Per-provider glyph — conveys the kind at a glance (on-device / key / cloud). */
 const PROVIDER_ICON: Record<LlmProvider, LucideIcon> = {
+  dani: Terminal,
   apple: Cpu,
   openai: KeyRound,
   anthropic: KeyRound,
