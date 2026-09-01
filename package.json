@@ -87,7 +87,9 @@
       "out/**/*",
       "package.json"
     ],
-    "asarUnpack": [],
+    "asarUnpack": [
+      "node_modules/uiohook-napi/**/*"
+    ],
     "mac": {
       "target": [
         {
@@ -135,8 +137,6 @@
       "category": "Utility",
       "artifactName": "${productName}-linux.${ext}"
     },
-    "asar": {
-      "unpack": "node_modules/uiohook-napi/**/*"
-    }
+    "asar": true
   }
 }

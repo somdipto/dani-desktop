@@ -174,8 +174,8 @@ export const DEFAULT_CONFIG: OpenDexConfig = {
   appearance: { theme: "editorial", showToolActivity: true },
   hotkeys: {
     summon: "Alt+Space",
-    talk: "CommandOrControl+Alt",
-    interrupt: "CommandOrControl+Escape",
+    talk: "Cmd+Alt",
+    interrupt: "Cmd+Escape",
   },
   skills: {
     enabled: { open: true },

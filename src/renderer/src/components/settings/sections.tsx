@@ -17,6 +17,7 @@ import type { PublicConfig } from "../../../../main/config/schema";
 import { acceleratorFromKeyEvent } from "../../../../main/hotkeys";
 import type {
   DeepPartial,
+  LlmProvider,
   OpenDexConfig,
   SecretName,
 } from "../../../../main/config/schema";
@@ -34,12 +35,6 @@ import {
 } from "../../../../main/config/realtime-models";
 import { ThemePicker } from "@/components/themes/theme-picker";
 import { SKILL_METAS } from "@skills/metas";
-import {
-  ProviderPicker,
-  defaultModelFor,
-  useAppleAvailability,
-  useOllamaAvailability,
-} from "@/components/llm/provider-picker";
 
 export interface SectionProps {
   data: PublicConfig;
@@ -347,6 +342,7 @@ function HotkeyField({
   );
 }
 
+
 function HardnessSection({ data, setConfig }: SectionProps) {
   const { config } = data;
   return (
@@ -427,27 +423,99 @@ function SkillsSection({ data, setConfig }: SectionProps) {
   );
 }
 
+/** All free models — grouped by provider, no key needed. */
+const FREE_MODELS: Record<string, { label: string; models: { id: string; label: string }[] }> = {
+  dani: {
+    label: "DANI (OMP proxy)",
+    models: [
+      { id: "clawhud/grok-4.5", label: "Grok 4.5 (ClawHUD)" },
+      { id: "moonshot/kimi-k3", label: "Kimi K3 (Moonshot)" },
+      { id: "wynb/grok-4.5", label: "Grok 4.5 (Wynb)" },
+    ],
+  },
+  opencode: {
+    label: "OpenCode Zen",
+    models: [
+      { id: "opencode/mimo-v2.5-free", label: "MiMo V2.5 (reasoning)" },
+      { id: "opencode/qwen-3.6-plus-free", label: "Qwen 3.6 Plus (coding)" },
+      { id: "opencode/minimax-m3-free", label: "MiniMax M3 (long context)" },
+      { id: "opencode/nemotron-3-ultra-free", label: "Nemotron 3 Ultra (NVIDIA)" },
+      { id: "opencode/north-mini-code-free", label: "North Mini Code (fast)" },
+      { id: "opencode/big-pickle", label: "Big Pickle (general)" },
+    ],
+  },
+  kilo: {
+    label: "Kilo Code",
+    models: [
+      { id: "kilo-auto/free", label: "Auto-route (best free)" },
+      { id: "stepfun/step-3.7-flash:free", label: "StepFun Step 3.7 Flash" },
+      { id: "poolside/laguna-s-2.1:free", label: "Poolside Laguna S 2.1" },
+      { id: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "NVIDIA Nemotron 3 Ultra" },
+      { id: "tencent/hy3:free", label: "Tencent HY3" },
+    ],
+  },
+};
+
+/** BYOK providers — shown collapsed, need user's API key. */
+const BYOK_PROVIDERS: { id: LlmProvider; label: string; models: { id: string; label: string }[]; secretName: SecretName; keyUrl: string }[] = [
+  { id: "anthropic", label: "Anthropic", models: [{ id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" }, { id: "claude-opus-4-8", label: "Claude Opus 4.8" }], secretName: "ANTHROPIC_API_KEY", keyUrl: "https://console.anthropic.com/settings/keys" },
+  { id: "openai", label: "OpenAI", models: [{ id: "gpt-5", label: "GPT-5" }, { id: "gpt-4.1", label: "GPT-4.1" }], secretName: "OPENAI_API_KEY", keyUrl: "https://platform.openai.com/api-keys" },
+  { id: "xai", label: "xAI Grok", models: [{ id: "grok-3", label: "Grok 3" }, { id: "grok-3-mini", label: "Grok 3 Mini" }], secretName: "XAI_API_KEY", keyUrl: "https://console.x.ai" },
+];
+
 function ModelSection({ data, setConfig, setSecret }: SectionProps) {
   const { config, secrets } = data;
-  const apple = useAppleAvailability();
-  const ollama = useOllamaAvailability();
+  const currentModel = config.llm.model || "";
+  const currentProvider = config.llm.provider || "dani";
+
+  // Find which free provider group the current model belongs to
+  const currentGroup = Object.entries(FREE_MODELS).find(([_, g]) =>
+    g.models.some((m) => m.id === currentModel)
+  )?.[0] || currentProvider;
+
   return (
     <>
-      <ProviderPicker
-        data={data}
-        selected={config.llm.provider}
-        ollama={ollama}
-        onSelect={(id) =>
-          // Keep the current model only if switching back to the same provider;
-          // otherwise reset to that provider's default id.
-          setConfig({
-            llm: id === config.llm.provider ? { provider: id } : { provider: id, model: defaultModelFor(id) },
-          })
-        }
-        setConfig={setConfig}
-        setSecret={setSecret}
-        apple={apple}
-      />
+      {/* Free models — the default experience */}
+      {Object.entries(FREE_MODELS).map(([providerId, group]) => (
+        <div key={providerId}>
+          <div className="text-xs text-green-500 rounded-md bg-green-500/10 px-3 py-2 mb-2">
+            {group.models.length} free models — no key needed
+          </div>
+          <SelectField
+            label={group.label}
+            hint={providerId === "dani" ? "OMP proxy — routes through DANI CLI" : providerId === "opencode" ? "Routes through opencode.ai/zen/v1" : "Auto-routes to best available"}
+            value={currentGroup === providerId ? currentModel : group.models[0].id}
+            options={group.models.map((m) => ({ value: m.id, label: m.label }))}
+            onChange={(v) => setConfig({ llm: { provider: providerId as LlmProvider, model: v } })}
+          />
+        </div>
+      ))}
+
+      {/* BYOK — collapsed by default */}
+      <details className="mt-4">
+        <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+          Bring your own key (paid providers)
+        </summary>
+        <div className="mt-2 space-y-3">
+          {BYOK_PROVIDERS.map((p) => (
+            <div key={p.id}>
+              <SecretField
+                label={`${p.label} API Key`}
+                hint={`Get your key at ${p.keyUrl}`}
+                present={secrets[p.secretName]}
+                onSave={(v) => setSecret(p.secretName, v)}
+              />
+              <SelectField
+                label={`${p.label} model`}
+                value={currentProvider === p.id ? currentModel : p.models[0].id}
+                options={p.models.map((m) => ({ value: m.id, label: m.label }))}
+                onChange={(v) => setConfig({ llm: { provider: p.id, model: v } })}
+              />
+            </div>
+          ))}
+        </div>
+      </details>
+
       <SecretField
         label="Tavily API key (web search)"
         hint="Optional — enables the web-search tool."
@@ -638,12 +706,12 @@ export interface SettingsSection {
 
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: "assistant", label: "Assistant", Icon: User, Component: AssistantSection },
+  { id: "model", label: "Language model", Icon: Cpu, Component: ModelSection },
   { id: "hardness", label: "Hardness", Icon: ShieldCheck, Component: HardnessSection },
   { id: "voice-mode", label: "Voice mode", Icon: AudioWaveform, Component: VoiceModeSection },
   { id: "voice-input", label: "Voice input", Icon: Mic, Component: VoiceInputSection },
   { id: "appearance", label: "Appearance", Icon: Palette, Component: AppearanceSection },
   { id: "skills", label: "Skills & tools", Icon: Blocks, Component: SkillsSection },
-  { id: "model", label: "Language model", Icon: Cpu, Component: ModelSection },
   {
     id: "tts",
     label: "Voice (TTS)",
