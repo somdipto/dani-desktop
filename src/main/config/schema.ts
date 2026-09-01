@@ -174,8 +174,11 @@ export const DEFAULT_CONFIG: OpenDexConfig = {
   appearance: { theme: "editorial", showToolActivity: true },
   hotkeys: {
     summon: "Alt+Space",
-    talk: "Cmd+Alt",
-    interrupt: "Cmd+Escape",
+    // Hold-to-talk MUST include a real key: Electron's globalShortcut cannot
+    // register a modifier-only chord (⌥⌘ alone), so the keydown start signal
+    // would silently never fire. D is held while ⌥⌘ are held.
+    talk: "CommandOrControl+Alt+D",
+    interrupt: "CommandOrControl+Escape",
   },
   skills: {
     enabled: { open: true },

@@ -895,10 +895,19 @@ function bindHotkey(slot: keyof typeof boundHotkeys, accelerator: string, handle
 function registerAllHotkeys() {
   unregisterAllHotkeys();
   const { talk, interrupt, summon } = getConfig().hotkeys;
-  talkModifiers = parseAcceleratorModifiers(talk);
-  bindHotkey("talk", talk, () => {
-    mainWindow?.webContents.send(IPC.pushToTalk);
-  });
+  if (isModifierOnly(talk)) {
+    // The keydown START signal can only come from globalShortcut, which
+    // refuses modifier-only chords — surface this loudly instead of dying
+    // silently (release detection would keep firing with no recording).
+    console.error(
+      `[opendex] hotkeys.talk "${talk}" is modifier-only and cannot start push-to-talk — set a chord with a real key, e.g. "CommandOrControl+Alt+D"`,
+    );
+  } else {
+    talkModifiers = parseAcceleratorModifiers(talk);
+    bindHotkey("talk", talk, () => {
+      mainWindow?.webContents.send(IPC.pushToTalk);
+    });
+  }
   bindHotkey("interrupt", interrupt, () => {
     mainWindow?.webContents.send(IPC.interrupt);
   });
@@ -906,16 +915,39 @@ function registerAllHotkeys() {
 }
 
 // ── uiohook-napi: global keyup listener for hold-to-talk ──
-// Parses the talk accelerator (e.g. "CommandOrControl+Alt") into modifier flags
-// so we can detect when the combo is released.
+// Parses the talk accelerator (e.g. "CommandOrControl+Alt+D") into modifier
+// flags so we can detect when the combo is released. Accepts the short forms
+// Electron's accelerator syntax allows ("Cmd", "Option") as well.
+const MODIFIER_ALIASES = {
+  ctrl: ["commandorcontrol", "ctrl", "control"],
+  alt: ["alt", "option", "opt"],
+  shift: ["shift"],
+  meta: ["commandorcontrol", "cmd", "command", "meta", "super"],
+} as const;
+
 function parseAcceleratorModifiers(accel: string): { ctrl: boolean; alt: boolean; shift: boolean; meta: boolean } {
   const parts = accel.split("+").map(p => p.trim().toLowerCase());
+  const has = (aliases: readonly string[]) => parts.some(p => (aliases as readonly string[]).includes(p));
   return {
-    ctrl: parts.some(p => p === "commandorcontrol" || p === "ctrl" || p === "control"),
-    alt: parts.some(p => p === "alt" || p === "option"),
-    shift: parts.some(p => p === "shift"),
-    meta: parts.some(p => p === "commandorcontrol" || p === "command" || p === "meta" || p === "super"),
+    ctrl: has(MODIFIER_ALIASES.ctrl),
+    alt: has(MODIFIER_ALIASES.alt),
+    shift: has(MODIFIER_ALIASES.shift),
+    meta: has(MODIFIER_ALIASES.meta),
   };
+}
+
+/** Electron's globalShortcut cannot register a modifier-only chord (e.g.
+ *  "Cmd+Alt") — registration fails and the keydown signal silently never
+ *  fires. A valid push-to-talk accelerator needs one non-modifier key. */
+function isModifierOnly(accel: string): boolean {
+  const allModifiers: Set<string> = new Set([
+    ...MODIFIER_ALIASES.ctrl,
+    ...MODIFIER_ALIASES.alt,
+    ...MODIFIER_ALIASES.shift,
+    ...MODIFIER_ALIASES.meta,
+  ]);
+  const parts = accel.split("+").map(p => p.trim().toLowerCase()).filter(Boolean);
+  return parts.length > 0 && parts.every(p => allModifiers.has(p));
 }
 
 let uiohookRunning = false;
