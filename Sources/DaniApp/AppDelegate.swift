@@ -36,6 +36,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     private let keyMonitor = FnKeyMonitor()
     private lazy var overlayPanel = DaniOverlay()
     private var devPanel: DaniDevPanel?
+    private var settingsWindow: SettingsWindow?
 
     /// The persistent OMP runtime. One process, owned by DANI Desktop.
     private let runtime: DaniRuntime = OmpRpcRuntime()
@@ -435,6 +436,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         devItem.target = self
         menu.addItem(devItem)
 
+        let settingsItem = NSMenuItem(title: L10n.t("menu.settings"), action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
         menu.addItem(.separator())
 
         quitMenuItem = NSMenuItem(title: quitMenuItemTitle(), action: #selector(quit), keyEquivalent: "q")
@@ -632,10 +637,43 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     }
 
     @objc internal func openSettings() {
-        // The Settings window (executable picker + model display from OMP) is
-        // added in the next commit. Until then this is a no-op stub so the
-        // selector exists for any future menu item to target.
+        if settingsWindow == nil {
+            let window = SettingsWindow()
+            window.onExecutableChosen = { [weak self] newPath in
+                self?.restartRuntime(newPath: newPath)
+            }
+            settingsWindow = window
+        }
+        settingsWindow?.refresh()
+        settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Restart the OMP runtime after the user changed the executable path in
+    /// Settings (or chose auto-discovery). The Settings window already
+    /// persisted (or cleared) the path via `OmpBinaryDiscovery`; `start()`
+    /// will pick it up.
+    private func restartRuntime(newPath: String?) {
+        settingsWindow?.setStatus("Restarting…")
+        Task { [weak self] in
+            guard let self else { return }
+            await self.runtime.stop()
+            do {
+                try await self.runtime.start()
+                let label: String
+                if let newPath {
+                    label = "Restarted with: \(newPath)"
+                } else {
+                    label = "Restarted (auto-discovery)"
+                }
+                self.settingsWindow?.setStatus(label)
+                DaniTrace.dani("runtime restarted via Settings")
+            } catch let DaniRuntimeError.binaryNotFound {
+                self.settingsWindow?.setStatus(L10n.t("dani.settings.executable.none"))
+            } catch {
+                self.settingsWindow?.setStatus("Restart failed: \(error)")
+            }
+        }
     }
 
     // MARK: - Developer prompt panel (Milestone 1)
