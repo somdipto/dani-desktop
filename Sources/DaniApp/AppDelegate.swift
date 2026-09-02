@@ -31,6 +31,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     private var statusItem: NSStatusItem!
     private let keyMonitor = FnKeyMonitor()
     private lazy var overlayPanel = DaniOverlay()
+    private var devPanel: DaniDevPanel?
+
+    /// The persistent OMP runtime. One process, owned by DANI Desktop.
+    /// Started in `applicationDidFinishLaunching`, stopped in
+    /// `applicationWillTerminate`. Best-effort: if the binary is missing,
+    /// the app still runs — the dev panel surfaces the error on submit.
+    private let runtime: DaniRuntime = OmpRpcRuntime()
 
     /// Single source of truth for the recording lifecycle. All transitions go
     /// through `fnDown`, `fnUp`, `handleTermination`, or `resetSession` — no
@@ -96,6 +103,21 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             showAccessibilityAlert()
         }
 
+        // Start the persistent OMP process. Best-effort: if the binary isn't
+        // found, the app still runs (the dev panel surfaces the error on the
+        // first submit). Milestone 1 verification happens through the dev
+        // panel — this is the first thing that must work before voice.
+        Task { [weak self] in
+            do {
+                try await self?.runtime.start()
+                DaniTrace.dani("runtime started")
+            } catch let DaniRuntimeError.binaryNotFound {
+                DaniTrace.dani("runtime: binary not found (open dev panel to see alert)")
+            } catch {
+                DaniTrace.dani("runtime start failed: \(error)")
+            }
+        }
+
         // Re-attempt the event tap when the app regains focus, so the user can
         // grant Accessibility in System Settings without having to relaunch.
         NotificationCenter.default.addObserver(
@@ -112,6 +134,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
 
     public func applicationWillTerminate(_ notification: Notification) {
         keyMonitor.stop()
+        // Graceful OMP stop: close stdin, OMP exits 0. Best-effort — the app
+        // is terminating anyway; if stop hangs, the system will reap the child.
+        Task { [weak self] in
+            await self?.runtime.stop()
+        }
     }
 
     // MARK: - Key events
@@ -274,6 +301,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         rebuildMicrophoneSubmenu()
         micMenuItem.submenu = micSubmenu
         menu.addItem(micMenuItem)
+
+        menu.addItem(.separator())
+
+        // Developer affordance: opens the Milestone 1 text-prompt panel.
+        // This is the spec's "simple developer text field" — kept in the menu
+        // so the path Swift UI -> OmpRpcRuntime -> OMP -> model -> streaming
+        // response -> Swift UI can be exercised without a mic. Hidden behind
+        // a menu item, not the user-facing flow.
+        let devItem = NSMenuItem(title: "Developer Prompt…", action: #selector(openDevPanel), keyEquivalent: "d")
+        devItem.target = self
+        menu.addItem(devItem)
 
         menu.addItem(.separator())
 
@@ -484,6 +522,99 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         // added in a later commit. Until then this is a no-op stub so the
         // selector exists for any future menu item to target.
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // MARK: - Developer prompt panel (Milestone 1)
+
+    @objc private func openDevPanel() {
+        if devPanel == nil {
+            let panel = DaniDevPanel()
+            panel.onSubmit = { [weak self] text in
+                // The panel calls this synchronously from the Send button;
+                // hop to the AppDelegate's main actor for the async run.
+                guard let self else { return }
+                Task { await self.submitPrompt(text) }
+            }
+            devPanel = panel
+        }
+        devPanel?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Drive a prompt through the runtime and stream the response back into
+    /// the dev panel. This is the Milestone 1 path:
+    ///
+    ///   Swift UI (dev panel) → OmpRpcRuntime → OMP → model →
+    ///     streaming DaniRunEvent → Swift UI (dev panel)
+    ///
+    /// Definition of success (per spec): 10 consecutive successful prompts of
+    /// "Reply exactly DANI_OK" with the model replying DANI_OK.
+    private func submitPrompt(_ text: String) async {
+        guard let panel = devPanel else { return }
+        panel.setStatus("Working…")
+        panel.beginResponse()
+        DaniTrace.dani("dev prompt: \(text)")
+
+        let run: DaniRun
+        do {
+            run = try await promptViaRuntime(text)
+        } catch let DaniRuntimeError.binaryNotFound {
+            panel.setStatus("")
+            panel.finishResponse()
+            showAlert(
+                title: L10n.t("alert.executableNotFoundTitle"),
+                message: L10n.t("alert.executableNotFoundBody")
+            )
+            return
+        } catch {
+            panel.setStatus("Failed: \(error)")
+            panel.finishResponse()
+            DaniTrace.dani("dev prompt failed: \(error)")
+            return
+        }
+
+        do {
+            for try await event in run {
+                switch event {
+                case .started:
+                    panel.setStatus("Working…")
+                case .textDelta(let s):
+                    panel.appendResponse(s)
+                case .toolStarted(let name):
+                    panel.setStatus("Working: \(name)…")
+                case .toolFinished:
+                    panel.setStatus("Working…")
+                case .needsApproval(_, let prompt):
+                    panel.setStatus("Approval needed: \(prompt)")
+                case .completed(let finalText):
+                    if let finalText, !finalText.isEmpty {
+                        panel.appendResponse(finalText)
+                    }
+                    panel.setStatus("Done ✓")
+                    DaniTrace.dani("dev prompt done")
+                case .failed(let msg):
+                    panel.setStatus("Failed: \(msg)")
+                    DaniTrace.dani("dev prompt failed: \(msg)")
+                }
+            }
+        } catch {
+            panel.setStatus("Failed: \(error)")
+            DaniTrace.dani("dev prompt stream error: \(error)")
+        }
+        panel.finishResponse()
+    }
+
+    /// Prompt the runtime; if it hasn't started yet (best-effort start in
+    /// `applicationDidFinishLaunching` may still be in flight, or it failed
+    /// because the binary wasn't found at launch), start it and retry once.
+    /// `binaryNotFound` propagates so the caller can show the picker alert.
+    private func promptViaRuntime(_ text: String) async throws -> DaniRun {
+        do {
+            return try await runtime.prompt(text)
+        } catch DaniRuntimeError.notStarted {
+            try await runtime.start()
+            return try await runtime.prompt(text)
+        }
     }
 
     // MARK: - Alerts
