@@ -227,20 +227,41 @@ final class DaniOverlay: NSPanel {
         setTranscript("")
     }
 
-    /// OMP-run status: show a status string in the transcript pill, with the
-    /// spinner (unless `done`). Used for the spec's "Understanding…" /
-    /// "Working…" / "Done ✓" / "Failed: …" progression. Hides the waveform
-    /// (we're past recording) and reuses the transcript pill so no new UI
-    /// surface is added for MVP.
-    func showStatus(_ text: String, done: Bool = false) {
+    /// OMP-run status: render the `DaniStatus.presentation` for `state`. Hides
+    /// the waveform (we're past recording), shows the spinner when the
+    /// presentation asks for it, and writes the label (+ detail for
+    /// `.error` / `.needsUser`) into the transcript pill. No new UI surface
+    /// for MVP — reuses the capsule + transcript pill.
+    func showState(_ state: DaniState, detail: String? = nil) {
+        let p = DaniStatus.presentation(for: state, detail: detail)
         waveformView.isAnimating = false
         waveformView.isHidden = true
-        if done {
-            spinnerView.stop()
-            spinnerView.isHidden = true
-        } else {
+        if p.showsSpinner {
             spinnerView.isHidden = false
             spinnerView.start()
+        } else {
+            spinnerView.stop()
+            spinnerView.isHidden = true
+        }
+
+        // For most states, the label is the whole pill. For `.needsUser` the
+        // detail IS the approval prompt ("Send this email?") — show it alone.
+        // For `.error` show "Failed: <message>". For `.working` the detail is
+        // the tool name — the spec wants "Opening Notes…" eventually, but for
+        // MVP we keep the generic "Working…" (the tool-name -> action mapping
+        // comes later; surfacing a raw tool name would be noisier than helpful).
+        let text: String
+        switch state {
+        case .needsUser:
+            text = p.detail ?? p.label
+        case .error:
+            if let detail = p.detail, !detail.isEmpty {
+                text = "\(p.label): \(detail)"
+            } else {
+                text = p.label
+            }
+        default:
+            text = p.label
         }
         setTranscript(text)
     }
