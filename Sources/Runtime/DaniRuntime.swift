@@ -117,7 +117,11 @@ public final class DaniRun: @unchecked Sendable, AsyncSequence {
 
     /// Push an event to the stream. Terminal events (`.completed`, `.failed`)
     /// finish the stream — the caller's `for await` loop ends.
-    fileprivate func emit(_ event: DaniRunEvent) {
+    ///
+    /// `internal` (not `public`) so only the `Dani` module's runtime impl
+    /// (`OmpRpcRuntime`) can produce events — the app's UI and AppDelegate
+    /// consume events via the `AsyncSequence`, never emit.
+    func emit(_ event: DaniRunEvent) {
         continuation.yield(event)
         switch event {
         case .completed, .failed:
