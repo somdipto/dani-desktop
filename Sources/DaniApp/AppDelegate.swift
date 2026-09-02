@@ -39,18 +39,26 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     /// the app still runs — the dev panel surfaces the error on submit.
     private let runtime: DaniRuntime = OmpRpcRuntime()
 
-    /// Single source of truth for the recording lifecycle. All transitions go
-    /// through `fnDown`, `fnUp`, `handleTermination`, or `resetSession` — no
-    /// flag juggling.
+    /// Single source of truth for the recording + run lifecycle. All
+    /// transitions go through `fnDown`, `fnUp`, `handleTermination`,
+    /// `resetSession`, or `cleanupRun` — no flag juggling.
+    ///
+    /// `.running` is the OMP-run phase: transcript already sent, the
+    /// `DaniRun` is streaming. Fn is locked out (fnDown's `case .idle` guard
+    /// rejects). Ends in `cleanupRun` after `.completed`/`.failed`.
     private enum SessionState {
         case idle
         case recording(session: SpeechTranscriber)
         case armedToStop(session: SpeechTranscriber, work: DispatchWorkItem)
         case transcribing(session: SpeechTranscriber)
+        case running
     }
 
     private var sessionState: SessionState = .idle
     private var isEnabled = true
+    /// The Task driving the current OMP run (held so `resetSession` can
+    /// cancel it — equivalent to Scribe's `polishTask` cancel, but for OMP).
+    private var runTask: Task<Void, Never>?
 
     /// Trailing audio captured after FN release. Users often let go a beat
     /// before they finish their sentence; this preserves those last words.
@@ -197,13 +205,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
     private func handleTermination(_ reason: SpeechTranscriber.Termination) {
         switch reason {
         case .final(let text):
-            // Move straight back to idle. The polish-era `.polishing` state is
-            // gone — DANI's post-transcript path (DaniRuntime.prompt) is wired
-            // in a later commit; until then the transcript is logged only.
-            // This is the spec's "removed ONLY the text-paste destination"
-            // milestone: Fn → record → transcribe → (no destination yet).
-            sessionState = .idle
-            updateStatusIcon()
+            // Stay in `.transcribing` — `deliverFinal` transitions to `.running`
+            // (the OMP phase) and keeps the overlay up. The polish-era
+            // `.polishing` state is gone; DANI's post-transcript path is
+            // `DaniRuntime.prompt(transcript)`.
             deliverFinal(text)
         case .cancelled:
             DaniTrace.stt("cancelled")
@@ -218,9 +223,19 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         }
     }
 
-    /// Receives the final transcript. Scribe polished then pasted; DANI sends
-    /// to OMP via `DaniRuntime.prompt(transcript)`. The runtime is added in a
-    /// later commit — until then, log and dismiss so the overlay doesn't hang.
+    /// Receives the final transcript and routes it to OMP. Scribe polished
+    /// then pasted; DANI sends the raw transcript to `DaniRuntime.prompt()`
+    /// and drives the overlay from the streamed `DaniRunEvent`s:
+    ///
+    ///   Understanding… (transcribing → thinking)
+    ///     ↓ toolStarted
+    ///   Working… (working)
+    ///     ↓ toolFinished
+    ///   Understanding… (thinking)
+    ///     ↓ agent_end (isTerminal != false)
+    ///   Done ✓
+    ///
+    /// Then a short delay, then collapse to idle.
     private func deliverFinal(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -230,9 +245,91 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
             return
         }
         DaniTrace.stt("\"\(trimmed)\"")
-        DaniTrace.dani("transcript ready — no destination wired yet (OMP runtime added next)")
-        // No paste, no polish, no OMP yet. Return to idle so the next Fn press
-        // works. The OMP wiring replaces this no-op with DaniRuntime.prompt().
+
+        // Lock out Fn during the OMP run. The overlay stays visible; the
+        // spinner shows under "Understanding…".
+        sessionState = .running
+        updateStatusIcon()
+        overlayPanel.showLoading()
+        overlayPanel.showStatus(L10n.t("dani.state.transcribing"))
+        DaniTrace.omp("prompt queued (voice)")
+
+        runTask = Task { [weak self] in
+            await self?.runPrompt(trimmed)
+        }
+    }
+
+    /// Drive a voice prompt through the runtime and stream events to the
+    /// overlay. Milestone 2 path:
+    ///
+    ///   Fn up → transcribe → DaniRuntime.prompt(transcript) →
+    ///     streaming DaniRunEvent → overlay (Understanding… / Working… /
+    ///     Done ✓)
+    private func runPrompt(_ text: String) async {
+        let run: DaniRun
+        do {
+            run = try await promptViaRuntime(text)
+            DaniTrace.omp("prompt sent (voice)")
+        } catch let DaniRuntimeError.binaryNotFound {
+            overlayPanel.showStatus("\(L10n.t("dani.state.error")): OMP not found", done: true)
+            scheduleDismiss(2.5)
+            return
+        } catch {
+            overlayPanel.showStatus("\(L10n.t("dani.state.error")): \(error)", done: true)
+            scheduleDismiss(2.5)
+            return
+        }
+
+        do {
+            for try await event in run {
+                applyRunEvent(event)
+            }
+        } catch {
+            overlayPanel.showStatus("\(L10n.t("dani.state.error")): \(error)", done: true)
+            scheduleDismiss(2.5)
+        }
+    }
+
+    /// Map a `DaniRunEvent` to an overlay status update.
+    private func applyRunEvent(_ event: DaniRunEvent) {
+        switch event {
+        case .started:
+            overlayPanel.showStatus(L10n.t("dani.state.thinking"))
+        case .textDelta:
+            // The spec: no raw agent logs / chain-of-thought in the UI for MVP.
+            // Stay on "Understanding…" — the user sees the agent is reasoning.
+            break
+        case .toolStarted(let name):
+            // Spec: "Optional meaningful action: Opening Notes…". For MVP we
+            // show the generic "Working…"; mapping tool name -> "Opening X…"
+            // comes with the DaniStatus component (next commit).
+            _ = name
+            overlayPanel.showStatus(L10n.t("dani.state.working"))
+        case .toolFinished:
+            overlayPanel.showStatus(L10n.t("dani.state.thinking"))
+        case .needsApproval(_, let prompt):
+            overlayPanel.showStatus("\(L10n.t("dani.state.needsApproval")) \(prompt)")
+        case .completed:
+            DaniTrace.dani("done")
+            overlayPanel.showStatus(L10n.t("dani.state.done"), done: true)
+            scheduleDismiss(1.5)
+        case .failed(let msg):
+            DaniTrace.dani("failed: \(msg)")
+            overlayPanel.showStatus("\(L10n.t("dani.state.error")): \(msg)", done: true)
+            scheduleDismiss(2.5)
+        }
+    }
+
+    private func scheduleDismiss(_ delay: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.cleanupRun()
+        }
+    }
+
+    /// End of the OMP run: dismiss the overlay, release the run, return to
+    /// idle so the next Fn press works.
+    private func cleanupRun() {
+        runTask = nil
         overlayPanel.dismiss()
         sessionState = .idle
         updateStatusIcon()
@@ -247,9 +344,20 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         case .armedToStop(let session, let work):
             work.cancel()
             session.cancel()
+        case .running:
+            // Abort the OMP run. The runtime sends `abort` and fails the run;
+            // the runPrompt loop's `for try await` ends, which calls
+            // scheduleDismiss via applyRunEvent(.failed). Cancel the Task too
+            // so we don't leave a stray iteration if the abort response lags.
+            runTask?.cancel()
+            runTask = nil
+            Task { [weak self] in await self?.runtime.abort() }
+            overlayPanel.dismiss()
+            sessionState = .idle
+            updateStatusIcon()
         }
-        // session.cancel() triggers onTerminated → handleTermination,
-        // which moves the state machine back to .idle and updates UI.
+        // For the recording states, session.cancel() triggers onTerminated →
+        // handleTermination, which moves the state machine back to .idle.
     }
 
     // MARK: - Status bar
@@ -400,7 +508,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
         switch sessionState {
         case .recording, .armedToStop:
             startRecordingAnimation()
-        case .idle, .transcribing:
+        case .idle, .transcribing, .running:
             stopRecordingAnimation()
             button.image = menubarIdleImage
         }

@@ -227,6 +227,24 @@ final class DaniOverlay: NSPanel {
         setTranscript("")
     }
 
+    /// OMP-run status: show a status string in the transcript pill, with the
+    /// spinner (unless `done`). Used for the spec's "Understanding…" /
+    /// "Working…" / "Done ✓" / "Failed: …" progression. Hides the waveform
+    /// (we're past recording) and reuses the transcript pill so no new UI
+    /// surface is added for MVP.
+    func showStatus(_ text: String, done: Bool = false) {
+        waveformView.isAnimating = false
+        waveformView.isHidden = true
+        if done {
+            spinnerView.stop()
+            spinnerView.isHidden = true
+        } else {
+            spinnerView.isHidden = false
+            spinnerView.start()
+        }
+        setTranscript(text)
+    }
+
     func dismiss() {
         waveformView.isAnimating = false
         spinnerView.stop()
