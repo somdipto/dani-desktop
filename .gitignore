@@ -5,10 +5,9 @@
 DerivedData/
 
 # Build artifacts
-Scribe.app/
-VoiceInput.app/
-Scribe.zip
-Scribe.dmg
+Dani.app/
+Dani.zip
+Dani.dmg
 
 # Logs
 logs/

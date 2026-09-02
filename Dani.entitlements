@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Microphone for voice capture. The only hardened-runtime entitlement
+         DANI needs: it spawns OMP as a child process (not a loaded dylib),
+         uses CGEventTap for the Fn key (Accessibility permission, not an
+         entitlement), and never JITs or loads unsigned memory. Scribe's
+         disable-library-validation / allow-jit / allow-unsigned-executable-memory
+         entitlements existed only for the bundled llama.framework and are
+         gone with it. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+</dict>
+</plist>

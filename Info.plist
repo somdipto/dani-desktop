@@ -3,36 +3,29 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Scribe</string>
+    <string>Dani</string>
     <key>CFBundleDisplayName</key>
-    <string>Scribe</string>
+    <string>Dani</string>
     <key>CFBundleIdentifier</key>
-    <string>com.yetone.Scribe</string>
+    <string>com.dani.desktop</string>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>0.1.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>0.1.0</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>Scribe</string>
+    <string>DaniApp</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
+    <!-- Menu-bar accessory app: no Dock icon, no main menu bar. -->
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Scribe needs microphone access to record your speech for transcription.</string>
+    <string>Dani needs microphone access to hear your voice commands.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>Scribe uses speech recognition to convert your voice to text.</string>
-    <key>SUFeedURL</key>
-    <string>https://xiangst0816.github.io/scribe/appcast.xml</string>
-    <key>SUPublicEDKey</key>
-    <string>Eb8Fd4vWO3grszv5ELdJ7xeuq25O3ixcG+EI3hfpF3I=</string>
-    <key>SUEnableAutomaticChecks</key>
-    <true/>
-    <key>SUScheduledCheckInterval</key>
-    <integer>86400</integer>
+    <string>Dani uses speech recognition to transcribe your voice.</string>
 </dict>
 </plist>

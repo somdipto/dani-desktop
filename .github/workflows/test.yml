@@ -1,8 +1,12 @@
 name: Tests
 
-# `swift test` requires the full Xcode toolchain (CommandLineTools alone doesn't
-# bundle XCTest on macOS). The macos-15 runner ships Xcode 16, which provides
-# Swift 6 — same toolchain the release workflow uses.
+# `swift test` requires the full Xcode toolchain (CommandLineTools alone
+# doesn't bundle XCTest on macOS). The macos-15 runner ships Xcode 16.
+#
+# Note: the OMP runtime smoke test and the voice/computer gauntlets need a
+# real OMP install + mic + Accessibility — they live behind a manual gate
+# and are not run by this CI job. This job only verifies the package
+# resolves, the library compiles, and the placeholder test runs.
 on:
   push:
     branches: [main]
@@ -34,8 +38,11 @@ jobs:
           path: |
             .build
             ~/Library/Caches/org.swift.swiftpm
-          key: spm-test-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          key: spm-test-${{ runner.os }}-${{ hashFiles('Package.swift') }}
           restore-keys: spm-test-${{ runner.os }}-
+
+      - name: swift build
+        run: swift build -c debug
 
       - name: swift test
         run: swift test --parallel
