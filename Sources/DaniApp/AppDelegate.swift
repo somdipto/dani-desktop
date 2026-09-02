@@ -102,7 +102,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
 
         setupStatusBar()
 
-        SpeechTranscriber.requestPermissions { [weak self] granted, errorMsg in
+        PermissionManager.requestSpeechAndMic { [weak self] granted, errorMsg in
             if !granted, let msg = errorMsg {
                 self?.showAlert(title: L10n.t("alert.permissionRequired"), message: msg)
             }
@@ -779,9 +779,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate 
 
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(
-                URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-            )
+            PermissionManager.openAccessibilitySettings()
         }
     }
 
