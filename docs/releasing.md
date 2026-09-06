@@ -1,5 +1,7 @@
 # Releasing
 
+Friend-machine first builds and agent steps: [`docs/packaging.md`](packaging.md).
+
 For a normal release, run **Actions → Prepare next release → Run workflow** and
 choose a patch, minor, or custom version. It opens a tiny version-bump PR;
 merging that PR automatically starts **Release** and assembles a draft from the
@@ -10,17 +12,10 @@ reruns and recovery. It
 builds macOS (arm64 + x64, signed, notarized, stapled), Windows, and Ubuntu
 from a single pinned commit, verifies every artifact the way a user would
 receive it, and assembles the canonical draft in
-[Dani Bot releases](https://github.com/milind-soni/OpenMausBot/releases).
-The exact same assets are also staged in the public legacy releases repo so
-installed builds from 0.1.46 and earlier can update across the repository
-migration.
+[Dani Bot releases](https://github.com/somdipto/dani-desktop/releases).
 
-Tick **publish** to publish and verify the canonical release first, then make
-the identical legacy updater bridge visible. Leave it unticked to review the
-canonical draft; when you publish that draft in GitHub's UI, the **Sync
-published release** workflow
-verifies and publishes its legacy mirror automatically. Never publish only the
-legacy draft.
+Tick **publish** to publish immediately. Leave it unticked to review the
+draft in GitHub's UI first.
 
 The workflow refuses to overwrite an already-published version. Manual Release
 runs still require `package.json`'s version to be bumped on the selected ref.
@@ -28,24 +23,9 @@ A release is rejected if any installer, stable download
 name, updater feed, blockmap, size, or digest is absent or inconsistent.
 
 GitHub generates the release body from pull requests since the previous
-canonical tag. The docs changelog combines published canonical releases with
-the legacy archive into one complete history and caches it for five minutes.
-Configure the optional Vercel hook below to rebuild the docs immediately after
-publication; otherwise the live cache or the next normal docs deployment
-refreshes it.
+tag. Configure the optional Vercel hook below to rebuild the docs immediately
+after publication; otherwise the next docs deployment refreshes it.
 
-## Updater migration invariant
-
-`app-update.yml` is baked into every packaged desktop app. Builds through
-0.1.46 point to `milind-soni/openmausbot-releases`; newer builds point to
-`milind-soni/OpenMausBot`. For that reason:
-
-1. Every new release is published byte-for-byte to both repositories during
-   the bridge period.
-2. `openmausbot-releases` must stay public. Do not delete its final bridge
-   release, feeds, or assets.
-3. README and docs downloads point at the canonical repo, while the legacy
-   mirror exists only for installed updater clients and historical releases.
 
 ## Why the gates exist
 
@@ -59,7 +39,7 @@ above it.
 
 ## One-time setup: release secrets
 
-Set these in **OpenMausBot → Settings → Secrets and variables → Actions**.
+Set these in **the repo → Settings → Secrets and variables → Actions**.
 
 The **Prepare next release** workflow also needs
 **Settings → Actions → General → Workflow permissions → Allow GitHub Actions
@@ -91,16 +71,7 @@ password for CI — revocable, scoped, no 2FA dance):
 base64 -i AuthKey_XXXXXXXX.p8 | pbcopy   # → APPLE_API_KEY_P8_BASE64
 ```
 
-### 3. `RELEASES_PAT`
-
-A fine-grained personal access token that lets the workflow write to the
-legacy updater mirror: **GitHub → Settings → Developer settings →
-Fine-grained tokens** → repository access: only `openmausbot-releases` →
-permissions: **Contents: Read and write**. Set a long expiry and a calendar
-reminder. The canonical release uses the workflow's scoped `GITHUB_TOKEN` and
-does not need a PAT.
-
-### 4. Optional `DOCS_DEPLOY_HOOK_URL`
+### 3. Optional `DOCS_DEPLOY_HOOK_URL`
 
 In Vercel, open the docs project and create a **Deploy Hook** for its production
 branch. Store that private URL as the `DOCS_DEPLOY_HOOK_URL` repository secret.
@@ -113,7 +84,5 @@ The hand-cut path still works when Actions is down or a release needs
 surgery: `pnpm package:mac`, gate with `codesign --verify --deep --strict`,
 notarize with the local keychain profile (`xcrun notarytool submit …
 --keychain-profile AC_PASSWORD`), staple, re-zip, regenerate blockmaps and
-`node scripts/regenerate-mac-feed.mjs`, upload the identical complete asset set
-to both repositories, publish and verify the canonical release before the
-legacy mirror, and always verify the published bytes against the published feed
-by downloading them back.
+`node scripts/regenerate-mac-feed.mjs`, then upload the assets and verify the
+published bytes against the published feed by downloading them back.

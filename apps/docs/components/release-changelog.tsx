@@ -2,13 +2,10 @@ import type { Components } from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
 
 const RELEASE_REPOSITORIES = [
-  'milind-soni/OpenMausBot',
-  'milind-soni/openmausbot-releases',
+  'somdipto/dani-desktop',
 ] as const;
 const RELEASES_PER_PAGE = 100;
 const MAX_RELEASE_PAGES = 10;
-const LEGACY_DRAFT_NOTES =
-  /^Draft assembled by the release workflow from milind-soni\/OpenMausBot@([0-9a-f]{40})\. Edit these notes, then publish\.\s*$/i;
 
 interface GitHubRelease {
   body: string | null;
@@ -57,14 +54,7 @@ function compareVersions(
 }
 
 function releaseNotes(release: GitHubRelease) {
-  const body = release.body?.trim();
-  if (!body) return 'No release notes were provided for this build.';
-
-  const legacyDraft = LEGACY_DRAFT_NOTES.exec(body);
-  if (!legacyDraft) return body;
-
-  const commit = legacyDraft[1];
-  return `This build predates curated release notes. [View its source commit (${commit.slice(0, 7)})](https://github.com/milind-soni/OpenMausBot/commit/${commit}).`;
+  return release.body?.trim() || 'No release notes were published for this version.';
 }
 
 async function fetchPublishedReleases(repository: string): Promise<GitHubRelease[]> {
@@ -129,7 +119,7 @@ export async function ReleaseChangelog() {
     return (
       <p>
         The live release history is temporarily unavailable.{' '}
-        <a href="https://github.com/milind-soni/OpenMausBot/releases">Browse releases on GitHub</a>.
+        <a href="https://github.com/somdipto/dani-desktop/releases">Browse releases on GitHub</a>.
       </p>
     );
   }

@@ -1,14 +1,12 @@
 ---
 name: windows-release
-description: Build and verify the Windows desktop build (NSIS installer + latest.yml) for the canonical Dani Bot release and its legacy updater mirror. Use when cutting a release, shipping a new version to Windows users, or when a Windows user reports they are stuck on an old version. Windows only — does not cover the macOS dmg/notarization flow.
+description: Build and verify the Windows desktop build (NSIS installer + latest.yml) for the canonical Dani Bot release.
 ---
 
 # Windows release
 
 Ships `OpenMausBot-<version>-setup.exe` and its update feed to
-[milind-soni/OpenMausBot](https://github.com/milind-soni/OpenMausBot/releases).
-The unified release workflow mirrors the same bytes to the legacy releases
-repository for apps installed before the updater migration.
+[somdipto/dani-desktop](https://github.com/somdipto/dani-desktop/releases).
 
 **Scope: Windows only.** The macOS build is a separate flow (dmg + notarytool +
 staple) that must run on a Mac. This skill never touches mac artifacts — but see
@@ -61,7 +59,7 @@ Get-Content release\win-unpacked\resources\app-update.yml  # feed config
 - Missing `server/index.js` → `utilityProcess.fork` fails → the 🐭 "Couldn't start
   the bot server" page.
 - Missing `ui/index.html` → server has nothing to serve → black window.
-- `app-update.yml` must point at `milind-soni/OpenMausBot` and, while the
+- `app-update.yml` must point at `somdipto/dani-desktop` and, while the
   build is unsigned, **must not contain `publisherName`** — electron-updater would
   reject every update as untrusted.
 
@@ -82,7 +80,7 @@ carries both platforms.
 
 ```powershell
 Copy-Item release/OpenMausBot-<version>-setup.exe release/OpenMausBot-setup.exe
-gh release upload v<version> --repo milind-soni/OpenMausBot `
+gh release upload v<version> --repo somdipto/dani-desktop `
   release/OpenMausBot-<version>-setup.exe `
   release/OpenMausBot-setup.exe `
   release/OpenMausBot-<version>-setup.exe.blockmap `
@@ -90,10 +88,7 @@ gh release upload v<version> --repo milind-soni/OpenMausBot `
 ```
 
 Prefer the repository's **Release** workflow, which builds all platforms from
-one pinned commit and mirrors the complete, byte-identical asset set safely.
-If this emergency manual path is used, the same four files must also be attached
-to the matching draft in `milind-soni/openmausbot-releases`; never replace the
-bytes of an already-published asset.
+one pinned commit.
 
 Both names are required, for different consumers:
 

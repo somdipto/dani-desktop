@@ -258,7 +258,7 @@ export function VpsConnection() {
         SSH config alias for the Linux VPS. Dani Bot uses your normal SSH config and agent; it does not store keys or passwords.{" "}
         See the{" "}
         <a
-          href="https://github.com/milind-soni/OpenMausBot/blob/main/docs/byo-vps.md"
+          href="https://github.com/somdipto/dani-desktop/blob/main/docs/byo-vps.md"
           target="_blank"
           rel="noopener noreferrer"
           className="text-accent hover:underline"

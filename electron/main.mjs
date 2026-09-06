@@ -200,8 +200,7 @@ function applyUnreadBadge(win = mainWindow) {
   if (process.platform === "darwin" || process.platform === "linux") app.setBadgeCount(count);
 }
 
-// Pin userData/logs to the historical OpenMausBot folder so existing installs
-// keep companion/CUA state after the productName change.
+// Pin userData/logs so packaged installs keep companion/CUA state.
 app.setPath("userData", path.join(app.getPath("appData"), "OpenMausBot"));
 app.setPath(
   "logs",

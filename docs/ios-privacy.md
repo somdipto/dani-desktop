@@ -91,7 +91,7 @@ holder asks for deletion. Some minimal records may be retained when required
 for security, fraud prevention, dispute resolution, or law.
 
 To request a copy or deletion of hosted account data, open an
-[Dani Bot Support](https://github.com/milind-soni/OpenMausBot/issues) request
+[Dani Bot Support](https://github.com/somdipto/dani-desktop/issues) request
 without posting an OTP, pairing code, device token, connector token, or other
 secret. The maintainer will provide a private way to verify control of the
 email address. Deleting hosted account data does not delete transcripts stored
@@ -100,4 +100,4 @@ on the user's own computer.
 ## Support
 
 Privacy questions can be opened at
-[Dani Bot Support](https://github.com/milind-soni/OpenMausBot/issues).
+[Dani Bot Support](https://github.com/somdipto/dani-desktop/issues).

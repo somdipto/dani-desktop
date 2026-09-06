@@ -41,8 +41,8 @@ writeFileSync(
       bin: { openmausbot: "cli.js" },
       files: ["cli.js", "dist-server", "dist", "skills", "LICENSE", "README.md"],
       engines: { node: ">=24" },
-      repository: { type: "git", url: "https://github.com/milind-soni/OpenMausBot.git" },
-      homepage: "https://github.com/milind-soni/OpenMausBot#readme",
+      repository: { type: "git", url: "https://github.com/somdipto/dani-desktop.git" },
+      homepage: "https://github.com/somdipto/dani-desktop#readme",
       keywords: ["openmausbot", "agents", "self-hosted", "server"],
     },
     null,
@@ -65,7 +65,7 @@ npx openmausbot sessions              # who is paired; "sessions revoke <id>" si
 \`\`\`
 
 Engines (Claude Code, Codex, …) are separate CLIs signed in on the same
-machine. Full guide: https://github.com/milind-soni/OpenMausBot/blob/main/docs/self-hosting.md
+machine. Full guide: https://github.com/somdipto/dani-desktop/blob/main/docs/self-hosting.md
 `,
 );
 console.log(`npm package assembled at ${out} (openmausbot@${app.version})`);

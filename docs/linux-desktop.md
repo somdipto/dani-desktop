@@ -22,22 +22,22 @@ The local preview does **not** give the bot control of this computer by itself. 
 the global **Enable local control** choice and assigning a bot to **This computer**; every action still enters the
 approval flow. On Wayland, local control is disabled and legacy opt-ins are cleared automatically. Automatic Wayland
 helper installation, Linux dictation, and ARM64 remain unavailable and fail closed; follow their
-progress in [issue #29](https://github.com/milind-soni/OpenMausBot/issues/29) and the safety hold in
-[issue #345](https://github.com/milind-soni/OpenMausBot/issues/345). Bundled
-CUA supply-chain work is tracked in [issue #113](https://github.com/milind-soni/OpenMausBot/issues/113). Xorg is tracked in
-[issue #79](https://github.com/milind-soni/OpenMausBot/issues/79), and guarded GNOME/Wayland support in
-[issue #109](https://github.com/milind-soni/OpenMausBot/issues/109).
+progress in [issue #29](https://github.com/somdipto/dani-desktop/issues/29) and the safety hold in
+[issue #345](https://github.com/somdipto/dani-desktop/issues/345). Bundled
+CUA supply-chain work is tracked in [issue #113](https://github.com/somdipto/dani-desktop/issues/113). Xorg is tracked in
+[issue #79](https://github.com/somdipto/dani-desktop/issues/79), and guarded GNOME/Wayland support in
+[issue #109](https://github.com/somdipto/dani-desktop/issues/109).
 
 ## Download packages
 
 Choose one Ubuntu 24.04 x86_64 package from the latest release:
 
-- [Debian package (`OpenMausBot-amd64.deb`)](https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-amd64.deb) — recommended; APT installs its desktop dependencies.
-- [Portable AppImage (`OpenMausBot.AppImage`)](https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot.AppImage) — does not install system files.
-- [SHA-256 checksums](https://github.com/milind-soni/OpenMausBot/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
+- [Debian package (`OpenMausBot-amd64.deb`)](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot-amd64.deb) — recommended; APT installs its desktop dependencies.
+- [Portable AppImage (`OpenMausBot.AppImage`)](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot.AppImage) — does not install system files.
+- [SHA-256 checksums](https://github.com/somdipto/dani-desktop/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
 
 Versioned packages and previous releases remain available on the
-[releases page](https://github.com/milind-soni/OpenMausBot/releases).
+[releases page](https://github.com/somdipto/dani-desktop/releases).
 
 ## Build packages
 
@@ -48,8 +48,8 @@ Requirements for building from source:
 - pnpm 10.33.0 (Corepack can install the version declared by the project)
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot.git
-cd OpenMausBot
+git clone https://github.com/somdipto/dani-desktop.git
+cd dani-desktop
 corepack enable
 pnpm install --frozen-lockfile
 pnpm package:linux

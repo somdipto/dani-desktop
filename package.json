@@ -1,12 +1,12 @@
 {
-  "name": "openmausbot",
+  "name": "dani-desktop",
   "private": true,
   "version": "0.1.55",
   "description": "A local-first chat app for running a team of AI agents.",
-  "homepage": "https://github.com/milind-soni/OpenMausBot",
+  "homepage": "https://github.com/somdipto/dani-desktop",
   "repository": {
     "type": "git",
-    "url": "https://github.com/milind-soni/OpenMausBot.git"
+    "url": "https://github.com/somdipto/dani-desktop.git"
   },
   "author": {
     "name": "Milind Soni",
