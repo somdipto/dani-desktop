@@ -89,29 +89,29 @@ jobs:
         run: pnpm smoke:linux-package
       - name: Remove the installed upgrade fixture
         if: always()
-        run: sudo dpkg --purge openmausbot || true
+        run: sudo dpkg --purge danibot || true
       - name: Prepare release assets
         id: release
         shell: bash
         run: |
           set -euo pipefail
           version="$(node -p "require('./package.json').version")"
-          appimage="release/OpenMausBot-${version}-x86_64.AppImage"
-          deb="release/OpenMausBot-${version}-amd64.deb"
+          appimage="release/DaniBot-${version}-x86_64.AppImage"
+          deb="release/DaniBot-${version}-amd64.deb"
           test -f "$appimage"
           test -f "$deb"
-          cp "$appimage" release/OpenMausBot.AppImage
-          cp "$deb" release/OpenMausBot-amd64.deb
-          chmod 0755 release/OpenMausBot.AppImage
+          cp "$appimage" release/DaniBot.AppImage
+          cp "$deb" release/DaniBot-amd64.deb
+          chmod 0755 release/DaniBot.AppImage
           (
             cd release
             sha256sum \
               "$(basename "$appimage")" \
               "$(basename "$deb")" \
-              OpenMausBot.AppImage \
-              OpenMausBot-amd64.deb > SHA256SUMS-ubuntu-x64.txt
+              DaniBot.AppImage \
+              DaniBot-amd64.deb > SHA256SUMS-ubuntu-x64.txt
           )
-          echo "artifact-name=openmausbot-ubuntu-${version}-x64" >> "$GITHUB_OUTPUT"
+          echo "artifact-name=danibot-ubuntu-${version}-x64" >> "$GITHUB_OUTPUT"
           echo "version: $version"
           echo "commit:  $(git rev-parse HEAD)"
           cat release/SHA256SUMS-ubuntu-x64.txt
@@ -119,7 +119,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
-          name: openmausbot-ubuntu-smoke-diagnostics
+          name: danibot-ubuntu-smoke-diagnostics
           path: |
             /tmp/omb-linux-smoke-*
             /tmp/omb-linux-smoke-runtime-*
@@ -130,10 +130,10 @@ jobs:
         with:
           name: ${{ steps.release.outputs.artifact-name }}
           path: |
-            release/OpenMausBot-*-amd64.deb
-            release/OpenMausBot-*-x86_64.AppImage
-            release/OpenMausBot-amd64.deb
-            release/OpenMausBot.AppImage
+            release/DaniBot-*-amd64.deb
+            release/DaniBot-*-x86_64.AppImage
+            release/DaniBot-amd64.deb
+            release/DaniBot.AppImage
             release/SHA256SUMS-ubuntu-x64.txt
           if-no-files-found: error
           retention-days: 14

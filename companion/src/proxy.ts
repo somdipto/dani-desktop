@@ -216,13 +216,13 @@ const forwardHeaders = (req: IncomingMessage, authenticatedDeviceId?: string): R
     // Lets a response whose URL is intentionally loopback-only (the VPS SSH
     // viewer) fail before opening a tunnel a phone cannot reach. This header
     // carries no authority; it only narrows behavior at the harness.
-    "x-openmausbot-companion": "1",
+    "x-danibot-companion": "1",
   };
   // Never forward a caller-supplied device header. This value comes only
   // from the registry entry which authenticated the bearer above, allowing
   // the harness to bind an encrypted credential to the same paired phone.
   if (authenticatedDeviceId && /^[\w-]{1,128}$/.test(authenticatedDeviceId)) {
-    out["x-openmausbot-companion-device"] = authenticatedDeviceId;
+    out["x-danibot-companion-device"] = authenticatedDeviceId;
   }
   const contentType = req.headers["content-type"];
   if (contentType) out["content-type"] = String(contentType);
@@ -380,16 +380,17 @@ export function createProxyHandler(options: ProxyOptions) {
             // SAFETY: identity came from untrusted JSON, and this assertion
             // grants no domain behavior; it permits one optional property
             // read whose value must equal a fixed literal before success.
+            const app = (identity as { app?: unknown } | null)?.app;
             if (
               (harness.statusCode ?? 500) < 200 ||
               (harness.statusCode ?? 500) >= 300 ||
-              (identity as { app?: unknown } | null)?.app !== "openmausbot"
+              (app !== "danibot" && app !== "openmausbot")
             ) {
               fail();
               return;
             }
             finished = true;
-            sendJson(res, 200, { app: "openmausbot" });
+            sendJson(res, 200, { app: "danibot" });
           });
           return;
         }

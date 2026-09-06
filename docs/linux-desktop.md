@@ -32,8 +32,8 @@ CUA supply-chain work is tracked in [issue #113](https://github.com/somdipto/dan
 
 Choose one Ubuntu 24.04 x86_64 package from the latest release:
 
-- [Debian package (`OpenMausBot-amd64.deb`)](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot-amd64.deb) — recommended; APT installs its desktop dependencies.
-- [Portable AppImage (`OpenMausBot.AppImage`)](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot.AppImage) — does not install system files.
+- [Debian package (`DaniBot-amd64.deb`)](https://github.com/somdipto/dani-desktop/releases/latest/download/DaniBot-amd64.deb) — recommended; APT installs its desktop dependencies.
+- [Portable AppImage (`DaniBot.AppImage`)](https://github.com/somdipto/dani-desktop/releases/latest/download/DaniBot.AppImage) — does not install system files.
 - [SHA-256 checksums](https://github.com/somdipto/dani-desktop/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
 
 Versioned packages and previous releases remain available on the
@@ -57,8 +57,8 @@ pnpm package:linux
 
 The build creates:
 
-- `release/OpenMausBot-<version>-amd64.deb`
-- `release/OpenMausBot-<version>-x86_64.AppImage`
+- `release/DaniBot-<version>-amd64.deb`
+- `release/DaniBot-<version>-x86_64.AppImage`
 
 The AppImage uses a static runtime and does not require the legacy `libfuse2` package.
 
@@ -67,26 +67,26 @@ The AppImage uses a static runtime and does not require the legacy `libfuse2` pa
 Install a downloaded Debian package with APT so its desktop dependencies are resolved:
 
 ```sh
-sudo apt install ./OpenMausBot-amd64.deb
+sudo apt install ./DaniBot-amd64.deb
 ```
 
 Then open **Dani Bot** from the GNOME application launcher. To remove it:
 
 ```sh
-sudo apt remove openmausbot
+sudo apt remove danibot
 ```
 
 The portable AppImage does not install system files:
 
 ```sh
-chmod +x release/OpenMausBot-*-x86_64.AppImage
-./release/OpenMausBot-*-x86_64.AppImage
+chmod +x release/DaniBot-*-x86_64.AppImage
+./release/DaniBot-*-x86_64.AppImage
 ```
 
-For a downloaded release AppImage, use `OpenMausBot.AppImage` in place of the versioned path above.
+For a downloaded release AppImage, use `DaniBot.AppImage` in place of the versioned path above.
 
-Application data remains local in `~/.openmausbot`. Electron browser data and window state use the normal XDG
-configuration directory (`~/.config/openmausbot` unless the environment overrides it).
+Application data remains local in `~/.danibot`. Electron browser data and window state use the normal XDG
+configuration directory (`~/.config/danibot` unless the environment overrides it).
 
 ## Develop the desktop shell
 
@@ -102,7 +102,7 @@ For a package-shaped build without creating `.deb` or AppImage artifacts:
 
 ```sh
 pnpm package:linux:dir
-./release/linux-unpacked/openmausbot
+./release/linux-unpacked/danibot
 ```
 
 ## Agent CLI discovery
@@ -123,7 +123,7 @@ It also probes the login shell in the background. If a CLI still is not detected
 path before launching the app from a terminal and verify it there:
 
 ```sh
-OMB_EXTRA_PATH=/your/custom/bin ./release/OpenMausBot-*-x86_64.AppImage
+OMB_EXTRA_PATH=/your/custom/bin ./release/DaniBot-*-x86_64.AppImage
 ```
 
 Restart Dani Bot after installing or signing in to a CLI.
@@ -212,7 +212,7 @@ pnpm smoke:linux-package
 The verifier checks `.deb` metadata, desktop identity, the exact dormant Cua resource tree and provenance,
 SquashFS/DEB directory modes, runtime path policy, and matching binary hashes across all artifacts. The local smoke
 launches the unpacked app and AppImage without `--no-sandbox`; CI first reproduces a `0.1.7` in-place DEB upgrade and
-then runs the same smoke against `/opt/Dani Bot/openmausbot`. These lanes prove the embedded server and UI are
+then runs the same smoke against `/opt/Dani Bot/danibot`. These lanes prove the embedded server and UI are
 usable while an optional Composio broker stalls, verify that an old local-control opt-in is cleared, and assert that
 no Cua executable starts on Xorg or simulated Wayland. Low-level runtime tests retain the future private-daemon
 contract without activating it in a packaged app. Only a real-seat acceptance matrix can authorize re-enablement.
@@ -247,8 +247,8 @@ open a new chooser. Cancelling or stopping sharing never causes an automatic sec
 Confirm the executable bit and architecture:
 
 ```sh
-chmod +x OpenMausBot-*-x86_64.AppImage
-file OpenMausBot-*-x86_64.AppImage
+chmod +x DaniBot-*-x86_64.AppImage
+file DaniBot-*-x86_64.AppImage
 ```
 
 Run it from a terminal once to collect the startup output. Do not install `libfuse2` just for this AppImage; the

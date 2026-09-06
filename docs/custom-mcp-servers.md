@@ -14,7 +14,7 @@ accept remote MCP URLs or shell command strings.
 
 ## Advanced: edit the file
 
-The same registry lives in `~/.openmausbot/config.json`:
+The same registry lives in `~/.danibot/config.json`:
 
 ```json
 {

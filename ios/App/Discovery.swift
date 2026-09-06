@@ -1,7 +1,7 @@
 // Finding computers on the network, so nobody types an IP address.
 //
 // The other half of `server/mdns.ts`: the harness advertises
-// `_openmausbot._tcp` while its companion listener is up, and this browses
+// `_danibot._tcp` while its companion listener is up, and this browses
 // for it. NWBrowser is first-party and does the mDNS work; all that is left
 // is resolving each result to a host and port.
 //
@@ -30,11 +30,14 @@ final class Discovery: ObservableObject {
     /// showing an empty list forever.
     @Published private(set) var failure: String?
 
-    private var browser: NWBrowser?
+    private var browsers: [NWBrowser] = []
+    private var foundByType: [String: [Found]] = [:]
     private var retryTask: Task<Void, Never>?
     private var retryCount = 0
     private var generation = 0
     private var shouldBrowse = false
+
+    private static let serviceTypes = ["_danibot._tcp", "_openmausbot._tcp"]
 
     func start() {
         guard !shouldBrowse else { return }
@@ -43,50 +46,64 @@ final class Discovery: ObservableObject {
         startBrowser()
     }
 
+    private func publishFound() {
+        var seen = Set<String>()
+        found = Self.serviceTypes
+            .flatMap { foundByType[$0] ?? [] }
+            .filter { seen.insert($0.name).inserted }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
     private func startBrowser() {
-        guard shouldBrowse, browser == nil else { return }
+        guard shouldBrowse, browsers.isEmpty else { return }
         retryTask = nil
         generation += 1
         let currentGeneration = generation
-        let parameters = NWParameters()
-        parameters.includePeerToPeer = false
-        let browser = NWBrowser(
-            for: .bonjour(type: "_openmausbot._tcp", domain: nil),
-            using: parameters
-        )
-
-        browser.stateUpdateHandler = { [weak self] state in
-            Task { @MainActor in
-                guard let self, self.generation == currentGeneration else { return }
-                switch state {
-                case .ready:
-                    self.retryCount = 0
-                    self.browsing = true
-                    self.failure = nil
-                case let .waiting(error):
-                    self.browsing = false
-                    self.failure = Self.failureMessage(for: error)
-                case let .failed(error):
-                    self.handleFailure(error)
-                case .cancelled:
-                    self.browsing = false
-                default:
-                    break
+        foundByType = [:]
+        for type in Self.serviceTypes {
+            let parameters = NWParameters()
+            parameters.includePeerToPeer = false
+            let browser = NWBrowser(
+                for: .bonjour(type: type, domain: nil),
+                using: parameters
+            )
+            browser.stateUpdateHandler = { [weak self] state in
+                Task { @MainActor in
+                    guard let self, self.generation == currentGeneration else { return }
+                    switch state {
+                    case .ready:
+                        self.retryCount = 0
+                        self.browsing = true
+                        self.failure = nil
+                    case let .waiting(error):
+                        if !self.browsing {
+                            self.failure = Self.failureMessage(for: error)
+                        }
+                    case let .failed(error):
+                        self.handleFailure(error)
+                    case .cancelled:
+                        if self.browsers.isEmpty {
+                            self.browsing = false
+                        }
+                    default:
+                        break
+                    }
                 }
             }
-        }
-
-        browser.browseResultsChangedHandler = { [weak self] results, _ in
-            let found = results.compactMap { result -> Found? in
-                guard case let .service(name, _, _, _) = result.endpoint else { return nil }
-                return Found(name: name, endpoint: result.endpoint)
+            browser.browseResultsChangedHandler = { [weak self] results, _ in
+                let found = results.compactMap { result -> Found? in
+                    guard case let .service(name, _, _, _) = result.endpoint else { return nil }
+                    return Found(name: name, endpoint: result.endpoint)
+                }
+                Task { @MainActor in
+                    guard let self, self.generation == currentGeneration else { return }
+                    self.foundByType[type] = found
+                    self.publishFound()
+                }
             }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            Task { @MainActor in self?.found = found }
+            browsers.append(browser)
+            browser.start(queue: .main)
         }
-
-        self.browser = browser
-        browser.start(queue: .main)
     }
 
     func stop() {
@@ -94,8 +111,9 @@ final class Discovery: ObservableObject {
         retryTask?.cancel()
         retryTask = nil
         generation += 1
-        browser?.cancel()
-        browser = nil
+        browsers.forEach { $0.cancel() }
+        browsers = []
+        foundByType = [:]
         browsing = false
     }
 
@@ -104,8 +122,9 @@ final class Discovery: ObservableObject {
     /// browser is the only useful recovery; keep it bounded so a persistent
     /// local-network problem does not turn into a retry loop.
     private func handleFailure(_ error: NWError) {
-        browser?.cancel()
-        browser = nil
+        browsers.forEach { $0.cancel() }
+        browsers = []
+        foundByType = [:]
         browsing = false
         found = []
 

@@ -162,7 +162,7 @@ class SessionLingerController(
  * anchor where to report a lost service, and register the coordinator itself as
  * the process-lifecycle observer.
  *
- * `OpenMausApp` calls exactly this, and the wiring test drives exactly this
+ * `DaniApp` calls exactly this, and the wiring test drives exactly this
  * against a `LifecycleRegistry`, so the state machine cannot pass while the
  * Application still cancels the stream in `onStop`.
  */

@@ -19,10 +19,10 @@ import org.w3c.dom.Element
  *
  * Two halves, because neither alone is enough:
  *
- * 1. [installSessionLinger] is the one function `OpenMausApp.onCreate` calls,
+ * 1. [installSessionLinger] is the one function `DaniApp.onCreate` calls,
  *    and here it is driven through a real lifecycle, registering the very
  *    observer the Application registers.
- * 2. A source pin on `OpenMausApp.kt`, in the spirit of `PairingLinkManifestTest`:
+ * 2. A source pin on `DaniApp.kt`, in the spirit of `PairingLinkManifestTest`:
  *    it fails if the Application goes back to an inline observer or to calling
  *    `disconnect()` on the way out. That is a text assertion, not a runtime
  *    proof — it is here because instantiating the real Application in a JVM
@@ -68,15 +68,15 @@ class SessionLingerWiringTest {
 
     @Test
     fun `the Application installs the linger and never disconnects on the way out`() {
-        val source = sourceFile("OpenMausApp.kt").readText()
+        val source = sourceFile("DaniApp.kt").readText()
 
         assertTrue(
             source.contains("installSessionLinger("),
-            "OpenMausApp must install the linger coordinator",
+            "DaniApp must install the linger coordinator",
         )
         assertFalse(
             source.contains("disconnect()"),
-            "OpenMausApp must not cancel the stream itself — that is what dropped the notification",
+            "DaniApp must not cancel the stream itself — that is what dropped the notification",
         )
         assertFalse(
             source.contains("DefaultLifecycleObserver"),

@@ -59,7 +59,7 @@ const internal = async (method: string, path: string, body?: unknown): Promise<A
   const threadId = String(claims.fromThreadId ?? claims.threadId ?? url.searchParams.get("fromThreadId") ?? "");
   const minted = await fetch(`${BASE}/api/testing/internal-capability`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-openmausbot-test-capability": TEST_CAPABILITY_KEY },
+    headers: { "content-type": "application/json", "x-danibot-test-capability": TEST_CAPABILITY_KEY },
     body: JSON.stringify({ botId, threadId, kind: "agents", skillAuthoring: true }),
   });
   const { token } = await minted.json() as { token: string };
@@ -161,9 +161,9 @@ beforeAll(async () => {
   BASE = `http://127.0.0.1:${PORT}`;
   home = mkdtempSync(join(tmpdir(), "omb-post-to-room-"));
   fakeClaudeDump = join(home, "fake-claude-dump.json");
-  mkdirSync(join(home, ".openmausbot"), { recursive: true });
+  mkdirSync(join(home, ".danibot"), { recursive: true });
   writeFileSync(
-    join(home, ".openmausbot", "config.json"),
+    join(home, ".danibot", "config.json"),
     JSON.stringify({
       instances: {
         claude: { driver: "claudeAgent", displayName: "Fixture Claude", config: { cli: FAKE_CLAUDE_CLI } },

@@ -1,4 +1,4 @@
-// Entry point for the `openmausbot` command (see cli.ts).
+// Entry point for the `danibot` command (see cli.ts).
 import { main } from "./cli.ts";
 
 main().then(

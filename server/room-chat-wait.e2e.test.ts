@@ -62,7 +62,7 @@ const fixture = (displayName: string, environment: Record<string, string>) => ({
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-room-chat-wait-"));
-  const data = join(home, ".openmausbot");
+  const data = join(home, ".danibot");
   const staticDir = join(home, "static");
   mkdirSync(data, { recursive: true });
   mkdirSync(join(staticDir, "assets"), { recursive: true });
@@ -281,7 +281,7 @@ describe("chat rooms wait for a member busy elsewhere", { timeout: 45_000 }, () 
         "POST",
         "/api/testing/internal-capability",
         { botId: pen.id, threadId: pen.threadId, kind: "agents" },
-        { "x-openmausbot-test-capability": TEST_CAPABILITY_KEY },
+        { "x-danibot-test-capability": TEST_CAPABILITY_KEY },
       );
       expect(minted.status).toBe(201);
       const token = String(minted.body.token);

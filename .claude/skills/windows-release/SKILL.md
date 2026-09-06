@@ -5,7 +5,7 @@ description: Build and verify the Windows desktop build (NSIS installer + latest
 
 # Windows release
 
-Ships `OpenMausBot-<version>-setup.exe` and its update feed to
+Ships `DaniBot-<version>-setup.exe` and its update feed to
 [somdipto/dani-desktop](https://github.com/somdipto/dani-desktop/releases).
 
 **Scope: Windows only.** The macOS build is a separate flow (dmg + notarytool +
@@ -41,10 +41,10 @@ Output in `release/`:
 
 | File | Purpose |
 |---|---|
-| `OpenMausBot-<version>-setup.exe` | the installer |
+| `DaniBot-<version>-setup.exe` | the installer |
 | `latest.yml` | **the update feed** — see step 4 |
-| `OpenMausBot-<version>-setup.exe.blockmap` | differential updates |
-| `OpenMausBot-<version>-x64.zip` | portable, not used by the updater |
+| `DaniBot-<version>-setup.exe.blockmap` | differential updates |
+| `DaniBot-<version>-x64.zip` | portable, not used by the updater |
 
 ## 3. Verify before uploading
 
@@ -67,7 +67,7 @@ Then smoke-test the installer itself. Run it, and confirm:
 
 1. It installs per-user with no UAC prompt and launches.
 2. The chat window renders (not the error page). Server logs land in
-   `%APPDATA%\OpenMausBot\logs\server.log`.
+   `%APPDATA%\Dani Bot\logs\server.log`.
 3. The model picker lists at least one provider — this exercises the `.cmd`-shim
    resolution in `server/procs.ts`, which only ever runs for real on Windows.
 4. No update popup appears on launch. Background check failures are silent by
@@ -79,11 +79,11 @@ Upload to the **same tag** as the macOS release for that version, so one release
 carries both platforms.
 
 ```powershell
-Copy-Item release/OpenMausBot-<version>-setup.exe release/OpenMausBot-setup.exe
+Copy-Item release/DaniBot-<version>-setup.exe release/DaniBot-setup.exe
 gh release upload v<version> --repo somdipto/dani-desktop `
-  release/OpenMausBot-<version>-setup.exe `
-  release/OpenMausBot-setup.exe `
-  release/OpenMausBot-<version>-setup.exe.blockmap `
+  release/DaniBot-<version>-setup.exe `
+  release/DaniBot-setup.exe `
+  release/DaniBot-<version>-setup.exe.blockmap `
   release/latest.yml
 ```
 
@@ -92,11 +92,11 @@ one pinned commit.
 
 Both names are required, for different consumers:
 
-- **`OpenMausBot-<version>-setup.exe`** is what `latest.yml` references by name and
+- **`DaniBot-<version>-setup.exe`** is what `latest.yml` references by name and
   sha512. The auto-updater downloads exactly this.
-- **`OpenMausBot-setup.exe`** is a byte-identical copy that gives the README's
-  `/releases/latest/download/OpenMausBot-setup.exe` button a stable URL. This
-  mirrors `OpenMausBot.dmg` sitting beside `OpenMausBot-<version>.dmg`.
+- **`DaniBot-setup.exe`** is a byte-identical copy that gives the README's
+  `/releases/latest/download/DaniBot-setup.exe` button a stable URL. This
+  mirrors `DaniBot.dmg` sitting beside `DaniBot-<version>.dmg`.
 
 ### latest.yml is not optional
 

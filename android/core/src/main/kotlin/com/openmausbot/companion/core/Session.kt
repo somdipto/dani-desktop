@@ -36,7 +36,7 @@ class Session(
     /**
      * The durable first-pair education marker. Deliberately has no default: the
      * marker is only useful if it outlives the process, and a default would let
-     * a wiring slip in `OpenMausApp` silently swap durability for an in-memory
+     * a wiring slip in `DaniApp` silently swap durability for an in-memory
      * boolean that dies with the app — the exact failure the marker exists to
      * prevent, and one no runtime assertion would ever notice.
      */

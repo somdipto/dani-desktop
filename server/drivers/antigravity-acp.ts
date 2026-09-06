@@ -263,7 +263,7 @@ export class AntigravityAcpClient {
   async initialize(timeoutMs = STARTUP_TIMEOUT_MS): Promise<any> {
     return this.request("initialize", {
       protocolVersion: 1,
-      clientInfo: { name: "openmausbot", version: "0.0.0" },
+      clientInfo: { name: "danibot", version: "0.0.0" },
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
     }, timeoutMs);
   }

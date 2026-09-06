@@ -98,7 +98,7 @@ Verify from a second terminal that the socket is real and refuses strangers:
 ```sh
 curl -s http://192.168.x.x:8810/api/bots            # expect 401 + "pair this device…"
 curl -s http://127.0.0.1:8811/state | jq            # addresses, pairing, devices, discovery
-dns-sd -B _openmausbot._tcp                         # macOS: should list the service
+dns-sd -B _danibot._tcp                         # macOS: should list the service
 ```
 
 ### If discovery says it is not advertising
@@ -120,15 +120,15 @@ This is the likeliest snag on macOS, and it is not a bug in the phone.
 
 ```sh
 brew install xcodegen
-cd ios && xcodegen generate && open OpenMausCompanion.xcodeproj
+cd ios && xcodegen generate && open DaniCompanion.xcodeproj
 ```
 
 Build for the simulator first — it is a faster loop for compile errors.
 The same gate can run without opening Xcode:
 
 ```sh
-xcodebuild -project OpenMausCompanion.xcodeproj \
-  -scheme OpenMausCompanion \
+xcodebuild -project DaniCompanion.xcodeproj \
+  -scheme DaniCompanion \
   -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   CODE_SIGNING_ALLOWED=NO build
@@ -141,7 +141,7 @@ device token with "A required entitlement isn't present", right after the
 code is accepted:
 
 ```sh
-xcodebuild -project OpenMausCompanion.xcodeproj -scheme OpenMausCompanion \
+xcodebuild -project DaniCompanion.xcodeproj -scheme DaniCompanion \
   -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   DEVELOPMENT_TEAM=<your team id> CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual build
 ```

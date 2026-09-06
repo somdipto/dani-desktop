@@ -40,7 +40,7 @@ describe("MCP JSON-RPC protocol", () => {
     })))!);
     expect(supported.result).toMatchObject({
       protocolVersion: "2024-11-05",
-      serverInfo: { name: "openmausbot-mcp", version: "1.1.0" },
+      serverInfo: { name: "danibot-mcp", version: "1.1.0" },
       capabilities: { tools: {} },
     });
 
@@ -299,16 +299,16 @@ describe("MCP tool execution", () => {
 
     await expect(handleToolCall("update_bot_profile", {
       bot_id: "bot-1", name: "Mira",
-    }, fetcher)).rejects.toThrow("OpenMausBot did not return the updated bot");
+    }, fetcher)).rejects.toThrow("Dani Bot did not return the updated bot");
     await expect(handleToolCall("update_channel", {
       channel_id: "channel-1", name: "Launch",
-    }, fetcher)).rejects.toThrow("OpenMausBot did not return the updated channel");
+    }, fetcher)).rejects.toThrow("Dani Bot did not return the updated channel");
     await expect(handleToolCall("create_task", {
       target_type: "bot", target_id: "bot-1", title: "Fresh",
-    }, fetcher)).rejects.toThrow("OpenMausBot did not return the created task");
+    }, fetcher)).rejects.toThrow("Dani Bot did not return the created task");
     await expect(handleToolCall("rename_task", {
       target_type: "bot", target_id: "bot-1", task_id: "task-1", title: "Renamed",
-    }, fetcher)).rejects.toThrow("OpenMausBot did not return the renamed task");
+    }, fetcher)).rejects.toThrow("Dani Bot did not return the renamed task");
   });
 
   it("searches with encoded, bounded parameters", async () => {
@@ -557,8 +557,8 @@ describe("connection security and discovery", () => {
 
   it("skips a foreign process and discovers the real fallback port", async () => {
     globalThis.fetch = vi.fn(async (url: any) => {
-      if (String(url).includes(":8799")) return jsonResponse({ app: "not-openmausbot" });
-      if (String(url).includes(":18799")) return jsonResponse({ app: "openmausbot" });
+      if (String(url).includes(":8799")) return jsonResponse({ app: "not-danibot" });
+      if (String(url).includes(":18799")) return jsonResponse({ app: "danibot" });
       throw new Error("unexpected port");
     }) as any;
     await expect(probeBaseUrls(["http://127.0.0.1:8799", "http://127.0.0.1:18799"])).resolves.toBe("http://127.0.0.1:18799");

@@ -274,7 +274,8 @@ export interface ResolveOptions {
   loopbackMutationToken?: string;
 }
 
-const DESKTOP_OWNER_HEADER = "x-openmausbot-desktop-owner";
+const DESKTOP_OWNER_HEADER = "x-danibot-desktop-owner";
+const LEGACY_DESKTOP_OWNER_HEADER = "x-openmausbot-desktop-owner";
 
 function mutatingPublicRoute(method: string, path: string): boolean {
   const upper = method.toUpperCase();
@@ -340,7 +341,7 @@ export function resolveRequestAuth(req: IncomingMessage, options: ResolveOptions
     if (
       options.loopbackMutationToken !== undefined &&
       mutatingPublicRoute(method, path) &&
-      !secureTokenMatch(headerValue(req.headers[DESKTOP_OWNER_HEADER]), options.loopbackMutationToken)
+      !secureTokenMatch(headerValue(req.headers[DESKTOP_OWNER_HEADER]) ?? headerValue(req.headers[LEGACY_DESKTOP_OWNER_HEADER]), options.loopbackMutationToken)
     ) {
       return deny(403, "forbidden: this change must come from the desktop app or a paired device");
     }

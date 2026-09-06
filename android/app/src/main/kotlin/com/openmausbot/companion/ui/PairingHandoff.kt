@@ -7,11 +7,13 @@ package com.openmausbot.companion.ui
  * keeps the credential-carrying URL out of any Intent the system remembers.
  */
 internal object PairingLink {
-    const val SCHEME = "openmausbot"
+    const val SCHEME = "danibot"
+    const val LEGACY_SCHEME = "openmausbot"
     const val HOST = "pair"
 
     fun isInvite(scheme: String?, host: String?): Boolean =
-        scheme.equals(SCHEME, ignoreCase = true) && host.equals(HOST, ignoreCase = true)
+        (scheme.equals(SCHEME, ignoreCase = true) || scheme.equals(LEGACY_SCHEME, ignoreCase = true)) &&
+            host.equals(HOST, ignoreCase = true)
 }
 
 /**

@@ -350,8 +350,8 @@ function releaseDataDirLeaseAtExit(): void {
   }
 }
 process.once("exit", releaseDataDirLeaseAtExit);
-// Only after ensureDirs(): it performs the one-time rename of the legacy data
-// dir, which must not find a freshly created ~/.openmausbot already there.
+// Only after ensureDirs(): it performs the one-time rename of a previous
+// home folder, which must not find a freshly created ~/.danibot already there.
 // Remote clients (server/request-auth.ts, server/sessions.ts): a stable identity
 // for this server, the paired sessions, and the cookie the served UI uses.
 const ENVIRONMENT_ID = loadEnvironmentId(DATA_DIR);
@@ -4825,10 +4825,10 @@ let webhookIngressError: string | null = null;
 try {
   webhookIngress = await listenWebhookIngress(webhooks, { port: WEBHOOK_PORT, publicBaseUrl: WEBHOOK_PUBLIC_URL });
   const advertised = WEBHOOK_PUBLIC_URL ? ` (advertised as ${webhookIngress.baseUrl})` : "";
-  console.log(`openmausbot webhook receiver on http://${webhookIngress.host}:${webhookIngress.port}${advertised}`);
+  console.log(`danibot webhook receiver on http://${webhookIngress.host}:${webhookIngress.port}${advertised}`);
 } catch (error) {
   webhookIngressError = error instanceof Error ? error.message : String(error);
-  console.error(`openmausbot webhook receiver unavailable: ${webhookIngressError}`);
+  console.error(`danibot webhook receiver unavailable: ${webhookIngressError}`);
 }
 
 const webhookIngressStatus = () => ({
@@ -7224,7 +7224,7 @@ const server = createServer(async (req, res) => {
     // code into a session. Everything else needs the loopback owner or a
     // paired session with the right scope.
     if (method === "GET" && !path.startsWith("/api/") && !path.startsWith("/.well-known/") && serveStatic(res, path)) return;
-    if (method === "GET" && path === "/.well-known/openmausbot/environment") {
+    if (method === "GET" && (path === "/.well-known/danibot/environment" || path === "/.well-known/openmausbot/environment")) {
       return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED }));
     }
     if (method === "POST" && path === "/api/auth/pair") {
@@ -7329,9 +7329,8 @@ const server = createServer(async (req, res) => {
     // set it.
     if (method === "POST" && path === "/api/testing/internal-capability") {
       const expected = process.env.OMB_TEST_INTERNAL_CAPABILITY_KEY ?? "";
-      const actual = Array.isArray(req.headers["x-openmausbot-test-capability"])
-        ? ""
-        : String(req.headers["x-openmausbot-test-capability"] ?? "");
+      const capabilityHeader = req.headers["x-danibot-test-capability"] ?? req.headers["x-openmausbot-test-capability"];
+      const actual = Array.isArray(capabilityHeader) ? "" : String(capabilityHeader ?? "");
       const expectedBytes = Buffer.from(expected);
       const actualBytes = Buffer.from(actual);
       if (
@@ -11150,7 +11149,7 @@ const server = createServer(async (req, res) => {
     // child proves it is OURS by echoing its pid (a stray dev server has
     // the same API shape but a different pid)
     if (method === "GET" && path === "/api/health") {
-      return json(res, 200, { app: "openmausbot", pid: process.pid, static: Boolean(STATIC_DIR) });
+      return json(res, 200, { app: "danibot", pid: process.pid, static: Boolean(STATIC_DIR) });
     }
     // Which edition this server runs and why (see server/enterprise.ts). Read-only.
     if (method === "GET" && path === "/api/edition") {
@@ -11944,10 +11943,10 @@ const server = createServer(async (req, res) => {
     // Electron server has the private key needed to open the envelope.
     m = path.match(/^\/api\/bots\/([\w-]+)\/secret-cards\/([\w-]+)\/provide$/);
     if (m && method === "POST") {
-      if (req.headers["x-openmausbot-companion"] !== "1") {
+      if ((req.headers["x-danibot-companion"] ?? req.headers["x-openmausbot-companion"]) !== "1") {
         return json(res, 403, { error: "Secure phone entry must come from a paired phone" });
       }
-      const rawDeviceId = req.headers["x-openmausbot-companion-device"];
+      const rawDeviceId = req.headers["x-danibot-companion-device"] ?? req.headers["x-openmausbot-companion-device"];
       const authenticatedDeviceId = Array.isArray(rawDeviceId) ? "" : String(rawDeviceId ?? "");
       if (!/^[\w-]{1,128}$/.test(authenticatedDeviceId)) {
         return json(res, 401, { error: "This paired phone could not be verified" });
@@ -12233,7 +12232,7 @@ console.log(describeEdition(await loadEnterpriseLayer()));
 console.log(describeBrand(loadBrand()));
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`openmausbot server on http://127.0.0.1:${PORT}`);
+  console.log(`danibot server on http://127.0.0.1:${PORT}`);
 });
 
 const gracefulShutdown = createGracefulShutdown({

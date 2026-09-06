@@ -6,7 +6,7 @@ import './global.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://docs.openmausbot.com'),
+  metadataBase: new URL('https://docs.danibot.com'),
   title: {
     default: 'Dani Bot Docs',
     template: '%s · Dani Bot Docs',

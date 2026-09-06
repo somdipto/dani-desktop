@@ -173,7 +173,7 @@ describe("resolveRequestAuth", () => {
     const desktop = resolveRequestAuth(
       request({
         host: "127.0.0.1:8799",
-        "x-openmausbot-desktop-owner": "owner-token-123",
+        "x-danibot-desktop-owner": "owner-token-123",
       }, "POST"),
       options("/api/routines"),
     );

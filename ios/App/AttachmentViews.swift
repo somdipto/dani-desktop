@@ -441,7 +441,7 @@ struct FilePreviewItem: Identifiable {
 
     func cleanUp() {
         let directory = url.deletingLastPathComponent()
-        if directory.deletingLastPathComponent().lastPathComponent == "OpenMausBotFilePreviews" {
+        if directory.deletingLastPathComponent().lastPathComponent == "DaniBotFilePreviews" {
             try? FileManager.default.removeItem(at: directory)
         } else {
             try? FileManager.default.removeItem(at: url)

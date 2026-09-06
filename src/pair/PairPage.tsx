@@ -15,7 +15,7 @@ export function PairPage({ initialCode, reason }: { initialCode: string | null; 
   const [attemptId, setAttemptId] = useState(() => newAttemptId());
 
   useEffect(() => {
-    void fetch("/.well-known/openmausbot/environment")
+    void fetch("/.well-known/danibot/environment")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: EnvironmentDescriptor | null) => setEnvironment(d))
       .catch(() => setEnvironment(null));

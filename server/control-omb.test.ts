@@ -31,7 +31,7 @@ describe("control-omb command mapping", () => {
 
   it("composes doctor from the shared health and model tools", async () => {
     const callTool = vi.fn(async (name: string) => name === "get_system_health"
-      ? { status: "connected", app: "openmausbot" }
+      ? { status: "connected", app: "danibot" }
       : {
           instances: [
             { instanceId: "ready", snapshot: { state: "available" } },
@@ -49,7 +49,7 @@ describe("control-omb command mapping", () => {
     });
   });
 
-  it("rejects an available engine when the endpoint is not OpenMausBot", async () => {
+  it("rejects an available engine when the endpoint is not Dani Bot", async () => {
     const callTool = vi.fn(async (name: string) => name === "get_system_health"
       ? { status: "connected", app: "another-app" }
       : { instances: [{ instanceId: "ready", snapshot: { state: "available" } }] });
@@ -66,7 +66,7 @@ describe("control-omb command mapping", () => {
       callTool: vi.fn() as any,
       env: {},
     })).rejects.toMatchObject({
-      message: "mutating commands require an explicit OpenMausBot instance",
+      message: "mutating commands require an explicit Dani Bot instance",
     });
   });
 

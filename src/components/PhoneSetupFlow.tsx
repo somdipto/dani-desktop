@@ -1159,7 +1159,7 @@ export function PhoneSetupFlowView({
       <p className="mt-1 text-[13px] text-ink-secondary">
         {c.pairingExpired
           ? "Create a fresh code when the other device is ready."
-          : "Scan this code in OpenMaus on iPhone, or enter the address and code from pairing details in another desktop app."}
+          : "Scan this code in Dani Mobile on iPhone, or enter the address and code from pairing details in another desktop app."}
       </p>
       {!c.pairingExpired && c.pairingLink && (
         <div className="mt-4 rounded-2xl bg-white p-3.5" aria-label="Device pairing QR code">

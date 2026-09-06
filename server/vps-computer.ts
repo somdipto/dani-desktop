@@ -29,11 +29,11 @@ import { loadEnvironmentId } from "./environment.ts";
 import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 
 export const VPS_IMAGE = CUA_IMAGE;
-export const VPS_MANAGED_LABEL = "com.openmausbot.vps";
-export const VPS_CONTAINER_LABEL = "com.openmausbot.container";
-export const VPS_ENVIRONMENT_LABEL = "com.openmausbot.environment";
-export const VPS_VIEWER_LABEL = "com.openmausbot.vps-viewer";
-export const VPS_CONTAINER_PREFIX = "openmausbot-vps";
+export const VPS_MANAGED_LABEL = "com.danibot.vps";
+export const VPS_CONTAINER_LABEL = "com.danibot.container";
+export const VPS_ENVIRONMENT_LABEL = "com.danibot.environment";
+export const VPS_VIEWER_LABEL = "com.danibot.vps-viewer";
+export const VPS_CONTAINER_PREFIX = "danibot-vps";
 // The same durable id is also served by the environment discovery endpoint.
 // Resolve it lazily: index must finish legacy data migration and acquire the
 // writer lease before either provider may create the new data directory.
@@ -50,10 +50,10 @@ const COMMAND_TIMEOUT_KILL_GRACE_MS = 5_000;
 const CONTAINER_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_.-]+$/;
 const CONTAINER_ID = /^[a-f0-9]{12,64}$/i;
 const FULL_CONTAINER_ID = /^[a-f0-9]{64}$/i;
-const MANAGED_VPS_CONTAINER_NAME = /^openmausbot-vps-[a-z0-9]{1,12}-[a-f0-9]{12}$/;
+const MANAGED_VPS_CONTAINER_NAME = /^danibot-vps-[a-z0-9]{1,12}-[a-f0-9]{12}$/;
 const IMAGE_ID = /^sha256:[a-f0-9]{64}$/i;
 const PIDS_LIMIT = 512;
-const SCREENSHOT_PATH = "/tmp/openmausbot-vps-preview.png";
+const SCREENSHOT_PATH = "/tmp/danibot-vps-preview.png";
 const INTERNAL_VIEWER_PORT = 6901;
 const VIEWER_VERSION = "1";
 const lifecycleLocks = new Map<string, Promise<void>>();

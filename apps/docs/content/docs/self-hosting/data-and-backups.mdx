@@ -4,11 +4,11 @@ description: Know what Dani Bot stores locally and what to preserve.
 icon: DatabaseBackup
 ---
 
-Dani Bot keeps its application state under `~/.openmausbot`, including configuration, transcripts, message attachments, device pairing state, and the SQLite message store.
+Dani Bot keeps its application state under `~/.danibot`, including configuration, transcripts, message attachments, device pairing state, and the SQLite message store.
 
 ## Back up
 
-Close Dani Bot before taking a filesystem-level backup so SQLite and configuration files are captured consistently. Preserve the entire `.openmausbot` directory rather than selecting individual database files.
+Close Dani Bot before taking a filesystem-level backup so SQLite and configuration files are captured consistently. Preserve the entire `.danibot` directory rather than selecting individual database files.
 
 ## Do not copy secrets casually
 

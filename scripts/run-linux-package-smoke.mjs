@@ -29,11 +29,11 @@ if (appImages.length !== 1) {
 const [appImage] = appImages;
 
 const executables = [
-  path.join(root, "release", "linux-unpacked", "openmausbot"),
+  path.join(root, "release", "linux-unpacked", "danibot"),
   path.join(root, "release", appImage),
 ];
 if (process.env.OMB_SMOKE_INSTALLED_DEB === "1") {
-  executables.push("/opt/Dani Bot/openmausbot");
+  executables.push("/opt/Dani Bot/danibot");
 }
 
 for (const executable of executables) {
@@ -106,7 +106,7 @@ if (process.exitCode === undefined) {
         ...process.env,
         XDG_RUNTIME_DIR: runtimeDirectory,
         OMB_SMOKE_HARD_DEATH: "1",
-        OMB_SMOKE_EXECUTABLE: path.join(root, "release", "linux-unpacked", "openmausbot"),
+        OMB_SMOKE_EXECUTABLE: path.join(root, "release", "linux-unpacked", "danibot"),
       },
       stdio: "inherit",
     },

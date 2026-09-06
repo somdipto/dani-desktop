@@ -50,9 +50,9 @@ pnpm install --frozen-lockfile
 
 | Host | Command | Give back from `release/` |
 |---|---|---|
-| **macOS** + Xcode | `pnpm package:mac` | versioned `.dmg` + `.zip` + `.blockmap` + `latest-mac.yml`. Also copy arm64 dmg → `OpenMausBot.dmg`, x64 dmg → `OpenMausBot-intel.dmg`. |
-| **Windows x64** | `pnpm package:win` | `OpenMausBot-<ver>-setup.exe` + `.blockmap` + `latest.yml`. Copy setup exe → `OpenMausBot-setup.exe`. |
-| **Ubuntu 24.04 x86_64** | `pnpm package:linux` | versioned `.deb` + `.AppImage` + `SHA256SUMS-ubuntu-x64.txt` + `latest-linux.yml`. Copy to `OpenMausBot-amd64.deb` and `OpenMausBot.AppImage`. |
+| **macOS** + Xcode | `pnpm package:mac` | versioned `.dmg` + `.zip` + `.blockmap` + `latest-mac.yml`. Also copy arm64 dmg → `DaniBot.dmg`, x64 dmg → `DaniBot-intel.dmg`. |
+| **Windows x64** | `pnpm package:win` | `DaniBot-<ver>-setup.exe` + `.blockmap` + `latest.yml`. Copy setup exe → `DaniBot-setup.exe`. |
+| **Ubuntu 24.04 x86_64** | `pnpm package:linux` | versioned `.deb` + `.AppImage` + `SHA256SUMS-ubuntu-x64.txt` + `latest-linux.yml`. Copy to `DaniBot-amd64.deb` and `DaniBot.AppImage`. |
 
 Check before sending:
 

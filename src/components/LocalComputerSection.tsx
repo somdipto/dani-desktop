@@ -283,7 +283,7 @@ export function VpsComputersCard({
   return (
     <Card
       title="Self-hosted VPS computers"
-      subtitle="Persistent OpenMaus-managed Docker desktops on your VPS. Removing one permanently erases its files and browser sign-ins."
+      subtitle="Persistent Dani Bot-managed Docker desktops on your VPS. Removing one permanently erases its files and browser sign-ins."
     >
       <div className="flex items-center justify-between gap-3">
         <div className="text-[12px] text-ink-secondary">
@@ -291,7 +291,7 @@ export function VpsComputersCard({
             ? `SSH host: ${sshAlias ?? "configured VPS"}. Old and orphaned computers stay visible here.`
             : configured === false
               ? "Add a VPS SSH alias in Connections to use self-hosted computers."
-              : "Refresh to check OpenMaus-managed computers on your VPS."}
+              : "Refresh to check Dani Bot-managed computers on your VPS."}
         </div>
         <button
           type="button"
@@ -333,7 +333,7 @@ export function VpsComputersCard({
             <Server size={14} className="shrink-0" /> VPS is not configured.
           </div>
         ) : instances.length === 0 ? (
-          <div className="px-3 py-4 text-[13px] text-ink-secondary">No OpenMaus-managed VPS computers found.</div>
+          <div className="px-3 py-4 text-[13px] text-ink-secondary">No Dani Bot-managed VPS computers found.</div>
         ) : instances.map((instance, index) => {
           const state = vpsComputerInventoryState(instance);
           const removing = removingName === instance.name;
@@ -414,7 +414,7 @@ export function CloudComputersCard({
   return (
     <Card
       title="Cloud computers"
-      subtitle="Persistent OpenMaus-managed Box desktops. Sleeping pauses compute use; deleting permanently erases that desktop and its files."
+      subtitle="Persistent Dani Bot-managed Box desktops. Sleeping pauses compute use; deleting permanently erases that desktop and its files."
     >
       <div className="flex items-center justify-between gap-3">
         <div className="text-[12px] text-ink-secondary">
@@ -422,7 +422,7 @@ export function CloudComputersCard({
             ? "Includes computers left behind by deleted bots so they can still be cleaned up."
             : configured === false
               ? "Add a Box API key in Connections to create and manage cloud computers."
-              : "Refresh to check the OpenMaus-managed computers in your Box account."}
+              : "Refresh to check the Dani Bot-managed computers in your Box account."}
         </div>
         <button
           type="button"
@@ -464,7 +464,7 @@ export function CloudComputersCard({
             <Cloud size={14} className="shrink-0" /> Box is not connected.
           </div>
         ) : instances.length === 0 ? (
-          <div className="px-3 py-4 text-[13px] text-ink-secondary">No OpenMaus-managed cloud computers found.</div>
+          <div className="px-3 py-4 text-[13px] text-ink-secondary">No Dani Bot-managed cloud computers found.</div>
         ) : instances.map((instance, index) => {
           const state = cloudComputerInventoryState(instance);
           const isPending = pending?.boxId === instance.boxId;
@@ -560,7 +560,7 @@ export function LocalVmInventoryCard({
     >
       <div className="flex items-center justify-between gap-3">
         <div className="text-[12px] text-ink-secondary">
-          Delete OpenMaus-managed desktops you no longer need to free a slot. Durable workspace files remain.
+          Delete Dani Bot-managed desktops you no longer need to free a slot. Durable workspace files remain.
         </div>
         <button
           type="button"

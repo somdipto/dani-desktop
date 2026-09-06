@@ -207,7 +207,7 @@ public struct PairingInvite: Equatable, Sendable {
     }
 
     public static func parse(_ url: URL) -> PairingInvite? {
-        guard url.scheme?.lowercased() == "openmausbot",
+        guard let scheme = url.scheme?.lowercased(), ["danibot", "openmausbot"].contains(scheme),
               url.host?.lowercased() == "pair",
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         else { return nil }
@@ -704,7 +704,7 @@ public struct CompanionClient: Sendable {
             guard !Task.isCancelled,
                   let http = response as? HTTPURLResponse,
                   (200...299).contains(http.statusCode),
-                  try JSONDecoder().decode(HealthIdentity.self, from: data).app == "openmausbot"
+                  try JSONDecoder().decode(HealthIdentity.self, from: data).app == "danibot"
             else { return false }
             return true
         } catch {

@@ -1017,7 +1017,7 @@ class CompanionClient(
                     companion.makeRequest("GET", "/api/health"),
                     probeClient,
                 )
-                identity.app == "openmausbot"
+                identity.app == "danibot"
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {

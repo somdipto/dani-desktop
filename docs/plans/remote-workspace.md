@@ -43,7 +43,7 @@ desktop-first agent app and adopt these points as requirements:
 
 1. **Stable server identity.** The server generates `environmentId` once
    (`OMB_DATA_DIR/environment-id`) and serves a descriptor at
-   `/.well-known/openmausbot/environment` — id, label, platform, version,
+   `/.well-known/danibot/environment` — id, label, platform, version,
    capabilities. Clients verify the id on every connect and refuse a
    mismatch loudly (a re-used URL now pointing at a different server).
 2. **Two-stage credentials.** Pairing code: 12 characters from a 32-symbol

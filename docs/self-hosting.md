@@ -36,27 +36,27 @@ Desktop-only for now (needs the Mac/Linux app):
 On any machine with Node 24 or newer (a VPS, a Mac mini, a Raspberry Pi):
 
 ```sh
-npx openmausbot serve
+npx danibot serve
 ```
 
-It starts the server, keeps your data in `~/.openmausbot`, and prints a
+It starts the server, keeps your data in `~/.danibot`, and prints a
 pairing link with a QR code: scan it with the phone, or open it on the
 laptop. Sign the engine CLIs in on the same machine as usual (`claude`,
 `codex`, …). Two ways to make it reachable from elsewhere:
 
 - **On your Tailscale network, no domain needed:**
-  `npx openmausbot serve --tailscale`. Tailscale terminates HTTPS with its
+  `npx danibot serve --tailscale`. Tailscale terminates HTTPS with its
   own certificate and the link uses this machine's MagicDNS name, so only
   devices on your tailnet can reach it. Needs Tailscale signed in and HTTPS
   certificates enabled for the tailnet (admin console → DNS).
-- **Behind your own proxy or domain:** `npx openmausbot serve --public-url
+- **Behind your own proxy or domain:** `npx danibot serve --public-url
   https://maus.example.com`, with the proxy rules from "Putting a proxy in
   front".
 
-Later: `npx openmausbot pair --label "Kitchen iPad"` for another device
+Later: `npx danibot pair --label "Kitchen iPad"` for another device
 (`--client` for one that may chat but not change settings), and
-`npx openmausbot sessions` to see or revoke them. Run it under systemd or
-pm2 to keep it up; `openmausbot serve` is a plain foreground process.
+`npx danibot sessions` to see or revoke them. Run it under systemd or
+pm2 to keep it up; `danibot serve` is a plain foreground process.
 
 ## Docker (with HTTPS on your own domain)
 
@@ -80,7 +80,7 @@ pairing code for your first device:
 
 ```sh
 docker compose exec omb claude                       # each CLI you listed in ENGINES
-docker compose exec omb node dist-server/openmausbot.js pair # prints a code, a link and a QR
+docker compose exec omb node dist-server/danibot.js pair # prints a code, a link and a QR
 ```
 
 Open the link (`https://<DOMAIN>/pair#code=…`) in a browser and it is
@@ -117,22 +117,22 @@ git clone https://github.com/somdipto/dani-desktop && cd dani-desktop
 pnpm install
 
 # choose where data lives and start the server
-OMB_DATA_DIR="$HOME/.openmausbot" OMB_PORT=8799 \
+OMB_DATA_DIR="$HOME/.danibot" OMB_PORT=8799 \
   node --experimental-strip-types server/index.ts
 ```
 
 For something durable, run it under systemd:
 
 ```ini
-# /etc/systemd/system/openmausbot.service
+# /etc/systemd/system/danibot.service
 [Unit]
 Description=Dani Bot harness
 After=network.target
 
 [Service]
 User=maus
-WorkingDirectory=/home/maus/OpenMausBot
-Environment=OMB_DATA_DIR=/home/maus/.openmausbot
+WorkingDirectory=/home/maus/dani-desktop
+Environment=OMB_DATA_DIR=/home/maus/.danibot
 Environment=OMB_PORT=8799
 ExecStart=/usr/bin/node --experimental-strip-types server/index.ts
 Restart=on-failure
@@ -150,9 +150,9 @@ Pair once, then use the server from any browser on any machine that can
 reach it. On the server:
 
 ```sh
-npx openmausbot pair                         # npm install
+npx danibot pair                         # npm install
 pnpm omb pair                                # from a checkout
-docker compose exec omb node dist-server/openmausbot.js pair   # Docker
+docker compose exec omb node dist-server/danibot.js pair   # Docker
 ```
 
 It prints a 12-character code (single use, five minutes) and, when the
@@ -186,7 +186,7 @@ and take a 5-minute ticket from `POST /api/auth/stream-ticket` for the
 event stream, because `EventSource` cannot set headers:
 `GET /api/events?ticket=…`.
 
-`GET /.well-known/openmausbot/environment` is public and tells a client what
+`GET /.well-known/danibot/environment` is public and tells a client what
 it is talking to: a stable `environmentId`, the label, the version and
 capabilities. Saved connections check the id so a reused address that now
 points at a different server is refused loudly.
@@ -235,7 +235,7 @@ per-device credentials on pairing — see the pairing screen in the iOS app.
 
 ```sh
 docker compose -f deploy/docker-compose.yml pull omb && docker compose -f deploy/docker-compose.yml up -d   # Docker
-git pull && pnpm install && sudo systemctl restart openmausbot          # from source
+git pull && pnpm install && sudo systemctl restart danibot          # from source
 ```
 
 Routines and queued work survive restarts; in-flight turns do not, so

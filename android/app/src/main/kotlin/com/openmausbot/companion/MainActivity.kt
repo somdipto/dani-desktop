@@ -38,12 +38,12 @@ import com.openmausbot.companion.ui.PendingThreadNavigation
  * Pairing deep links and inbound shares each have their own trampoline, so this
  * root Activity never receives a credential or another app's content URI.
  *
- * Connect/disconnect is not here: `OpenMausApp` drives it from
+ * Connect/disconnect is not here: `DaniApp` drives it from
  * `ProcessLifecycleOwner`, which is the Android shape of iOS's `scenePhase`.
  */
 class MainActivity : ComponentActivity() {
-    private val app: OpenMausApp
-        get() = application as OpenMausApp
+    private val app: DaniApp
+        get() = application as DaniApp
 
     /** Notification tap → `(botId, threadId)`; delivered to the UI once. */
     private lateinit var notificationNavigation: PendingThreadNavigation

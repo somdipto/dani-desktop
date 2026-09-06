@@ -1,20 +1,20 @@
-// `openmausbot` on the command line: run the server anywhere and pair devices
-// to it. One implementation for three homes — `npx openmausbot` (the npm
+// `danibot` on the command line: run the server anywhere and pair devices
+// to it. One implementation for three homes — `npx danibot` (the npm
 // package), `node dist-server/cli.js` (the container image) and
 // `pnpm omb` (a checkout) — because scripts/bundle-server.mjs bundles this
 // file next to the server.
 //
-//   openmausbot serve [--port 8799] [--data-dir ~/.openmausbot] [--label "cab mini"]
+//   danibot serve [--port 8799] [--data-dir ~/.danibot] [--label "cab mini"]
 //                     [--public-url https://host] [--tailscale] [--no-pair]
-//   openmausbot pair  [--label "My MacBook"] [--client] [--public-url https://host]
-//   openmausbot sessions [revoke <id>]
-//   openmausbot status
+//   danibot pair  [--label "My MacBook"] [--client] [--public-url https://host]
+//   danibot sessions [revoke <id>]
+//   danibot status
 //
 // `serve` starts the server, waits for it, and prints a pairing link with a
 // QR code: scan it with the phone or open it on a laptop. `--tailscale` asks
 // Tailscale to terminate HTTPS for it and uses the MagicDNS name in the link.
 //
-// This module only exports; openmausbot.ts is the entry that runs main(), so
+// This module only exports; danibot.ts is the entry that runs main(), so
 // bundling this file into other entries (pair-cli.ts) never runs it twice.
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -48,7 +48,7 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   const options: CliOptions = {
     command: command === "--help" || command === "-h" ? "help" : (command as CliOptions["command"]),
     port: Number(env.OMB_PORT || 8799),
-    dataDir: env.OMB_DATA_DIR || join(homedir(), ".openmausbot"),
+    dataDir: env.OMB_DATA_DIR || join(homedir(), ".danibot"),
     tailscale: false,
     client: false,
     pair: true,
@@ -82,13 +82,13 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   return options;
 }
 
-export const USAGE = `openmausbot — run the Dani Bot server anywhere, pair devices to it
+export const USAGE = `danibot — run the Dani Bot server anywhere, pair devices to it
 
-  openmausbot serve [--port 8799] [--data-dir DIR] [--label NAME]
+  danibot serve [--port 8799] [--data-dir DIR] [--label NAME]
                     [--public-url https://host] [--tailscale] [--no-pair]
-  openmausbot pair  [--label NAME] [--client] [--public-url https://host]
-  openmausbot sessions [revoke ID]
-  openmausbot status
+  danibot pair  [--label NAME] [--client] [--public-url https://host]
+  danibot sessions [revoke ID]
+  danibot status
 
 serve   starts the server and prints a pairing link + QR code
 pair    mints a pairing code against a running server (--client: chat only)
@@ -151,7 +151,7 @@ async function mintPairing(port: number, options: { label?: string; client?: boo
 // ── commands ───────────────────────────────────────────────────────────
 export async function runPair(options: CliOptions): Promise<number> {
   if (!(await serverUp(options.port))) {
-    console.error(`no Dani Bot server on http://127.0.0.1:${options.port}; start one with \`openmausbot serve\` or set OMB_PORT`);
+    console.error(`no Dani Bot server on http://127.0.0.1:${options.port}; start one with \`danibot serve\` or set OMB_PORT`);
     return 1;
   }
   console.log(await mintPairing(options.port, { label: options.label, client: options.client, publicUrl: options.publicUrl }));
@@ -180,7 +180,7 @@ export async function runSessions(options: CliOptions): Promise<number> {
     return 0;
   }
   if (!sessions.length) {
-    console.log("no paired devices yet: run `openmausbot pair`");
+    console.log("no paired devices yet: run `danibot pair`");
     return 0;
   }
   console.log(formatSessions(sessions));
@@ -196,12 +196,12 @@ export function formatSessions(sessions: Array<{ id: string; label: string; scop
   const head = ["id", "device", "scope", "last seen", "expires"];
   const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)));
   const line = (r: string[]) => r.map((c, i) => c.padEnd(widths[i])).join("  ");
-  return [line(head), ...rows.map(line), "", "revoke one with: openmausbot sessions revoke <id>"].join("\n");
+  return [line(head), ...rows.map(line), "", "revoke one with: danibot sessions revoke <id>"].join("\n");
 }
 
 export async function runStatus(options: CliOptions): Promise<number> {
   try {
-    const res = await fetch(`http://127.0.0.1:${options.port}/.well-known/openmausbot/environment`);
+    const res = await fetch(`http://127.0.0.1:${options.port}/.well-known/danibot/environment`);
     const body: any = await res.json();
     console.log(options.json ? JSON.stringify(body, null, 2) : `${body.label} · Dani Bot ${body.version} on ${body.platform} · id ${body.environmentId}`);
     return 0;
@@ -229,7 +229,7 @@ export function serverEntry(here = HERE): { command: string; args: string[]; sta
 
 export async function runServe(options: CliOptions, log: (line: string) => void = console.log): Promise<number> {
   if (await serverUp(options.port)) {
-    console.error(`something already answers on http://127.0.0.1:${options.port}; use \`openmausbot pair\` against it, or --port for a second server`);
+    console.error(`something already answers on http://127.0.0.1:${options.port}; use \`danibot pair\` against it, or --port for a second server`);
     return 1;
   }
   let publicUrl = options.publicUrl;
@@ -294,7 +294,7 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
     log("");
     log(await mintPairing(options.port, { label: options.label ? `${options.label} owner` : undefined, publicUrl: publicUrl ?? undefined }));
     log("");
-    log("another device later:  openmausbot pair --label \"Kitchen iPad\"");
+    log("another device later:  danibot pair --label \"Kitchen iPad\"");
   }
   log("stop with Ctrl+C");
   return await new Promise<number>((resolveExit) => {

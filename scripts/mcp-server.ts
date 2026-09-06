@@ -40,7 +40,7 @@ const DISCOVERY_URLS = configuredUrl
 let discoveredBaseUrl: string | undefined;
 
 export function log(msg: string) {
-  process.stderr.write(`[openmausbot-mcp] ${msg}\n`);
+  process.stderr.write(`[danibot-mcp] ${msg}\n`);
 }
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
@@ -91,7 +91,7 @@ export async function probeBaseUrls(candidates: string[]): Promise<string> {
       const health = await fetchJson(`${candidate}/api/health`, {
         signal: AbortSignal.timeout(Math.min(requestTimeoutMs(), 2_000)),
       });
-      if (health?.app !== "openmausbot") {
+      if (health?.app !== "danibot") {
         failures.push(`${candidate} answered, but it was not Dani Bot`);
         continue;
       }
@@ -756,11 +756,11 @@ export async function handleToolCall(
   switch (name) {
     case "get_system_health": {
       const res = await fetcher("/api/health");
-      if (res?.app !== "openmausbot") throw new Error("The configured endpoint is not a Dani Bot server");
+      if (res?.app !== "danibot") throw new Error("The configured endpoint is not a Dani Bot server");
       return {
         status: "connected",
         endpoint: discoveredBaseUrl ?? OMB_BASE_URL,
-        app: "openmausbot",
+        app: "danibot",
         packaged: Boolean(res.static),
       };
     }
@@ -1248,7 +1248,7 @@ export async function processMcpMessage(
           tools: {},
         },
         serverInfo: {
-          name: "openmausbot-mcp",
+          name: "danibot-mcp",
           version: "1.1.0",
         },
         instructions: "Use bounded read tools before mutating the Dani Bot team. Approval grants, deletion, and computer lifecycle are intentionally unavailable.",

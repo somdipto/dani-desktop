@@ -351,7 +351,7 @@ data class PairingInvite(val connection: Connection, val credential: String) {
         private const val MAX_ENDPOINTS = 8
 
         fun parse(url: URI): PairingInvite? {
-            if (!url.scheme.equals("openmausbot", ignoreCase = true) ||
+            if ((!url.scheme.equals("danibot", ignoreCase = true) && !url.scheme.equals("openmausbot", ignoreCase = true)) ||
                 !url.host.equals("pair", ignoreCase = true)
             ) {
                 return null

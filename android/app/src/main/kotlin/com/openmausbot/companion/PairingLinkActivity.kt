@@ -7,7 +7,7 @@ import com.openmausbot.companion.ui.PairingHandoff
 import com.openmausbot.companion.ui.PairingLink
 
 /**
- * The only door `openmausbot://pair?…&token=omb_pair_…` may come through.
+ * The only door `danibot://pair?…&token=omb_pair_…` may come through.
  *
  * A pairing URL carries a one-time credential, and §6 forbids persisting one.
  * Keeping the deep link on [MainActivity] broke that by a path no `Saver` audit
@@ -60,7 +60,7 @@ class PairingLinkActivity : Activity() {
             markFinishing = ::finish,
             // Session decides whether the invite may be accepted at all — an
             // already-paired phone rejects it (§6).
-            deliver = { url -> (application as OpenMausApp).session.receivePairingURL(url) },
+            deliver = { url -> (application as DaniApp).session.receivePairingURL(url) },
         )
     }
 }

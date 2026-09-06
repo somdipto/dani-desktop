@@ -411,11 +411,11 @@ interface CompanionDiscovery {
 }
 
 /**
- * NsdManager wrapper for `_openmausbot._tcp`, exposed as a Flow of [DiscoveryState].
+ * NsdManager wrapper for `_danibot._tcp` / `_openmausbot._tcp`, exposed as a Flow of [DiscoveryState].
  */
 class NsdDiscovery(
     context: Context,
-    private val serviceType: String = SERVICE_TYPE,
+    private val serviceType: String = LEGACY_SERVICE_TYPE,
 ) : CompanionDiscovery {
     private val appContext = context.applicationContext
     private val nsdManager = appContext.getSystemService(NsdManager::class.java)
@@ -529,7 +529,8 @@ class NsdDiscovery(
     }
 
     companion object {
-        const val SERVICE_TYPE = "_openmausbot._tcp."
-        const val MULTICAST_LOCK_TAG = "openmausbot-nsd"
+        const val SERVICE_TYPE = "_danibot._tcp."
+        const val LEGACY_SERVICE_TYPE = "_openmausbot._tcp."
+        const val MULTICAST_LOCK_TAG = "danibot-nsd"
     }
 }

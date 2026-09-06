@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.openmausbot.companion.OpenMausApp
+import com.openmausbot.companion.DaniApp
 import com.openmausbot.companion.core.InMemoryOnboardingStore
 import com.openmausbot.companion.core.Session
 import com.openmausbot.companion.core.TokenStore
@@ -145,12 +145,12 @@ class SessionLingerServiceTest {
 
     @Test
     fun `the Application registers the linger coordinator on the process lifecycle`() {
-        val app = RuntimeEnvironment.getApplication() as OpenMausApp
+        val app = RuntimeEnvironment.getApplication() as DaniApp
         val registry = ProcessLifecycleOwner.get().lifecycle as LifecycleRegistry
 
         // removeObserver is a no-op for an observer that was never added, so a
         // count that drops by one is proof this exact coordinator is the one
-        // OpenMausApp put on the process lifecycle.
+        // DaniApp put on the process lifecycle.
         val before = registry.observerCount
         registry.removeObserver(app.linger)
         assertEquals(before - 1, registry.observerCount)

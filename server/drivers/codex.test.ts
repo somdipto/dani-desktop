@@ -120,7 +120,7 @@ describe("CodexDriver turns (fake app-server)", () => {
       "turn.started",
       "session.started",
       "item.started", // commandExecution ls -la
-      "item.started", // webSearch OpenMausBot
+      "item.started", // webSearch Dani Bot
       "item.completed", // commandExecution done
       "item.completed", // webSearch done
       "content.delta",
@@ -447,7 +447,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     });
     await recorder.until((event) => event.type === "turn.completed");
     const seen = JSON.parse(readFileSync(dump, "utf8"));
-    expect(seen.argv.join(" ")).toContain("mcp_servers.openmausbot_connectors.command");
+    expect(seen.argv.join(" ")).toContain("mcp_servers.danibot_connectors.command");
     expect(seen.argv.join(" ")).toContain("OMB_CONNECTOR_TOKEN");
     expect(seen.argv.join(" ")).not.toContain("per-turn-connector-token");
     expect(seen.env.OMB_CONNECTOR_TOKEN).toBe("per-turn-connector-token");
@@ -484,7 +484,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     expect(seen.env.NOTES_TOKEN).toBe("tok-notes");
     // the built-in keeps codex's pre-quieted approval mode; the custom
     // server does NOT — its tool calls arrive as approval cards
-    expect(argv).toContain('mcp_servers.openmausbot_connectors.default_tools_approval_mode');
+    expect(argv).toContain('mcp_servers.danibot_connectors.default_tools_approval_mode');
     expect(argv).not.toContain('mcp_servers.notes.default_tools_approval_mode');
   });
 
@@ -556,7 +556,7 @@ describe("CodexDriver turns (fake app-server)", () => {
       integrations: {
         localComputer: {
           command: process.execPath,
-          args: ["/tmp/container-mcp.js", "podman", "openmausbot-computer", "/run/cua.sock"],
+          args: ["/tmp/container-mcp.js", "podman", "danibot-computer", "/run/cua.sock"],
           env: { ELECTRON_RUN_AS_NODE: "1", OMB_VM_TOKEN: "vm-secret" },
         },
       },

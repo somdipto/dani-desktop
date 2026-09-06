@@ -116,7 +116,7 @@ So the harness just adds one entry to a bot's `--mcp-config`:
 { "mcpServers": { "computer": {
     "command": "<cua-driver binary>",
     "args": ["mcp", "--embedded", "--socket", "<socketPath>"],
-    "env": { "CUA_DRIVER_EMBEDDED": "1", "CUA_DRIVER_HOST_BUNDLE_ID": "com.openmausbot.app" }
+    "env": { "CUA_DRIVER_EMBEDDED": "1", "CUA_DRIVER_HOST_BUNDLE_ID": "com.danibot.app" }
 } } }
 ```
 

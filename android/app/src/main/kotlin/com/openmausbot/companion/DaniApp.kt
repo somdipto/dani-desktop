@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
  * Application entry: owns the long-lived [Session] and wires
  * [ProcessLifecycleOwner] the way iOS `scenePhase` drives connect and linger.
  */
-class OpenMausApp : Application() {
+class DaniApp : Application() {
     private val appJob = SupervisorJob()
     val appScope = CoroutineScope(appJob + Dispatchers.Main.immediate)
 
