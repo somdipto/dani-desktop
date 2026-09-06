@@ -178,3 +178,7 @@ app doesn't embed it).
    `EmbeddedCuaDriverHost` for production.
 5. Later: axstream-style macro teach/replay, extension bridge, playwright-mcp
    tier.
+
+## Month-1 browser eval (Webcmd)
+
+Interview method only — not the in-app Browser destination yet. See [`docs/browser-webcmd.md`](browser-webcmd.md). Do not treat the generic click-loop as the success path. Wiring `@agentrhq/webcmd` into the desktop Browser destination is [`docs/superpowers/specs/2026-09-06-webcmd-browser-destination.md`](superpowers/specs/2026-09-06-webcmd-browser-destination.md).

@@ -26,6 +26,8 @@ GitHub generates the release body from pull requests since the previous
 tag. Configure the optional Vercel hook below to rebuild the docs immediately
 after publication; otherwise the next docs deployment refreshes it.
 
+Day-30 announce: before publishing, replace the auto-generated PR list with the filled [`docs/month-one-report.md`](month-one-report.md).
+
 
 ## Why the gates exist
 
@@ -52,8 +54,8 @@ The Developer ID Application certificate, exported from the Mac that
 currently signs releases:
 
 ```sh
-# Keychain Access → My Certificates → "Developer ID Application: Milind Soni
-# (993D98NH4J)" → right-click → Export… → .p12 with a strong password, then:
+# Keychain Access → My Certificates → "Developer ID Application: Dani" →
+# right-click → Export… → .p12 with a strong password, then:
 base64 -i DeveloperID.p12 | pbcopy   # → MAC_CERT_P12_BASE64
 # the export password             → MAC_CERT_PASSWORD
 ```

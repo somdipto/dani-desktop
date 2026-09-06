@@ -8,6 +8,23 @@ Node **24+**, **pnpm** (`packageManager` in `package.json`).
 
 This machine cannot cross-build. Each OS builds only its own installer.
 
+## Run locally as a desktop app (any agent)
+
+Do **not** demo a live hosted instance. On the person's OS:
+
+```sh
+corepack enable
+pnpm install
+pnpm dev:server    # 127.0.0.1:8799
+pnpm dev           # 127.0.0.1:5199 — keep running
+pnpm dev:desktop   # Electron window — show this
+```
+
+All three stay running. The product is the Electron window, not the browser
+tab. Computer-use = This computer (CUA). Browser eval = [`docs/browser-webcmd.md`](browser-webcmd.md).
+
+For an installer to leave behind, use the table below on **that same OS**.
+
 ## Prefer GitHub Actions (after the first version)
 
 Do **not** rebuild on every git push.
@@ -45,10 +62,14 @@ Check before sending:
 
 Upload **all** of those files to **one** GitHub release tag `v<version>` on `somdipto/dani-desktop`. Missing `latest.yml` means Windows installs never auto-update.
 
+Friend interviews after they install: copy [`docs/interview-notes.md`](interview-notes.md) per person. Browser eval: [`docs/browser-webcmd.md`](browser-webcmd.md).
+
 ## Agent success criteria
 
 - [ ] Built only on the matching OS
 - [ ] Same git SHA as the other platforms for this version
 - [ ] Updater yml files included
 - [ ] No extra dependencies added
+- [ ] Showed the Electron desktop window on the host OS
+- [ ] Did not use a live hosted instance
 - [ ] Did not claim it works without running the package command
