@@ -7,24 +7,24 @@ final class MessageAttachmentsTests: XCTestCase {
         let web = try XCTUnwrap(LocalMessageLink.resolve("https://example.com/report.md?q=1"))
         XCTAssertEqual(web, .web(try XCTUnwrap(URL(string: "https://example.com/report.md?q=1"))))
         XCTAssertEqual(
-            LocalMessageLink.resolve("/Users/milind/Documents/report.md"),
-            .desktopFile(path: "/Users/milind/Documents/report.md")
+            LocalMessageLink.resolve("/Users/ada/Documents/report.md"),
+            .desktopFile(path: "/Users/ada/Documents/report.md")
         )
         XCTAssertEqual(
-            LocalMessageLink.resolve("file:///Users/milind/My%20Report.md"),
-            .desktopFile(path: "/Users/milind/My Report.md")
+            LocalMessageLink.resolve("file:///Users/ada/My%20Report.md"),
+            .desktopFile(path: "/Users/ada/My Report.md")
         )
         XCTAssertEqual(
-            LocalMessageLink.resolve(#"C:\Users\Milind\report.md"#),
-            .desktopFile(path: #"C:\Users\Milind\report.md"#)
+            LocalMessageLink.resolve(#"C:\Users\Ada\report.md"#),
+            .desktopFile(path: #"C:\Users\Ada\report.md"#)
         )
         XCTAssertEqual(
-            LocalMessageLink.resolve(try XCTUnwrap(URL(string: #"C:\Users\Milind\report.md"#))),
-            .desktopFile(path: #"C:\Users\Milind\report.md"#)
+            LocalMessageLink.resolve(try XCTUnwrap(URL(string: #"C:\Users\Ada\report.md"#))),
+            .desktopFile(path: #"C:\Users\Ada\report.md"#)
         )
         XCTAssertEqual(
-            LocalMessageLink.resolve("file:///C:/Users/Milind/report.md"),
-            .desktopFile(path: "C:/Users/Milind/report.md")
+            LocalMessageLink.resolve("file:///C:/Users/Ada/report.md"),
+            .desktopFile(path: "C:/Users/Ada/report.md")
         )
         XCTAssertEqual(
             LocalMessageLink.resolve(#"\\server\share\report.md"#),

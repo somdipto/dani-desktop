@@ -5,7 +5,7 @@ import { goalCoordinatorForComposer, roomRespondersForComposer } from "./group-r
 describe("roomRespondersForComposer", () => {
   const members = [
     { id: "atlas", name: "Atlas" },
-    { id: "milind", name: "Milind" },
+    { id: "alex", name: "Alex" },
   ];
 
   it("routes an unmentioned message to the configured lead", () => {
@@ -16,7 +16,7 @@ describe("roomRespondersForComposer", () => {
 
   it("lets explicit mentions override the configured lead", () => {
     expect(
-      roomRespondersForComposer("@Milind take this", members, { defaultResponder: { kind: "member", botId: "atlas" } }),
+      roomRespondersForComposer("@Alex take this", members, { defaultResponder: { kind: "member", botId: "atlas" } }),
     ).toEqual([members[1]]);
   });
 

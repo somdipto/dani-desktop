@@ -215,11 +215,11 @@ class ConnectionTest {
     fun parsesADesktopPairingInvite() {
         val token = "omb_pair_" + "a".repeat(43)
         val invite = PairingInvite.parse(
-            URI("openmausbot://pair?address=macbook.tail1234.ts.net%3A8810&token=$token&code=004209&name=Milind%27s%20Mac"),
+            URI("openmausbot://pair?address=macbook.tail1234.ts.net%3A8810&token=$token&code=004209&name=Ada%27s%20Mac"),
         )!!
         assertEquals("macbook.tail1234.ts.net", invite.connection.host)
         assertEquals(8810, invite.connection.port)
-        assertEquals("Milind's Mac", invite.connection.name)
+        assertEquals("Ada's Mac", invite.connection.name)
         assertEquals(token, invite.credential)
     }
 
@@ -503,7 +503,7 @@ class ConnectionTest {
         val reconciled = connection.reconciling(metadata)
 
         assertEquals(local, reconciled.activeEndpoint, "the live local stream is not switched underneath itself")
-        assertEquals("Milind's computer", reconciled.name)
+        assertEquals("Ada's computer", reconciled.name)
         assertEquals(
             CompanionEndpointKind.HOSTED,
             reconciled.orderedEndpoints.first().kind,
@@ -598,7 +598,7 @@ class ConnectionTest {
 
     private companion object {
         private const val FULL_METADATA =
-            """{"serverName":"Milind's computer","hosts":["mac.tail1234.ts.net","192.168.1.42"],""" +
+            """{"serverName":"Ada's computer","hosts":["mac.tail1234.ts.net","192.168.1.42"],""" +
                 """"endpoints":[{"url":"http://192.168.1.42:8810","kind":"lan","priority":200},""" +
                 """{"url":"http://not-a-tailnet.example:8810","kind":"tailnet","priority":50},""" +
                 """{"url":"http://mac.tail1234.ts.net:8810","kind":"tailnet","priority":100},""" +

@@ -68,11 +68,11 @@ final class ConnectionTests: XCTestCase {
     func testParsesADesktopPairingInvite() throws {
         let token = "omb_pair_" + String(repeating: "a", count: 43)
         let secretKey = "BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU"
-        let url = try XCTUnwrap(URL(string: "openmausbot://pair?address=macbook.tail1234.ts.net%3A8810&token=\(token)&code=004209&name=Milind%27s%20Mac&secretKey=\(secretKey)"))
+        let url = try XCTUnwrap(URL(string: "openmausbot://pair?address=macbook.tail1234.ts.net%3A8810&token=\(token)&code=004209&name=Ada%27s%20Mac&secretKey=\(secretKey)"))
         let invite = try XCTUnwrap(PairingInvite.parse(url))
         XCTAssertEqual(invite.connection.host, "macbook.tail1234.ts.net")
         XCTAssertEqual(invite.connection.port, 8810)
-        XCTAssertEqual(invite.connection.name, "Milind's Mac")
+        XCTAssertEqual(invite.connection.name, "Ada's Mac")
         XCTAssertEqual(invite.connection.secretPublicKey, secretKey)
         XCTAssertEqual(invite.credential, token)
     }
@@ -87,10 +87,10 @@ final class ConnectionTests: XCTestCase {
     func testPairingConsentShowsNormalizedOriginInsteadOfTrustingQRName() throws {
         let url = try XCTUnwrap(URL(string:
             "openmausbot://pair?address=https%3A%2F%2FOTHER.Example%3A9443%2F" +
-            "&code=004209&name=Milind%27s%20Mac"))
+            "&code=004209&name=Ada%27s%20Mac"))
         let invite = try XCTUnwrap(PairingInvite.parse(url))
 
-        XCTAssertEqual(invite.connection.name, "Milind's Mac")
+        XCTAssertEqual(invite.connection.name, "Ada's Mac")
         XCTAssertEqual(invite.connection.pairingConsentOrigin, "https://other.example:9443")
         XCTAssertFalse(invite.connection.pairingConsentOrigin.contains("004209"))
     }

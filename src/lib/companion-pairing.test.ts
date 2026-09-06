@@ -23,7 +23,7 @@ describe("companionPairingLink", () => {
       port: 8810,
       code: "004209",
       token,
-      name: "Milind's Mac",
+      name: "Ada's Mac",
       secretPublicKey,
     });
 
@@ -33,7 +33,7 @@ describe("companionPairingLink", () => {
     expect(url.searchParams.get("address")).toBe("macbook.tail1234.ts.net:8810");
     expect(url.searchParams.get("token")).toBe(token);
     expect(url.searchParams.get("code")).toBe("004209");
-    expect(url.searchParams.get("name")).toBe("Milind's Mac");
+    expect(url.searchParams.get("name")).toBe("Ada's Mac");
     expect(url.searchParams.get("secretKey")).toBe(secretPublicKey);
   });
 

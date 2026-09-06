@@ -22,7 +22,7 @@ describe("native permission decisions", () => {
 
 describe("looksDestructive", () => {
   const dangerous = [
-    "rm -rf /Users/milind/project",
+    "rm -rf /Users/ada/project",
     "rm -fr node_modules",
     "sudo rm /etc/hosts",
     "dd if=/dev/zero of=/dev/disk2",
@@ -58,7 +58,7 @@ describe("looksDestructive", () => {
 describe("looksSensitive", () => {
   for (const text of [
     "cat .env",
-    "cat /Users/milind/project/.env.production",
+    "cat /Users/ada/project/.env.production",
     "cat ~/.ssh/id_rsa",
     "cp ~/.aws/credentials /tmp",
     "cat .npmrc",

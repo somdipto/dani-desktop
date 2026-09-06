@@ -6,7 +6,7 @@
 
 **Your own team of AI bots, in a chat app.**
 
-<sub>An open-source version of **Grok Bot** — bring-your-own-agent, local-first, on the models you already have.</sub>
+<sub>Bring-your-own-agent, local-first, on the models you already have.</sub>
 
 Every bot in the sidebar is a real agent — Claude or Codex running locally under the hood — with its own
 personality, its own model, its own cloud computer, and its own connected apps.
@@ -56,9 +56,9 @@ Talk to them like contacts. Watch them work. Approve what matters.
 
 ## Why
 
-One assistant in one box is the wrong shape for agents. Dani Bot is an open-source take on **Grok Bot** —
-it keeps the idea (AI as a *messaging app*: a roster of bots you chat with, each with its own personality,
-memory of its thread, model, computer, and apps) and rebuilds it open, local-first, and on the agents you
+One assistant in one box is the wrong shape for agents. Dani Bot is a
+messaging app for agents — a roster of bots you chat with, each with its own personality,
+memory of its thread, model, computer, and apps — rebuilt open, local-first, and on the agents you
 already have:
 
 - **Bring your own agents.** Bots run on the `claude`, `codex`, and `grok` CLIs installed on your own machine
@@ -227,10 +227,10 @@ See [MCP server setup and tool reference](docs/mcp-server.md).
 
 | | Download | Install |
 |---|---|---|
-| **macOS** (Apple silicon) | [OpenMausBot.dmg](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot.dmg) | Drag it to Applications, open it. Signed & notarized. |
-| **macOS** (Intel) | [OpenMausBot-intel.dmg](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot-intel.dmg) | Same app, built for Intel Macs. Signed & notarized. |
-| **Windows** (x64) | [OpenMausBot-setup.exe](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot-setup.exe) | Run it — one-click, per-user, no admin rights. The installer isn't code-signed yet, so SmartScreen shows "unknown publisher": **More info → Run anyway**. |
-| **Ubuntu 24.04** (x64) | [OpenMausBot-amd64.deb](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot-amd64.deb) · [OpenMausBot.AppImage](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot.AppImage) | Install the `.deb` with APT (recommended), or make the AppImage executable and run it. Beta; GNOME is the supported desktop. |
+| **macOS** (Apple silicon) | [Download](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot.dmg) | Drag it to Applications, open it. Signed & notarized. |
+| **macOS** (Intel) | [Download](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot-intel.dmg) | Same app, built for Intel Macs. Signed & notarized. |
+| **Windows** (x64) | [Download](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot-setup.exe) | Run it — one-click, per-user, no admin rights. The installer isn't code-signed yet, so SmartScreen shows "unknown publisher": **More info → Run anyway**. |
+| **Ubuntu 24.04** (x64) | [Download .deb](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot-amd64.deb) · [Download AppImage](https://github.com/somdipto/dani-desktop/releases/latest/download/OpenMausBot.AppImage) | Install the `.deb` with APT (recommended), or make the AppImage executable and run it. Beta; GNOME is the supported desktop. |
 
 See the [Ubuntu Desktop guide](docs/linux-desktop.md) for installation, capabilities, and troubleshooting.
 Any desktop build can also pair as a client to another Windows, macOS, or Ubuntu host over Tailscale; see [desktop-to-desktop companion mode](docs/desktop-companion.md).

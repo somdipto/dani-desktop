@@ -166,7 +166,7 @@ final class Session: ObservableObject {
            let fleet = try? JSONDecoder().decode(Fleet.self, from: data) {
             let preview = Connection(
                 id: "preview-current",
-                name: "Milind’s MacBook Pro",
+                name: "Ada's MacBook Pro",
                 host: "preview.tailnet.ts.net",
                 port: 8810
             )
