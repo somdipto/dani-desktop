@@ -159,8 +159,8 @@ The format stays portable: Dani Bot reads the structured YAML frontmatter for a 
 install, while Grok, Claude, ChatGPT, and people can follow the ordinary Markdown playbook. Connections
 remain off until you approve them, routines arrive paused, and packages never carry credentials,
 conversations, permissions, memory, or computer access. Browse the
-[open-source playbook repository](https://github.com/milind-soni/openmausbot-teams) or read its
-[portable format](https://github.com/milind-soni/openmausbot-teams/blob/main/FORMAT.md).
+[open-source playbook repository](https://github.com/somdipto/dani-desktop) or read its
+[portable format](https://github.com/somdipto/dani-desktop).
 
 ### 🎧 Bots that talk back
 
@@ -346,7 +346,7 @@ which takes care of receipts and taxes; nothing about the app ever sits behind a
 
 ## License
 
-[Apache License 2.0](LICENSE) © 2026 Milind Soni and Dani Bot contributors.
+[Apache License 2.0](LICENSE) © 2026 Dani and Dani Bot contributors.
 
 Packaged Cua Driver components retain their upstream MIT, SIL OFL 1.1, MPL-2.0, and other dependency terms;
 the corresponding notices, license texts, source locations, and SBOM are in
