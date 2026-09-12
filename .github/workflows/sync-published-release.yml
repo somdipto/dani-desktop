@@ -1,0 +1,31 @@
+name: Sync published release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published tag (unused; hook only)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: Refresh docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Refresh the Vercel docs
+        env:
+          DOCS_DEPLOY_HOOK_URL: ${{ secrets.DOCS_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DOCS_DEPLOY_HOOK_URL" ]; then
+            echo "::notice::DOCS_DEPLOY_HOOK_URL is not configured; the changelog will refresh on the next docs deployment"
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --request POST "$DOCS_DEPLOY_HOOK_URL" > /dev/null
+          echo "requested a docs rebuild"
