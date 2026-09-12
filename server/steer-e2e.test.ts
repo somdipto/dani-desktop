@@ -48,11 +48,11 @@ posixOnly("mid-turn steering e2e", () => {
     chmodSync(FAKE_CLAUDE, 0o755);
     chmodSync(FAKE_ACP, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-steer-"));
-    mkdirSync(join(home, ".danibot"), { recursive: true });
+    mkdirSync(join(home, ".openmausbot"), { recursive: true });
     steerGate = join(home, "delayed-steer.gate");
     steerFinishGate = join(home, "finish-steered-turn.gate");
     writeFileSync(
-      join(home, ".danibot", "config.json"),
+      join(home, ".openmausbot", "config.json"),
       JSON.stringify({
         instances: {
           claude: { driver: "claudeAgent", environment: { FAKE_CLAUDE_MODE: "slow" }, config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" } },
@@ -137,6 +137,10 @@ posixOnly("mid-turn steering e2e", () => {
       expect(steered.steered).toBe(true);
       // one turn, not two: exactly one reply
       expect(bot.messages.filter((m: any) => m.role === "bot" && m.kind === "text" && m.text.startsWith("reply to:"))).toHaveLength(1);
+      // the tool chip keeps its command after the result settles it — the
+      // completion patch replaces the whole tool object
+      const chip = bot.messages.find((m: any) => m.kind === "activity" && m.tool?.name === "Bash");
+      expect(chip.tool).toMatchObject({ ok: true, summary: "echo hi" });
     },
     40_000,
   );
@@ -154,7 +158,7 @@ posixOnly("mid-turn steering e2e", () => {
       "the image queue tool chip",
     );
 
-    const attachments = join(home, ".danibot", "attachments");
+    const attachments = join(home, ".openmausbot", "attachments");
     mkdirSync(attachments, { recursive: true });
     const firstImagePath = join(attachments, "123e4567-e89b-42d3-a456-426614174000.png");
     const secondImagePath = join(attachments, "123e4567-e89b-42d3-a456-426614174001.png");
@@ -189,7 +193,7 @@ posixOnly("mid-turn steering e2e", () => {
     await waitFor(async () => (await getBot(created.id)).busy === false, "the attached follow-up to settle");
 
     const nativeRows = readFileSync(
-      join(home, ".danibot", "native", `${created.threadId}.ndjson`),
+      join(home, ".openmausbot", "native", `${created.threadId}.ndjson`),
       "utf8",
     )
       .trim()

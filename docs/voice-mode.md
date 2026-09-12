@@ -45,13 +45,21 @@ fewer moving parts, and no socket to leak when a turn is interrupted.
 
 ## Call mode
 
-**Call STT.** macOS can keep Apple `SFSpeechRecognizer`. Everywhere else — and optionally on Mac — a Pipecat sidecar runs **Whisper large-v3-turbo** locally (downloaded on first call). Settings also accept an OpenAI Platform API key (`gpt-4o-transcribe`) or an xAI API key (Grok STT). ChatGPT / grok CLI OAuth is not an STT credential. OpenAI Realtime and Grok Voice Agent are not used: they would replace the bot.
-
-**Half-duplex, on purpose.** The microphone is live only when the bot is not
-speaking. Interrupting is a tap, the Space bar, or Escape. Full-duplex
+**Half-duplex, on purpose.** The dictation helper is `SFSpeechRecognizer` on raw
+`AVAudioEngine` input with no acoustic echo cancellation. A microphone left open
+through playback transcribes the bot's own voice back into the conversation and
+the two of them talk forever. So the mic is live only when the bot is not
+speaking, and interrupting is a tap, the Space bar, or Escape. Full-duplex
 barge-in needs AEC on the capture path — a real follow-up, not a footnote.
 
-**Turn detection.** Call mode uses a silence timeout (850ms). Composer dictation keeps press-to-stop.
+**Turn detection stays native and local.** A buffer-backed
+`SFSpeechRecognizer` does not emit `isFinal` just because the speaker becomes
+quiet; it finalizes only after its audio stream ends. Call mode therefore starts
+the native helper with a silence timeout. Once a non-empty transcript stops
+changing for 850ms, the helper stops capture and calls `endAudio()`, which
+produces the final transcript sent to the renderer. Composer dictation omits the
+timeout and keeps its press-to-stop behavior. No cloud STT or bundled VAD model
+is involved.
 
 **Narration is what makes it bearable.** An agent turn is 5–60 seconds of tool
 calls, and silence that long reads as a dropped call. Every activity chip the
@@ -85,7 +93,7 @@ delegate real work to specialists over `ask_bot` — no new machinery required.
 
 ## Known gaps
 
-- **First local call is slow** while Pipecat and Whisper turbo download.
+- **Calls are macOS-only**, because dictation is. The voice half works everywhere.
 - **Rooms don't speak yet**, though per-bot voices already exist (`bot.voice`).
 - **No spend meter.** ElevenLabs bills per character. Auto-speak is off by
   default partly for that reason, but the app should eventually show usage.

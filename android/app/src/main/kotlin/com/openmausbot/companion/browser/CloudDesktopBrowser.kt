@@ -6,7 +6,7 @@ import androidx.browser.customtabs.CustomTabsIntent
 import java.net.URI
 
 /**
- * The cloud provider's noVNC viewer, opened without teaching Dani Mobile how
+ * The cloud provider's noVNC viewer, opened without teaching OpenMausMobile how
  * to speak VNC or retain the provider's session token — the port of
  * `ios/App/CloudDesktopBrowser.swift`, where the same job is done by
  * `SFSafariViewController`.

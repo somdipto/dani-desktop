@@ -244,8 +244,8 @@ function registryComponent(pkg, cargoLockPackages) {
         : []),
     ],
     properties: [
-      { name: "danibot:cargo:package-id", value: pkg.id },
-      { name: "danibot:cargo:crate-sha256", value: locked.checksum },
+      { name: "openmausbot:cargo:package-id", value: pkg.id },
+      { name: "openmausbot:cargo:crate-sha256", value: locked.checksum },
     ],
   };
 }
@@ -287,10 +287,10 @@ function interComponent() {
     ],
     properties: [
       {
-        name: "danibot:font:name-table-version",
+        name: "openmausbot:font:name-table-version",
         value: "Version 4.001;git-66647c0bb",
       },
-      { name: "danibot:font:embedded-sha256", value: INTER_FONT_SHA256 },
+      { name: "openmausbot:font:embedded-sha256", value: INTER_FONT_SHA256 },
     ],
   };
 }
@@ -588,25 +588,25 @@ const bom = {
         },
       ],
       properties: [
-        { name: "danibot:archive:sha256", value: ARCHIVE_SHA256 },
-        { name: "danibot:cargo-lock:sha256", value: CARGO_LOCK_SHA256 },
-        { name: "danibot:target", value: "x86_64-unknown-linux-gnu" },
-        { name: "danibot:feature", value: "cua-driver/portal-input" },
+        { name: "openmausbot:archive:sha256", value: ARCHIVE_SHA256 },
+        { name: "openmausbot:cargo-lock:sha256", value: CARGO_LOCK_SHA256 },
+        { name: "openmausbot:target", value: "x86_64-unknown-linux-gnu" },
+        { name: "openmausbot:feature", value: "cua-driver/portal-input" },
         {
-          name: "danibot:registry-component-count",
+          name: "openmausbot:registry-component-count",
           value: String(EXPECTED_REGISTRY_UNION_COUNT),
         },
         {
-          name: "danibot:trycua-component-count",
+          name: "openmausbot:trycua-component-count",
           value: String(TRYCUA_COMPONENTS.length),
         },
         {
-          name: "danibot:file:cua-driver:sha256",
+          name: "openmausbot:file:cua-driver:sha256",
           value:
             "ed5844fadf07b9b72c4a3b3802e1c47233c166d66d6198608d5991f807aab4ac",
         },
         {
-          name: "danibot:file:cua-cursor-theme:sha256",
+          name: "openmausbot:file:cua-cursor-theme:sha256",
           value:
             "e589b2b7521bbfeaf9e2bfce668a38e80ed1b9790b1327b13d374fc331d8312a",
         },

@@ -15,7 +15,7 @@ const legacyNameFor = (botId: string) => {
   return `ogb-${prefix}-${hash}`;
 };
 
-describe("Dani Bot-managed Box inventory", () => {
+describe("OpenMaus-managed Box inventory", () => {
   let api: Server;
   let boxes: ProviderBox[] = [];
   let listStatus = 200;

@@ -68,7 +68,7 @@ final class EndpointRefreshTests: XCTestCase {
 
         let metadata = try await client.connectionMetadata()
 
-        XCTAssertEqual(metadata.serverName, "Ada's computer")
+        XCTAssertEqual(metadata.serverName, "Milind's computer")
         XCTAssertEqual(metadata.endpoints.map(\.kind), [.hosted, .tailnet, .lan])
         let request = try XCTUnwrap(EndpointRefreshRequestStub.captured())
         XCTAssertEqual(request.httpMethod, "GET")
@@ -272,6 +272,6 @@ final class EndpointRefreshTests: XCTestCase {
     }
 
     private static let fullMetadata = Data(
-        #"{"serverName":"Ada's computer","hosts":["mac.tail1234.ts.net","192.168.1.42"],"endpoints":[{"url":"http://192.168.1.42:8810","kind":"lan","priority":200},{"url":"http://not-a-tailnet.example:8810","kind":"tailnet","priority":50},{"url":"http://mac.tail1234.ts.net:8810","kind":"tailnet","priority":100},{"url":"https://mac.companion.example","kind":"hosted","priority":0}]}"#.utf8
+        #"{"serverName":"Milind's computer","hosts":["mac.tail1234.ts.net","192.168.1.42"],"endpoints":[{"url":"http://192.168.1.42:8810","kind":"lan","priority":200},{"url":"http://not-a-tailnet.example:8810","kind":"tailnet","priority":50},{"url":"http://mac.tail1234.ts.net:8810","kind":"tailnet","priority":100},{"url":"https://mac.companion.example","kind":"hosted","priority":0}]}"#.utf8
     )
 }

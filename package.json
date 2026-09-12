@@ -1,7 +1,7 @@
 {
   "name": "dani-desktop",
   "private": true,
-  "version": "0.1.55",
+  "version": "0.1.75",
   "description": "A local-first chat app for running a team of AI agents.",
   "homepage": "https://github.com/somdipto/dani-desktop",
   "repository": {
@@ -22,7 +22,7 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "clean": "node scripts/clean.mjs",
-    "lint": "oxlint .",
+    "lint": "oxlint --deny-warnings .",
     "check:contrast": "node scripts/check-skin-contrast.mjs",
     "i18n:check": "node scripts/generate-locale.mjs --check",
     "dev": "vite",
@@ -50,16 +50,16 @@
     "build:server": "tsc -p tsconfig.server.build.json && node scripts/bundle-server.mjs",
     "build:companion": "tsc -p tsconfig.companion.build.json",
     "build:speech": "node electron/build-speech-helper.mjs",
-    "build:recorder": "node electron/build-recorder-helper.mjs",
     "build:cua": "node scripts/prepare-cua.mjs",
     "build:android-tools": "node scripts/prepare-android-tools.mjs",
     "build:cloudflared": "node scripts/prepare-cloudflared.mjs",
+    "build:browser": "node scripts/prepare-browser.mjs",
+    "smoke:browser": "node scripts/smoke-browser-bundle.mjs",
     "build:cua:linux": "node scripts/prepare-cua-linux.mjs",
     "build:cua:linux:offline": "node scripts/prepare-cua-linux.mjs --offline",
     "build:updater": "node scripts/bundle-updater.mjs",
-    "build:browser-snapshot": "node scripts/build-browser-snapshot.mjs",
-    "package:prepare": "pnpm build && pnpm build:server && pnpm build:companion && pnpm build:updater && pnpm build:android-tools && pnpm build:cloudflared",
-    "package:mac": "pnpm package:prepare && pnpm build:speech && pnpm build:recorder && pnpm build:cua && electron-builder --mac --publish never",
+    "package:prepare": "pnpm build && pnpm build:server && pnpm build:companion && pnpm build:updater && pnpm build:android-tools && pnpm build:cloudflared && pnpm build:browser",
+    "package:mac": "pnpm package:prepare && pnpm build:speech && pnpm build:cua && electron-builder --mac --publish never",
     "package:win": "pnpm package:prepare && electron-builder --win --publish never",
     "package:linux": "pnpm package:prepare && pnpm build:cua:linux && electron-builder --linux --x64 --publish never",
     "package:linux:offline": "pnpm package:prepare && pnpm build:cua:linux:offline && electron-builder --linux --x64 --publish never",
@@ -80,6 +80,7 @@
     "control-plane:dry-run": "pnpm --filter @danibot/control-plane dry-run"
   },
   "dependencies": {
+    "@clack/prompts": "1.7.0",
     "@hpke/core": "1.9.0",
     "@trycua/cua-driver": "0.22.1",
     "clsx": "^2.1.1",
@@ -94,6 +95,7 @@
     "remark-gfm": "^4.0.1",
     "shiki": "^4.4.3",
     "tailwind-merge": "^3.3.1",
+    "tar": "7.5.22",
     "yaml": "^2.9.0",
     "zod": "4.4.3"
   },
@@ -115,13 +117,5 @@
     "vite": "^7.1.0",
     "vitest": "^4.1.10",
     "wrangler": "4.123.0"
-  },
-  "pnpm": {
-    "supportedArchitectures": {
-      "cpu": [
-        "arm64",
-        "x64"
-      ]
-    }
   }
 }

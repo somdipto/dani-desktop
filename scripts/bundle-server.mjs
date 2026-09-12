@@ -18,7 +18,7 @@
 // drivers/ nested; import.meta.url still resolves to the same location, so
 // that lookup is unaffected.
 import { build } from "esbuild";
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -53,14 +53,16 @@ const ENTRY_POINTS = [
   "proxy-paths.ts",
   "local-computer.ts",
   "computer-proxy.ts",
+  "local-computer-proxy.ts",
   "container-mcp.ts",
   "vps-container-mcp.ts",
   "permission-proxy.ts",
   "connector-proxy.ts",
+  "mcp-gate.ts",
+  "browser-proxy.ts",
   "drivers/agents-proxy.ts",
   "drivers/dweb-proxy.ts",
   "drivers/phone-proxy.ts",
-  "drivers/browser-proxy.ts",
 ];
 
 await build({
@@ -92,7 +94,55 @@ await build({
   logLevel: "info",
 });
 
-// pi-mcp-extension.ts is NOT a Dani Bot entry point: it is loaded by the
+// `openmausbot serve --tunnel` (server/tunnel.ts) spawns the connector guardian
+// as its own process, so it has to exist as a file beside the server, not only
+// as code inlined into the bundle that imports its neighbours. Bundled under
+// its own name: the same code the desktop app runs from
+// electron/managed-companion-guardian-main.mjs, so a fix lands in both.
+await build({
+  entryPoints: [join(root, "electron", "managed-companion-guardian-main.mjs")],
+  bundle: true,
+  platform: "node",
+  target: "node20",
+  format: "esm",
+  outfile: join(root, "dist-server", "tunnel-guardian.js"),
+  allowOverwrite: true,
+  logLevel: "info",
+});
+
+// `serve --tunnel` downloads cloudflared on first use by running the same
+// pinned-digest script the release build uses, as its own process (it runs
+// itself when executed directly, so it must never be inlined into another
+// entry).
+await build({
+  entryPoints: [join(root, "scripts", "prepare-cloudflared.mjs")],
+  bundle: true,
+  platform: "node",
+  target: "node20",
+  format: "esm",
+  outfile: join(root, "dist-server", "prepare-cloudflared.js"),
+  allowOverwrite: true,
+  logLevel: "info",
+});
+
+// The enterprise layer (enterprise/LICENSE; delete the folder for pure OSS)
+// is loaded by path from <root>/enterprise/server/index.{ts,js}. A package
+// or image has no TypeScript runtime, so ship it bundled; the npm package
+// copies this file to enterprise/server/index.js beside the server.
+if (existsSync(join(root, "enterprise", "server", "index.ts"))) {
+  await build({
+    entryPoints: [join(root, "enterprise", "server", "index.ts")],
+    bundle: true,
+    platform: "node",
+    target: "node20",
+    format: "esm",
+    outfile: join(root, "dist-server", "enterprise", "server", "index.js"),
+    allowOverwrite: true,
+    logLevel: "info",
+  });
+}
+
+// pi-mcp-extension.ts is NOT an Dani Bot entry point: it is loaded by the
 // external `pi` process (pi's own jiti), which resolves its
 // @earendil-works/pi-coding-agent and typebox imports from pi's install. Ship
 // it verbatim as .ts so the packaged app has it too — never bundle it, or

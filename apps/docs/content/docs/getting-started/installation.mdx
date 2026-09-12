@@ -6,17 +6,17 @@ icon: Download
 
 ## Download a released build
 
-Choose your computer below. Installer URLs are not published here yet.
+Choose your computer below. Each link always downloads the latest published build.
 
 | Platform | Recommended package | Notes |
 |---|---|---|
-| macOS Apple silicon | [Download `.dmg`](#) | Signed and notarized. Drag to Applications. |
-| macOS Intel | [Download `.dmg`](#) | Signed and notarized. |
-| Windows x64 | [Download installer](#) | Per-user installer; Windows signing is not yet available. |
-| Ubuntu 24.04 x64 | [Download `.deb`](#) · [AppImage](#) | The `.deb` is recommended; the AppImage is portable. |
+| macOS Apple silicon | [Download `.dmg`](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot.dmg) | Signed and notarized. Drag to Applications. |
+| macOS Intel | [Download `.dmg`](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot-intel.dmg) | Signed and notarized. |
+| Windows x64 | [Download installer](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot-setup.exe) | Per-user installer; Windows signing is not yet available. |
+| Ubuntu 24.04 x64 | [Download `.deb`](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot-amd64.deb) · [AppImage](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot.AppImage) | The `.deb` is recommended; the AppImage is portable. |
 
 <Callout type="warn" title="Windows SmartScreen">
-  The Windows installer is not code-signed yet. Windows may show “Unknown publisher.” Prefer a build you produced yourself until official installers are published.
+  The Windows installer is not code-signed yet. Windows may show “Unknown publisher.” Verify that you downloaded it from the official Dani Bot releases repository before choosing **More info → Run anyway**.
 </Callout>
 
 ## Install an agent CLI
@@ -36,7 +36,7 @@ Requirements: Node.js 24 or newer, pnpm 10.33.0, and at least one authenticated 
 
 ```bash
 git clone https://github.com/somdipto/dani-desktop.git
-cd dani-desktop
+cd Dani Bot
 corepack enable
 pnpm install --frozen-lockfile
 ```
@@ -51,4 +51,4 @@ pnpm dev:desktop
 
 ## Where data lives
 
-Dani Bot stores its application data under `~/.danibot`. Electron window and browser data use the normal per-platform application data directory.
+Dani Bot stores its application data under `~/.openmausbot`. Electron window and browser data use the normal per-platform application data directory.

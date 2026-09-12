@@ -368,7 +368,7 @@ describe("computer proxy (fake box)", () => {
         arguments: {
           actions: [
             { action: "click", x: 10, y: 20 },
-            { action: "type_text", text: "ada@example.com" },
+            { action: "type_text", text: "milind@example.com" },
             { action: "press_key", keys: "Tab" },
           ],
         },
@@ -546,14 +546,14 @@ describe("computer proxy (fake box)", () => {
     const result = await waitFor(130);
     const issued = commands.slice(before);
     expect(issued).toHaveLength(2);
-    expect(issued[0]).toContain('profile="$HOME/.danibot/chrome-profile"');
+    expect(issued[0]).toContain('profile="$HOME/.openmausbot/chrome-profile"');
     expect(issued[0]).toContain('chmod 700 "$profile"');
     expect(issued[0]).toContain('! cp -a -n "$browser_dir"/. "$profile"/');
     expect(issued[0]).toContain('echo "failed to copy browser profile: $browser_dir" >&2');
     expect(issued[0]).toContain('ln -s "$profile" "$browser_dir"');
     expect(issued[0]).not.toContain("do;");
     expect(issued[0]).not.toContain("then;");
-    expect(issued[0]).toContain('--user-data-dir="$HOME/.danibot/chrome-profile"');
+    expect(issued[0]).toContain('--user-data-dir="$HOME/.openmausbot/chrome-profile"');
     expect(issued[0]).toContain("--password-store=basic");
     expect(issued[0]).toContain("--disable-session-crashed-bubble");
     expect(issued[0]).not.toContain("user:password@");
@@ -612,6 +612,7 @@ describe("computer proxy control gate (fake box + fake control)", () => {
   const commands: string[] = [];
   let held = false;
   let helpOpen = false;
+  let blockedReason: string | undefined;
   let failHelpPost = false;
   const expiredHelpIds: string[] = [];
   const authHeaders: Array<string | undefined> = [];
@@ -681,7 +682,7 @@ describe("computer proxy control gate (fake box + fake control)", () => {
         return;
       }
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ held, helpOpen }));
+      res.end(JSON.stringify({ held, helpOpen, blockedReason }));
     });
     await new Promise<void>((r) => controlServer.listen(0, "127.0.0.1", r));
     const controlPort = (controlServer.address() as any).port;
@@ -746,6 +747,21 @@ describe("computer proxy control gate (fake box + fake control)", () => {
     const shot = await waitFor(4);
     expect(shot.result.isError).toBe(true);
     expect(commands.length).toBe(before);
+  });
+
+  it("explains another thread's lease without pretending a person took control", async () => {
+    held = true;
+    blockedReason = "Another thread is using this computer. Pause this task until it finishes.";
+    const before = commands.length;
+    try {
+      rpc({ jsonrpc: "2.0", id: 80, method: "tools/call", params: { name: "click", arguments: { x: 10, y: 10 } } });
+      expect((await waitFor(80)).result).toMatchObject({ isError: true, content: [{ type: "text", text: blockedReason }] });
+      rpc({ jsonrpc: "2.0", id: 81, method: "tools/call", params: { name: "computer_request_help", arguments: {} } });
+      expect((await waitFor(81)).result.content[0].text).toBe(blockedReason);
+      expect(commands.length).toBe(before);
+    } finally {
+      blockedReason = undefined;
+    }
   });
 
   it("computer_request_help waits out the drive and reports the hand-back", async () => {

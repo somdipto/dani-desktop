@@ -136,8 +136,8 @@ non-production scoped `CLOUDFLARE_API_TOKEN`, apply the migrations locally, and
 start Wrangler:
 
 ```sh
-pnpm --filter @openmausbot/control-plane exec wrangler d1 migrations apply DB --local --config wrangler.jsonc
-pnpm --filter @openmausbot/control-plane exec wrangler dev --config wrangler.jsonc
+pnpm --filter @danibot/control-plane exec wrangler d1 migrations apply DB --local --config wrangler.jsonc
+pnpm --filter @danibot/control-plane exec wrangler dev --config wrangler.jsonc
 ```
 
 Do not commit `.dev.vars`.

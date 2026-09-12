@@ -1,4 +1,4 @@
-import { readFileSync, rmSync } from "node:fs";
+import { readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DATA_DIR } from "./config.ts";
@@ -6,6 +6,8 @@ import { Store } from "./store.ts";
 import { RoutineManager } from "./routines.ts";
 import { createTeamBackup, importTeamBackup } from "./team-backup.ts";
 import { parseTeamBackup } from "../shared/team-backup.ts";
+import { soulFile, soulHash } from "./bot-folder.ts";
+import { appendMemoryLog, readMemoryFile, readMemoryLog, readMemoryTopic, searchMemoryFiles, updateMemory, workspaceDir, writeMemoryTopic } from "./workspace.ts";
 
 const selection = () => ({ instanceId: "fixture", model: "fixture-model" });
 
@@ -18,6 +20,7 @@ function fixture() {
     startTurn: async () => { throw new Error("Import must never run a bot"); },
   });
   const chief = store.createBot({ name: "Mira", section: "Engineering", description: "Full instructions\n".repeat(400) }, { seedMessages: false });
+  store.setSoul(chief.id, "  Cite sources.\nRespect the user's current request. 🐭\n");
   const scout = store.createBot({ name: "Scout", section: "Engineering", mascotBody: "circle" }, { seedMessages: false });
   const otherChief = store.createBot({ name: "Ava", section: "Operations" }, { seedMessages: false });
   const archived = store.createBot({ name: "Archived" }, { seedMessages: false });
@@ -30,7 +33,11 @@ function fixture() {
   store.branchMessage(chief.threadId, root.id, "Edited question");
   store.setActiveLeaf(chief.threadId, answer.id);
   store.renameTask(chief.id, chief.threadId, "First conversation");
+  // created first: tasks are newest-first and the tests below read the
+  // transcript of tasks[0], which must stay the conversation with messages
+  store.createTask(chief.id, "Opened by a deleted bot", false, undefined, { botId: "gone-bot", name: "Gone", at: 98 });
   const active = store.createTask(chief.id, "Second conversation")!;
+  store.setTaskOpenedBy(chief.id, active.threadId, { botId: scout.id, name: scout.name, delegationId: "do-not-resume-delegation", at: 99 });
   store.appendMessage(active.threadId, { role: "user", kind: "text", text: "Current question", queued: true, queueId: "do-not-replay" });
   store.appendMessage(active.threadId, { role: "bot", kind: "options", card: {
     title: "Permission request", subtitle: "Old approval", options: ["Allow"], requestId: "do-not-resume", allowKey: "Bash",
@@ -49,6 +56,49 @@ function fixture() {
 describe("additive portable team backups", () => {
   beforeEach(() => rmSync(DATA_DIR, { recursive: true, force: true }));
 
+  it("carries each bot's memory, topic notes and daily logs, scrubbed on the way out and private on the way in", () => {
+    const { store, routines, chief, scout } = fixture();
+    const now = new Date(2026, 8, 10, 12);
+    updateMemory(chief.id, { action: "append", text: "The user's name is Ada" }, { source: 'chat "Setup"', now });
+    writeMemoryTopic(chief.id, "deploys.md", "railway up from main\n");
+    appendMemoryLog(chief.id, "shipped 0.1.70", { source: 'chat "Deploy"', now });
+    // a topic the bot's own file tools wrote never met the server's scrub
+    const key = `sk-ant-api03-${"k".repeat(40)}`;
+    writeFileSync(join(workspaceDir(chief.id), "memory", "keys.md"), `anthropic: ${key}\n`);
+
+    const backup = createTeamBackup(store, routines.listRoutines(), "With memory");
+    const exported = backup.bots.find((bot) => bot.key === chief.id)!.memory!;
+    expect(exported.file).toBe('- 2026-09-10 · from chat "Setup" · The user\'s name is Ada\n');
+    expect(exported.topics.map((topic) => topic.name)).toEqual(["deploys.md", "keys.md"]);
+    expect(exported.topics[1].text).not.toContain(key);
+    expect(exported.topics[1].text).toContain("anthropic: «redacted");
+    expect(exported.logs).toEqual([{ name: "2026-09-10.md", text: '- 12:00 · from chat "Deploy" · shipped 0.1.70\n' }]);
+    // a bot that never remembered anything travels as before
+    expect(backup.bots.find((bot) => bot.key === scout.id)!.memory).toBeUndefined();
+    expect(JSON.stringify(backup)).not.toContain(key);
+
+    const result = importTeamBackup(store, routines, JSON.parse(JSON.stringify(backup)), selection());
+    const imported = result.bots.find((bot) => bot.name === "Mira 2")!;
+    expect(readMemoryFile(imported.id).text).toBe(exported.file);
+    expect(readMemoryTopic(imported.id, "deploys.md")).toBe("railway up from main\n");
+    expect(readMemoryTopic(imported.id, "keys.md")).toBe(exported.topics[1].text);
+    expect(readMemoryLog(imported.id, "2026-09-10.md")).toBe(exported.logs[0].text);
+    expect(readFileSync(soulFile(imported.id), "utf8")).toBe(chief.soul);
+    if (process.platform !== "win32") {
+      const dir = workspaceDir(imported.id);
+      expect(statSync(join(dir, "memory")).mode & 0o777).toBe(0o700);
+      expect(statSync(join(dir, "memory", "log")).mode & 0o777).toBe(0o700);
+      for (const file of ["MEMORY.md", "memory/deploys.md", "memory/keys.md", "memory/log/2026-09-10.md"]) {
+        expect(statSync(join(dir, file)).mode & 0o777, file).toBe(0o600);
+      }
+    }
+    // the imported copy is searchable at once, and the original untouched
+    expect(searchMemoryFiles(imported.id, "railway").map((hit) => hit.file)).toEqual(["memory/deploys.md"]);
+    expect(readMemoryFile(chief.id).text).toBe(exported.file);
+    const noMemory = result.bots.find((bot) => bot.name === "Scout 2")!;
+    expect(readMemoryFile(noMemory.id).text).toBe("");
+  });
+
   it("round-trips all bots, sections, Chiefs, rooms, tasks and branches without changing originals", () => {
     const { store, routines, chief, scout, otherChief, archived, group } = fixture();
     const backup = createTeamBackup(store, routines.listRoutines(), "My team");
@@ -63,11 +113,16 @@ describe("additive portable team backups", () => {
     for (const routine of originalRoutines) expect(routines.listRoutines().find((r) => r.id === routine.id)).toEqual(routine);
     const importedChief = result.bots.find((bot) => bot.name === "Mira 2")!;
     const importedScout = result.bots.find((bot) => bot.name === "Scout 2")!;
+    expect(importedChief.soul).toBe(chief.soul);
+    expect(importedChief.soulHash).toBe(soulHash(chief.soul!));
+    expect(readFileSync(soulFile(importedChief.id), "utf8")).toBe(chief.soul);
     expect(importedChief).toMatchObject({ section: "Engineering 2", chiefOfStaff: true, description: chief.description, computer: "off", composio: false, browser: false, approvalMode: "ask", autoApprove: false, resumeCursors: {}, playbooks: chief.playbooks });
     expect(result.bots.find((bot) => bot.name === "Ava 2")).toMatchObject({ section: "Operations 2", chiefOfStaff: true });
     expect(result.bots.find((bot) => bot.name === "Archived 2")).toMatchObject({ hidden: true });
     expect(importedChief).not.toHaveProperty("cwd");
     expect(importedChief).not.toHaveProperty("alwaysAllow");
+    expect(importedChief.tasks?.every((task) => task.activity === "idle" && task.busy === false
+      && task.unread === false && task.modelSelection?.instanceId === selection().instanceId)).toBe(true);
     expect(store.bot(otherChief.id)?.chiefOfStaff).toBe(true);
     expect(store.bot(archived.id)?.hidden).toBe(true);
     expect(importedScout.mascotBody).toBe(scout.mascotBody);
@@ -77,6 +132,12 @@ describe("additive portable team backups", () => {
     expect(roomMessage).toMatchObject({ text: "Room answer", from: { botId: importedScout.id }, peerPost: { unattended: true } });
     expect(result.routines.every((routine) => !routine.enabled && routine.nextRunAt === null)).toBe(true);
     expect(result.routines.find((routine) => routine.target === "room-goal")).toMatchObject({ botId: importedChief.id, groupId: result.groups[0].id });
+    // who opened a thread travels with it, remapped like a message's `from`;
+    // the handoff id stays behind with the ledger it belongs to
+    expect(importedChief.tasks!.find((task) => task.title === "Second conversation")!.openedBy)
+      .toEqual({ botId: importedScout.id, name: scout.name, at: 99 });
+    expect(importedChief.tasks!.find((task) => task.title === "Opened by a deleted bot")).not.toHaveProperty("openedBy");
+    expect(importedChief.tasks!.find((task) => task.title === "First conversation")).not.toHaveProperty("openedBy");
     const firstTask = importedChief.tasks!.find((task) => task.title === "First conversation")!;
     expect(store.messagesFor(firstTask.threadId).map((message) => message.text)).toEqual(["Original question", "Original answer", "Edited question"]);
     expect(store.activePath(firstTask.threadId).map((message) => message.text)).toEqual(["Original question", "Original answer"]);
@@ -84,8 +145,9 @@ describe("additive portable team backups", () => {
     expect(importedHistory.every((message) => message.kind === "text" && !message.queued && !message.card)).toBe(true);
     expect(importedHistory[1].text).toContain("Permission request");
     expect(importedHistory[2].text).toContain("file not included");
-    expect(JSON.stringify(backup)).not.toMatch(/do-not-replay|do-not-resume|\/private\/image|\/private\/old-workspace|alwaysAllow|autoApprove|modelSelection/);
+    expect(JSON.stringify(backup)).not.toMatch(/do-not-replay|do-not-resume|\/private\/image|\/private\/old-workspace|alwaysAllow|autoApprove|modelSelection|delegationId/);
     const reloaded = new Store(selection);
+    expect(reloaded.bot(importedChief.id)?.soul).toBe(chief.soul);
     expect(reloaded.activePath(firstTask.threadId)).toEqual(store.activePath(firstTask.threadId));
     expect(reloaded.bot(importedChief.id)?.tasks).toEqual(importedChief.tasks);
     expect(reloaded.messagesFor(chief.threadId)).toEqual(store.messagesFor(chief.threadId));
@@ -95,7 +157,7 @@ describe("additive portable team backups", () => {
     expect(store.bot(importedChief.id)).toEqual(importedChief);
   });
 
-  it.each(["unknown-version", "duplicate-bot", "cycle", "dangling-room", "dangling-task", "duplicate-chief"])("rejects %s before any writes", (corruption) => {
+  it.each(["unknown-version", "duplicate-bot", "cycle", "dangling-room", "dangling-task", "duplicate-chief", "oversized-soul"])("rejects %s before any writes", (corruption) => {
     const { store, routines } = fixture();
     const backup = createTeamBackup(store, routines.listRoutines(), "My team");
     const before = readFileSync(join(DATA_DIR, "bots.json"), "utf8");
@@ -107,9 +169,21 @@ describe("additive portable team backups", () => {
     if (corruption === "dangling-room") backup.groups[0].memberIds.push("missing");
     if (corruption === "dangling-task") source.activeTask = "missing";
     if (corruption === "duplicate-chief") backup.bots.find((bot) => bot.name === "Scout")!.chiefOfStaff = true;
+    if (corruption === "oversized-soul") source.soul = "🐭".repeat(6_001);
     expect(() => importTeamBackup(store, routines, backup, selection())).toThrow("Invalid backup");
     expect(readFileSync(join(DATA_DIR, "bots.json"), "utf8")).toBe(before);
     expect(readFileSync(join(DATA_DIR, "groups.json"), "utf8")).toBe(groupsBefore);
+  });
+
+  it("accepts legacy backups without soul and enforces its UTF-8 byte cap", () => {
+    const { store, routines } = fixture();
+    const backup = createTeamBackup(store, routines.listRoutines(), "Legacy team");
+    for (const bot of backup.bots) delete bot.soul;
+    expect(importTeamBackup(store, routines, backup, selection()).bots.every((bot) => bot.soul === "")).toBe(true);
+    backup.bots[0].soul = "🐭".repeat(6_000);
+    expect(parseTeamBackup(backup).bots[0].soul).toBe(backup.bots[0].soul);
+    backup.bots[0].soul += "!";
+    expect(() => parseTeamBackup(backup)).toThrow("24000 bytes");
   });
 
   it("strips injected permissions, IDs and live actions from untrusted files", () => {

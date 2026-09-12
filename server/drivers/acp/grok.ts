@@ -180,10 +180,21 @@ export function ensureGrokInjectSlug(
   return slug;
 }
 
+/** Grok 1.0.25 consumes native image blocks but advertises image:false.
+ * Verified with the real CLI and a loopback model: scripts/verify-grok-images.ts.
+ * Keep unknown/older runtimes on the normal capability negotiation path. */
+export function grokAcceptsUnadvertisedImages(init: unknown): boolean {
+  const meta = (init as { _meta?: { grokShell?: unknown; agentVersion?: unknown } } | null)?._meta;
+  if (meta?.grokShell !== true || typeof meta.agentVersion !== "string") return false;
+  const version = /^1\.0\.(\d+)$/.exec(meta.agentVersion);
+  return Boolean(version && Number(version[1]) >= 25);
+}
+
 const support: AcpSupport = {
   driverKind: "grokAgent",
   displayName: "Grok",
-  images: false,
+  images: true,
+  acceptsUnadvertisedImages: grokAcceptsUnadvertisedImages,
   models: STATIC_GROK_MODELS,
   resolveModels: (env) => mergeLocalInject(readGrokModelCatalog(env), env),
   // Grok's accepted levels vary by model and the CLI validates lazily — a
@@ -216,9 +227,15 @@ const support: AcpSupport = {
   // and BEFORE `stdio` (`grok agent -m slug stdio`). Putting -m first is
   // accepted as a TUI option and then ignored, so ACP session/new keeps
   // [models].default (grok-4.6) and oMLX never sees a request.
+  // Auto selects Grok's native classifier; if its feature gate is disabled,
+  // residual requests still ask. Never replace it with bypassPermissions.
+  // Verified: grok 1.0.3 --help and xai-org/grok-build@37949780,
+  // crates/codegen/xai-grok-pager-bin/src/main.rs:1259-1273.
   spawnArgs: (config, turn) => [
     "--permission-mode",
-    config.fullAuto ? "bypassPermissions" : "default",
+    config.fullAuto
+      ? "bypassPermissions"
+      : turn.approvalMode === "auto" ? "auto" : turn.approvalMode === "edits" ? "acceptEdits" : "default",
     "agent",
     ...(turn.model ? ["-m", turn.model] : []),
     // long form on purpose: `--effort` is documented as an alias, and an

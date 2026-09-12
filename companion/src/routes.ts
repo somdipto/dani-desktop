@@ -106,8 +106,13 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/api\/bots\/[\w-]+\/tasks\/[\w-]+$/ },
   { method: "PATCH", path: /^\/api\/bots\/[\w-]+\/tasks\/[\w-]+$/ },
   { method: "DELETE", path: /^\/api\/bots\/[\w-]+\/tasks\/[\w-]+$/ },
+  // Read-only summary: who the bot is, what it does and won't do, and its
+  // recent activity. No settings, no transcript — read on open and on
+  // pull-to-refresh.
+  { method: "GET", path: /^\/api\/bots\/[\w-]+\/overview$/ },
   // Paired-safe profile subset. The harness route itself rejects fields
-  // outside identity, avatar, notifications, and voice preferences.
+  // outside identity, standing instructions (soul, byte-capped), avatar,
+  // notifications, and voice preferences.
   { method: "PATCH", path: /^\/api\/bots\/[\w-]+\/profile$/ },
   // Full model selection, but no other bot settings. The harness validates
   // the live catalog and refuses changes while the bot is working.
@@ -163,12 +168,16 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/api\/routine-runs\/[\w-]+\/(?:cancel|seen)$/ },
 
   // Multi-account Composio management exposes opaque ids and aliases only.
-  // Revocation stays on the host: the account DELETE route is deliberately
-  // absent — a paired client can see and add accounts, never remove one.
+  // Account-level removal is allowed: the handler still proves the account
+  // belongs to the host's own user before revoking, and a paired client can
+  // already add accounts — connectable but not disconnectable is the bug
+  // being fixed here. The whole-service DELETE stays denied: it belongs to
+  // the host.
   { method: "GET", path: /^\/api\/connectors\/catalog$/ },
   { method: "GET", path: /^\/api\/connectors\/connected$/ },
   { method: "GET", path: /^\/api\/connectors$/ },
   { method: "POST", path: /^\/api\/connectors\/[\w-]+\/authorize$/ },
+  { method: "DELETE", path: /^\/api\/connectors\/[\w-]+\/accounts\/[\w-]+$/ },
   // Inline connector cards are scoped by bot, transcript message, and
   // thread. They expose the same opaque OAuth authorization already allowed
   // above, then only poll, resume, or dismiss that exact pending card.

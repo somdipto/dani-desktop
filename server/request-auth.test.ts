@@ -8,6 +8,7 @@ import {
   clearSessionCookie,
   clientBotPatchViolation,
   clientGroupPatchViolation,
+  ipcPeer,
   isAllowedOrigin,
   isLoopbackHost,
   isProxied,
@@ -16,12 +17,12 @@ import {
   requestOrigin,
   requestSource,
   requiredScope,
-  sanitizeSource,
   resolveRequestAuth,
+  sanitizeSource,
   serializeSessionCookie,
   sessionCookieName,
 } from "./request-auth.ts";
-import { SessionRegistry } from "./sessions.ts";
+import { SESSION_TTL_MS, SessionRegistry } from "./sessions.ts";
 
 function request(headers: Record<string, string>, method = "GET"): IncomingMessage {
   // SAFETY: the resolver reads only headers and method; a bare object is the whole contract here
@@ -86,6 +87,11 @@ describe("request source for the lockout", () => {
 });
 
 describe("scopes", () => {
+  it("keeps full backups, credentials and replacement behind admin scope", () => {
+    for (const path of ["status", "export", "upload", "preview", "restore", "client-state", "download/123"]) {
+      for (const method of ["GET", "POST", "DELETE"]) expect(requiredScope(method, `/api/workspace-backup/${path}`)).toBe("admin");
+    }
+  });
   it("is default deny: chat, approvals, rooms, attachments, routines and own session are client; everything else admin", () => {
     for (const [method, path] of [
       ["POST", "/api/bots/x/messages"], ["POST", "/api/bots/x/respond"], ["POST", "/api/threads/t/respond"],
@@ -135,6 +141,42 @@ describe("resolveRequestAuth", () => {
   });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+  it("accepts authenticated relay mutations without exposing the desktop owner capability", () => {
+    const headers = {
+      host: "127.0.0.1:8799",
+      "x-openmausbot-companion": "1",
+      "x-openmausbot-companion-device": "phone-1",
+      "x-openmausbot-companion-auth": "relay-secret",
+    };
+    const check = (method: string, path: string, overrides: Record<string, string> = {}, relay = "relay-secret") =>
+      resolveRequestAuth(request({ ...headers, ...overrides }, method), {
+        sessions, cookieName, streamPath: "/api/events", url: new URL(path, "http://localhost"),
+        loopbackMutationToken: "desktop-secret", companionMutationToken: relay,
+      });
+    for (const [method, path] of [
+      ["POST", "/api/bots"], ["POST", "/api/bots/b/messages"],
+      ["POST", "/api/bots/b/read"], ["POST", "/api/bots/b/respond"],
+      ["POST", "/api/bots/b/secret-cards/card/provide"],
+      ["GET", "/api/events"], ["PATCH", "/api/bots/b/profile"],
+    ]) expect(check(method, path).auth?.kind, path).toBe("loopback");
+    const forged: Record<string, string>[] = [
+      { "x-openmausbot-companion-auth": "" },
+      { "x-openmausbot-companion-auth": "desktop-secret" },
+      { "x-openmausbot-companion-device": "" },
+      { "x-openmausbot-companion": "0" },
+      { origin: "https://evil.example" },
+      { "x-forwarded-for": "203.0.113.1" },
+      { host: "remote.example" },
+    ];
+    for (const overrides of forged) expect(check("POST", "/api/bots/b/read", overrides).auth).toBeNull();
+    expect(check("POST", "/api/bots/b/read", {}, "").auth).toBeNull();
+    for (const [method, path] of [
+      ["PUT", "/api/config"], ["POST", "/api/auth/pairing"],
+      ["POST", "/api/internal/anything"], ["GET", "/api/auth/sessions"],
+      ["POST", "/api/not-yet-supported"],
+    ]) expect(check(method, path).auth, path).toBeNull();
+  });
+
   function pairedToken(scopes: Array<"admin" | "client"> = ["admin", "client"]): string {
     const { code } = sessions.openPairing({ scopes });
     const result = sessions.exchange({ code, label: "test", source: "1.2.3.4" });
@@ -152,6 +194,33 @@ describe("resolveRequestAuth", () => {
     const foreignOrigin = resolve({ host: "127.0.0.1:8799", origin: "https://evil.example" });
     expect(foreignOrigin.status).toBe(403);
     expect(foreignOrigin.error).toBe("forbidden: cross-origin request");
+  });
+
+  it("renews a session only for a request that passed the origin and scope checks", () => {
+    let clock = 1_700_000_000_000;
+    sessions = new SessionRegistry({ file: join(dir, "sessions.json"), now: () => clock });
+    const { code } = sessions.openPairing({ scopes: ["client"] });
+    const result = sessions.exchange({ code, label: "phone", source: "10.0.0.2" });
+    if (!result.ok) throw new Error(result.error);
+    const { token, session } = result;
+    clock += SESSION_TTL_MS / 2 + 1; // renewal is due from here on
+    const csrf = resolve({ host: "bots.example.com", cookie: `${cookieName}=${token}`, origin: "https://evil.example" }, "/api/bots", "POST");
+    expect(csrf.error).toBe("forbidden: cross-origin request");
+    expect(sessions.list()[0]?.expiresAt).toBe(session.expiresAt); // a rejected request is not use
+    const overScope = resolve({ authorization: `Bearer ${token}` }, "/api/bots", "POST");
+    expect(overScope.status).toBe(403);
+    expect(sessions.list()[0]?.expiresAt).toBe(session.expiresAt);
+    const { ticket } = sessions.issueStreamTicket(session.id);
+    const stream = resolve({ host: "bots.example.com" }, `/api/events?ticket=${ticket}`);
+    expect(stream.auth?.kind === "session" && stream.auth.via).toBe("ticket");
+    expect(sessions.list()[0]?.expiresAt).toBe(session.expiresAt); // a stream alone is not use
+    const ok = resolve({ host: "bots.example.com", cookie: `${cookieName}=${token}`, origin: "http://bots.example.com" });
+    expect(ok.auth?.kind).toBe("session");
+    expect(sessions.list()[0]?.expiresAt).toBe(clock + SESSION_TTL_MS);
+    clock += SESSION_TTL_MS + 1;
+    const expired = resolve({ host: "bots.example.com", cookie: `${cookieName}=${token}`, origin: "http://bots.example.com" });
+    expect(expired.status).toBe(401);
+    expect(sessions.list()).toEqual([]); // expired: gone, not renewed
   });
 
   it("requires the packaged desktop capability for public loopback mutations", () => {
@@ -173,7 +242,7 @@ describe("resolveRequestAuth", () => {
     const desktop = resolveRequestAuth(
       request({
         host: "127.0.0.1:8799",
-        "x-danibot-desktop-owner": "owner-token-123",
+        "x-openmausbot-desktop-owner": "owner-token-123",
       }, "POST"),
       options("/api/routines"),
     );
@@ -253,6 +322,41 @@ describe("resolveRequestAuth", () => {
     expect(resolve({ host: "bots.example.com", authorization: `Bearer ${token}` }, "/api/bots").auth?.kind).toBe("session");
   });
 
+  it.each([
+    ["GET", "/api/settings/custom-domain"],
+    ["POST", "/api/settings/custom-domain"],
+    ["DELETE", "/api/settings/custom-domain"],
+    ["GET", "/api/instances/codex/auth/status?flowId=private-device-flow"],
+    ["POST", "/api/instances/codex/auth/start"],
+    ["POST", "/api/instances/codex/auth/cancel"],
+    ["POST", "/api/instances/codex/auth/sign-out"],
+    ["POST", "/api/instances/claude-work/auth/sign-out"],
+    ["GET", "/api/usage?from=2026-09-01&to=2026-09-30"],
+    ["GET", "/api/usage.csv?from=2026-09-01&to=2026-09-30"],
+    ["POST", "/api/keys/test"],
+    ["GET", "/api/fleet"],
+    ["POST", "/api/fleet/workspaces"],
+    ["DELETE", "/api/fleet/workspaces/acme"],
+    ["POST", "/api/fleet/upgrade"],
+    ["POST", "/api/instances/antigravity/auth/complete"],
+  ])("requires admin for server Settings: %s %s", (method, path) => {
+    expect(requiredScope(method, path.split("?")[0]!)).toBe("admin");
+    const client = pairedToken(["client"]);
+    const admin = pairedToken(["admin"]);
+    const headers = { host: "bots.example.com", "x-forwarded-proto": "https", origin: "https://bots.example.com" };
+    // Both app bearer sessions and same-origin browser cookies must enforce
+    // the boundary: a client cannot read login codes or change pairing URLs.
+    const clientCredentials: Record<string, string>[] = [{ authorization: `Bearer ${client}` }, { cookie: `${cookieName}=${client}` }];
+    for (const credential of clientCredentials) {
+      const denied = resolve({ ...headers, ...credential }, path, method);
+      expect(denied.auth).toBeNull();
+      expect(denied.status).toBe(403);
+      expect(denied.error).toContain("lacks the admin scope");
+    }
+    expect(resolve({ ...headers, authorization: `Bearer ${admin}` }, path, method).auth?.kind).toBe("session");
+    expect(resolve(headers, path, method).auth).toBeNull();
+  });
+
   it("explains a dead credential instead of silently falling back, except on loopback", () => {
     const token = pairedToken();
     const session = sessions.authenticate(token);
@@ -263,5 +367,41 @@ describe("resolveRequestAuth", () => {
     expect(remote.error).toMatch(/expired or was revoked; pair this device again/);
     // the owner on the same machine keeps working even with a stale cookie
     expect(resolve({ host: "127.0.0.1:8799", cookie: `${cookieName}=${token}` }).auth?.kind).toBe("loopback");
+  });
+});
+
+describe("an IPC listener (openmausbot serve --tunnel) is remote by construction", () => {
+  // SAFETY: only headers, method and the socket peer are read; a unix-socket peer has no address
+  const overSocket = (headers: Record<string, string>) => ({ headers, method: "GET", socket: {} }) as unknown as IncomingMessage;
+
+  it("counts as proxied whatever the headers say; a bare mock without a socket does not", () => {
+    expect(ipcPeer(overSocket({ host: "127.0.0.1:8799" }))).toBe(true);
+    expect(isProxied(overSocket({ host: "localhost" }))).toBe(true);
+    expect(ipcPeer(request({ host: "127.0.0.1:8799" }))).toBe(false);
+    expect(isProxied(request({ host: "127.0.0.1:8799" }))).toBe(false);
+  });
+
+  it("attributes pairing attempts to the address the tunnel forwarded", () => {
+    expect(requestSource(overSocket({ "x-forwarded-for": "203.0.113.9" }))).toBe("203.0.113.9");
+    expect(requestSource(overSocket({}))).toBe("unknown");
+  });
+
+  it("never grants loopback trust over the socket, even with a loopback Host and no forwarded headers; a session works", () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-auth-ipc-"));
+    try {
+      const sessions = new SessionRegistry({ file: join(dir, "sessions.json") });
+      const gate = { sessions, cookieName: "omb_session_test", streamPath: "/api/events", url: new URL("/api/bots", "http://x") };
+      const denied = resolveRequestAuth(overSocket({ host: "127.0.0.1:8799" }), gate);
+      expect(denied.auth).toBeNull();
+      expect(denied.status).toBe(403);
+      expect(denied.error).toMatch(/through a proxy/);
+      const { code } = sessions.openPairing({ scopes: ["admin", "client"] });
+      const paired = sessions.exchange({ code, label: "phone", source: "203.0.113.9" });
+      if (!paired.ok) throw new Error(paired.error);
+      const admitted = resolveRequestAuth(overSocket({ host: "c-1.openmausbot.com", authorization: `Bearer ${paired.token}` }), gate);
+      expect(admitted.auth?.kind).toBe("session");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

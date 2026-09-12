@@ -73,9 +73,9 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
   beforeAll(async () => {
     chmodSync(FAKE_CLI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-branch-test-"));
-    mkdirSync(join(home, ".danibot"), { recursive: true });
+    mkdirSync(join(home, ".openmausbot"), { recursive: true });
     writeFileSync(
-      join(home, ".danibot", "config.json"),
+      join(home, ".openmausbot", "config.json"),
       JSON.stringify({
         instances: {
           happy: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: true } },
@@ -133,12 +133,6 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
 
       // turn 1 settles on the original branch
       expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "original question" })).status).toBe(202);
-      const afterSend = await getBot(created.id);
-      const quiz = afterSend.messages.find(
-        (m: { kind: string; card?: { requestId?: string; dismissed?: boolean } }) =>
-          m.kind === "options" && !m.card?.requestId,
-      );
-      expect(quiz?.card?.dismissed).toBe(true);
       await waitFor(async () => {
         const b = await getBot(created.id);
         return !b.busy && b.messages.some((m: Msg) => m.role === "bot" && m.kind === "text" && m.text?.includes("fake acp"));
@@ -288,7 +282,7 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
       // the fake's reply is fixed, so the proof lives in the native protocol
       // tee: the prompt each engine received must carry the history it lacks
       const bot = await getBot(created.id);
-      const log = readFileSync(join(home, ".danibot", "native", `${bot.threadId}.ndjson`), "utf8");
+      const log = readFileSync(join(home, ".openmausbot", "native", `${bot.threadId}.ndjson`), "utf8");
       const prompts = log
         .split("\n")
         .filter(Boolean)

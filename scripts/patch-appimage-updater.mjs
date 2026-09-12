@@ -1,7 +1,7 @@
 // electron-updater installs an AppImage update by writing the new file under
 // the *release asset's* name and unlinking the old one. Our feed names assets
 // after the version, so a user whose AppImage is called
-// DaniBot-0.1.43-x86_64.AppImage ends up with a 0.1.44 file and nothing at
+// Dani Bot-0.1.43-x86_64.AppImage ends up with a 0.1.44 file and nothing at
 // the old path — every .desktop entry, symlink, dock pin and AppImageLauncher
 // registration pointing at it breaks, and the app vanishes from the launcher.
 //
@@ -49,15 +49,35 @@ const ATOMIC_MOVE = [
   "(0, fs_1.renameSync)(stagedDestination, destination);",
 ].join("\n        ");
 
+// BaseUpdater starts doInstall before it asks Electron to quit. An immediate
+// spawn can reach the data-directory lease while the old desktop is still
+// cleaning up. Electron's relauncher waits for this process to exit instead;
+// keep the original AppImage path, not the executable inside its old mount.
+const IMMEDIATE_RELAUNCH = /this\.spawnLog\(destination, \[\], env\);/g;
+const QUEUED_RELAUNCH = [
+  'const previousSilentInstall = process.env.APPIMAGE_SILENT_INSTALL;',
+  'try {',
+  '  process.env.APPIMAGE_SILENT_INSTALL = env.APPIMAGE_SILENT_INSTALL;',
+  '  if (require("electron").app.relaunch({ execPath: destination, args: [] }) === false) {',
+  '    throw new Error("Could not schedule the updated AppImage to restart");',
+  '  }',
+  '} finally {',
+  '  if (previousSilentInstall === undefined) delete process.env.APPIMAGE_SILENT_INSTALL;',
+  '  else process.env.APPIMAGE_SILENT_INSTALL = previousSilentInstall;',
+  '}',
+].join("\n          ");
+
 const REPLACEMENTS = [
   ["rename branch", RENAME_ASSIGNMENT, IN_PLACE_ASSIGNMENT],
   ["unlink before install", UNLINK_BEFORE_INSTALL, ""],
   ["move into place", MOVE_INTO_PLACE, ATOMIC_MOVE],
+  ["immediate relaunch", IMMEDIATE_RELAUNCH, QUEUED_RELAUNCH],
 ];
 
 /**
  * Keep an AppImage update on the running file's path, and never remove that
- * file until the replacement is in place.
+ * file until the replacement is in place. Queue its restart after the old
+ * process exits, without weakening the desktop's data-directory lease.
  *
  * Throws when any step's upstream shape moved: a silently unpatched bundle
  * would ship the launcher-breaking behaviour again.

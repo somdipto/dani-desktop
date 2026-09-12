@@ -6,10 +6,11 @@
 // The fake is a shebang script — the same constraint codex.cmd itself
 // hits on Windows. resolveCliSpawn covers both, so these run everywhere.
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ProviderInstance } from "../contracts.ts";
 import { NATIVE_DIR } from "../config.ts";
@@ -21,8 +22,18 @@ import {
   codexUpdateCommand,
 } from "./codex.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
+import * as procs from "../procs.ts";
 
 const FAKE_CLI = join(dirname(fileURLToPath(import.meta.url)), "..", "testing", "fake-codex-app-server.ts");
+
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 describe("CodexDriver.decodeConfig", () => {
   it("defaults to the codex binary with fullAuto off", () => {
@@ -89,12 +100,36 @@ describe("CodexDriver turns (fake app-server)", () => {
     delete process.env.FAKE_CODEX_RETRY_SCALE;
     delete process.env.FAKE_CODEX_VERSION;
     delete process.env.FAKE_CODEX_ASTRA;
+    delete process.env.FAKE_CODEX_INSTRUCTIONS;
     delete process.env.OPENAI_API_KEY;
     delete process.env.BOX_TOKEN;
     delete process.env.OMB_TTS_KEY;
     recorder?.stop();
     await instance?.dispose();
     await removeTempDir(scratch);
+  });
+
+  it("names the signed-in ChatGPT account from Codex's protocol and offers sign-out", async () => {
+    const codexHome = join(scratch, ".codex");
+    mkdirSync(codexHome, { recursive: true });
+    const claims = Buffer.from(JSON.stringify({ email: "stale-file@example.test" })).toString("base64url");
+    writeFileSync(join(codexHome, "auth.json"), JSON.stringify({
+      tokens: { id_token: `header.${claims}.signature-fixture`, access_token: "access-fixture", refresh_token: "refresh-fixture" },
+    }));
+    await create({ environment: { HOME: scratch, CODEX_HOME: codexHome } });
+    const connected = await instance.snapshot();
+    expect(connected).toMatchObject({ state: "available", authenticated: true, account: { email: "ada@example.test" } });
+    expect(JSON.stringify(connected)).not.toContain("fixture");
+    expect(instance.signOut).toBeTypeOf("function");
+    process.env.FAKE_CODEX_MODE = "logged-out";
+    const signedOut = await instance.snapshot();
+    expect(signedOut).toMatchObject({ state: "available", authenticated: false });
+    expect(signedOut).not.toHaveProperty("account");
+  });
+
+  it.each(["api-key", "none", "unsupported", "error"])("omits ChatGPT identity when Codex account/read reports %s", async (mode) => {
+    await create({ environment: { HOME: scratch, CODEX_HOME: join(scratch, ".codex"), FAKE_CODEX_ACCOUNT_MODE: mode } });
+    expect(await instance.snapshot()).not.toHaveProperty("account");
   });
 
   it("runs the handshake and normalizes a full turn", async () => {
@@ -147,16 +182,60 @@ describe("CodexDriver turns (fake app-server)", () => {
     expect(recorder.events.at(-1)).toMatchObject({ type: "turn.completed", ok: true, usage: { input: 7, output: 3, cachedInput: 4 } });
 
     const seen = JSON.parse(readFileSync(dump, "utf8"));
+    expect(processIsAlive(seen.pid)).toBe(false);
     expect(seen.env.OPENAI_API_KEY).toBeUndefined();
     expect(seen.env.BOX_TOKEN).toBeUndefined();
     expect(seen.env.OMB_TTS_KEY).toBeUndefined();
     const methods = seen.calls.map((c: { method: string }) => c.method);
-    expect(methods).toEqual(["initialize", "initialized", "thread/start", "turn/start"]);
-    // persona rides in front of the prompt text — codex has no system slot
+    expect(methods).toEqual(["initialize", "initialized", "config/read", "thread/start", "turn/start"]);
+    // Standing instructions belong to native thread configuration, not user history.
     const turnStart = seen.calls.at(-1);
-    expect(turnStart.params.input[0].text).toBe("You are Testy.\n\nlist files");
+    expect(turnStart.params.input[0].text).toBe("list files");
     const threadStart = seen.calls.find((c: { method: string }) => c.method === "thread/start");
-    expect(threadStart.params).toMatchObject({ model: "gpt-5.6-sol", modelProvider: "openai" });
+    expect(threadStart.params).toMatchObject({ model: "gpt-5.6-sol", modelProvider: "openai", developerInstructions: "You are Testy." });
+  });
+
+  it("ignores requests received after turn completion", async () => {
+    await create({ mode: "late-request" });
+    await instance.adapter.sendTurn({ threadId: "t-late-request", text: "finish" });
+    await recorder.until((event) => event.type === "turn.completed");
+    expect(recorder.events.some((event) => event.type === "request.opened")).toBe(false);
+  });
+
+  it("keeps the parent working after helper completion and ignores foreign output and usage", async () => {
+    await create({ mode: "helper-events" });
+    await instance.adapter.sendTurn({ threadId: "t-helper-events", text: "use a helper then continue" });
+    const permission = await recorder.until((event) => event.type === "request.opened");
+    expect(permission).toMatchObject({ summary: "echo parent continues" });
+    expect(recorder.events.some((event) => event.type === "turn.completed")).toBe(false);
+    expect(JSON.stringify(recorder.events)).not.toContain("FOREIGN");
+    expect(recorder.events.some((event) => event.type === "thread.token-usage.updated")).toBe(false);
+    await instance.adapter.respondToRequest("t-helper-events", permission.requestId!, { behavior: "allow" });
+    await recorder.until((event) => event.type === "turn.completed");
+    expect(recorder.events.filter((event) => event.type === "turn.completed")).toHaveLength(1);
+    expect(recorder.events.at(-1)).toMatchObject({ ok: true, usage: { input: 7, output: 3 } });
+    expect(recorder.events.find((event) => event.type === "item.completed" && event.itemType === "assistant_text")).toMatchObject({ text: "done from fake codex" });
+    expect(JSON.stringify(recorder.events)).not.toContain("FOREIGN");
+
+    const repeat = await instance.adapter.sendTurn({
+      threadId: "t-helper-events", resumeCursor: "codex-thread-1", text: "continue and deny the next request",
+    });
+    const denied = await recorder.until((event) => event.turnId === repeat.turnId && event.type === "request.opened");
+    await instance.adapter.respondToRequest("t-helper-events", denied.requestId!, { behavior: "deny" });
+    await recorder.until((event) => event.turnId === repeat.turnId && event.type === "turn.completed");
+    expect(recorder.events.filter((event) => event.type === "turn.completed")).toHaveLength(2);
+    expect(recorder.events.at(-1)).toMatchObject({ ok: true });
+    expect(recorder.events.find((event) => event.turnId === repeat.turnId && event.type === "request.resolved")).toMatchObject({ behavior: "deny" });
+    expect(JSON.stringify(recorder.events)).not.toContain("FOREIGN");
+  });
+
+  it("retains parent notifications delivered before the turn/start response", async () => {
+    await create({ mode: "early-turn-events" });
+    await instance.adapter.sendTurn({ threadId: "t-early-events", text: "finish quickly" });
+    await recorder.until((event) => event.type === "turn.completed");
+    expect(recorder.events.at(-1)).toMatchObject({ ok: true });
+    expect(recorder.events.filter((event) => event.type === "turn.completed")).toHaveLength(1);
+    expect(recorder.events.find((event) => event.type === "item.completed" && event.itemType === "assistant_text")).toMatchObject({ text: "done from fake codex" });
   });
 
   it.each([
@@ -191,6 +270,47 @@ describe("CodexDriver turns (fake app-server)", () => {
         approvalsReviewer: approvalMode === "auto" ? "auto_review" : "user",
         sandboxPolicy: { type: turnSandbox },
       });
+    },
+  );
+
+  it.each(["gpt-5.6-sol", "gpt-5.4"])(
+    "reapplies Full, Auto, and Ask across thread start and resume for %s",
+    async (model) => {
+      await create({ mode: "resume", fullAuto: true });
+      const dump = join(scratch, "approval-transitions.json");
+      process.env.FAKE_CODEX_DUMP = dump;
+
+      for (const [approvalMode, approvalPolicy, sandbox, turnSandbox] of [
+        ["full", "never", "danger-full-access", "dangerFullAccess"],
+        ["auto", "on-request", "workspace-write", "workspaceWrite"],
+        ["ask", "on-request", "workspace-write", "workspaceWrite"],
+      ] as const) {
+        const resumed = approvalMode !== "full";
+        const { turnId } = await instance.adapter.sendTurn({
+          threadId: "t-mode-transitions",
+          text: "continue",
+          model,
+          approvalMode,
+          ...(resumed ? { resumeCursor: "codex-thread-1" } : {}),
+        });
+        await recorder.until((event) => event.type === "turn.completed" && event.turnId === turnId);
+
+        const calls = JSON.parse(readFileSync(dump, "utf8")).calls as Array<{
+          method: string;
+          params: Record<string, unknown>;
+        }>;
+        expect(calls.find((call) => call.method === (resumed ? "thread/resume" : "thread/start"))?.params).toMatchObject({
+          ...(resumed ? { threadId: "codex-thread-1" } : { model }),
+          approvalPolicy,
+          approvalsReviewer: approvalMode === "auto" ? "auto_review" : "user",
+          sandbox,
+        });
+        expect(calls.find((call) => call.method === "turn/start")?.params).toMatchObject({
+          approvalPolicy,
+          approvalsReviewer: approvalMode === "auto" ? "auto_review" : "user",
+          sandboxPolicy: { type: turnSandbox },
+        });
+      }
     },
   );
 
@@ -308,7 +428,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     });
   });
 
-  it("falls back to interactive read-only when Custom config cannot be read", async () => {
+  it.each(["ask", "auto", "full", "custom"] as const)("stops before replacing unknown native instructions in %s mode", async (approvalMode) => {
     await create({ mode: "config-read-error" });
     const dump = join(scratch, "custom-config-error.json");
     process.env.FAKE_CODEX_DUMP = dump;
@@ -316,24 +436,16 @@ describe("CodexDriver turns (fake app-server)", () => {
     await instance.adapter.sendTurn({
       threadId: "t-custom-config-error",
       text: "continue safely",
-      approvalMode: "custom",
+      approvalMode,
     });
-    await recorder.until((event) => event.type === "turn.completed");
+    await expect(recorder.until((event) => event.type === "turn.completed")).resolves.toMatchObject({ ok: false });
 
     const calls = JSON.parse(readFileSync(dump, "utf8")).calls as Array<{
       method: string;
       params: Record<string, unknown>;
     }>;
-    expect(calls.find((call) => call.method === "thread/start")?.params).toMatchObject({
-      approvalPolicy: "on-request",
-      approvalsReviewer: "user",
-      sandbox: "read-only",
-    });
-    expect(calls.find((call) => call.method === "turn/start")?.params).toMatchObject({
-      approvalPolicy: "on-request",
-      approvalsReviewer: "user",
-      sandboxPolicy: { type: "readOnly" },
-    });
+    expect(calls.map((call) => call.method)).toEqual(["initialize", "initialized", "config/read"]);
+    expect(recorder.events.some((event) => event.type === "runtime.error" && event.message.includes("cannot safely update bot instructions"))).toBe(true);
   });
 
   it("sends current-turn images as native localImage inputs without logging their private paths", async () => {
@@ -355,7 +467,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     const seen = JSON.parse(readFileSync(dump, "utf8"));
     const turnStart = seen.calls.find((call: { method: string }) => call.method === "turn/start");
     expect(turnStart.params.input).toEqual([
-      { type: "text", text: "You are Testy.\n\ndescribe this" },
+      { type: "text", text: "describe this" },
       { type: "localImage", path: imagePath },
     ]);
 
@@ -447,7 +559,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     });
     await recorder.until((event) => event.type === "turn.completed");
     const seen = JSON.parse(readFileSync(dump, "utf8"));
-    expect(seen.argv.join(" ")).toContain("mcp_servers.danibot_connectors.command");
+    expect(seen.argv.join(" ")).toContain("mcp_servers.openmausbot_connectors.command");
     expect(seen.argv.join(" ")).toContain("OMB_CONNECTOR_TOKEN");
     expect(seen.argv.join(" ")).not.toContain("per-turn-connector-token");
     expect(seen.env.OMB_CONNECTOR_TOKEN).toBe("per-turn-connector-token");
@@ -484,7 +596,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     expect(seen.env.NOTES_TOKEN).toBe("tok-notes");
     // the built-in keeps codex's pre-quieted approval mode; the custom
     // server does NOT — its tool calls arrive as approval cards
-    expect(argv).toContain('mcp_servers.danibot_connectors.default_tools_approval_mode');
+    expect(argv).toContain('mcp_servers.openmausbot_connectors.default_tools_approval_mode');
     expect(argv).not.toContain('mcp_servers.notes.default_tools_approval_mode');
   });
 
@@ -510,7 +622,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     })).rejects.toThrow(/reserved environment variable.*OMB_HARNESS_URL/i);
   });
 
-  it("mounts peer-agent comms without placing the comms token in argv", async () => {
+  it.each(["ask", "auto"] as const)("pre-allows peer-agent comms without exposing its token in %s mode", async (approvalMode) => {
     await create();
     const dump = join(scratch, "agents.json");
     process.env.FAKE_CODEX_DUMP = dump;
@@ -518,6 +630,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     await instance.adapter.sendTurn({
       threadId: "t-agents",
       text: "ask the researcher",
+      approvalMode,
       integrations: {
         agents: {
           command: process.execPath,
@@ -537,6 +650,7 @@ describe("CodexDriver turns (fake app-server)", () => {
 
     const seen = JSON.parse(readFileSync(dump, "utf8"));
     expect(seen.argv.join(" ")).toContain("mcp_servers.agents.command");
+    expect(seen.argv).toContain('mcp_servers.agents.default_tools_approval_mode="auto"');
     expect(seen.argv.join(" ")).toContain("/tmp/agents-proxy.js");
     expect(seen.argv.join(" ")).toContain("OMB_COMMS_TOKEN");
     expect(seen.argv.join(" ")).not.toContain("peer-comms-secret");
@@ -556,7 +670,7 @@ describe("CodexDriver turns (fake app-server)", () => {
       integrations: {
         localComputer: {
           command: process.execPath,
-          args: ["/tmp/container-mcp.js", "podman", "danibot-computer", "/run/cua.sock"],
+          args: ["/tmp/container-mcp.js", "podman", "openmausbot-computer", "/run/cua.sock"],
           env: { ELECTRON_RUN_AS_NODE: "1", OMB_VM_TOKEN: "vm-secret" },
         },
       },
@@ -667,12 +781,90 @@ describe("CodexDriver turns (fake app-server)", () => {
     });
   });
 
-  it("falls back to a fresh thread when resume fails", async () => {
+  it("fails a rejected resume without silently replacing native history", async () => {
     await create(); // fake rejects thread/resume outside resume mode
     await instance.adapter.sendTurn({ threadId: "t-fallback", text: "go", resumeCursor: "gone-thread" });
-    const started = await recorder.until((e) => e.type === "session.started");
-    expect(started).toMatchObject({ sessionId: "codex-thread-1" });
-    await recorder.until((e) => e.type === "turn.completed");
+    await expect(recorder.until((e) => e.type === "turn.completed")).resolves.toMatchObject({ ok: false });
+    expect(recorder.events.some((e) => e.type === "session.started")).toBe(false);
+  });
+
+  it("fails before user submission if native instruction updates are unsupported", async () => {
+    await create({ mode: "instructions-unsupported" });
+    const dump = join(scratch, "unsupported.json");
+    process.env.FAKE_CODEX_DUMP = dump;
+    await instance.adapter.sendTurn({ threadId: "t-old-codex", text: "go", system: "rules", resumeCursor: "old-session" });
+    await expect(recorder.until((event) => event.type === "turn.completed")).resolves.toMatchObject({ ok: false });
+    expect(recorder.events.some((event) => event.type === "runtime.error" && event.message.includes("Update Codex"))).toBe(true);
+    const calls = JSON.parse(readFileSync(dump, "utf8")).calls;
+    expect(calls.some((call: { method: string }) => call.method === "turn/start" || call.method === "thread/start")).toBe(false);
+  });
+
+  it.each([
+    ["resume", "codex-thread-1"],
+    ["config-profile-unsupported", "codex-thread-1"],
+  ])("reasserts current instructions across processes and %s recovery", async (mode, cursor) => {
+    await create({ mode });
+    const dump = join(scratch, "instructions.json");
+    process.env.FAKE_CODEX_DUMP = dump;
+    const instructions = "You are Testy. Follow the bot rules. ".repeat(100);
+    const systems = [instructions, instructions, "You are Renamed. Use the new rules.", "", undefined];
+    for (const [index, system] of systems.entries()) {
+      // Disposing the instance also rules out an in-memory instruction cache.
+      if (index > 0) {
+        recorder.stop();
+        await instance.dispose();
+        await create({ mode });
+      }
+      const { turnId } = await instance.adapter.sendTurn({
+        threadId: "t-instructions",
+        text: `message-${index}`,
+        system,
+        ...(index > 0 ? { resumeCursor: cursor } : {}),
+        approvalMode: "custom",
+      });
+      await recorder.until((event) => event.type === "turn.completed" && event.turnId === turnId);
+      const calls = JSON.parse(readFileSync(dump, "utf8")).calls as Array<{
+        method: string; params: Record<string, unknown>;
+      }>;
+      const threadCalls = calls.filter((call) => ["thread/start", "thread/resume"].includes(call.method));
+      expect(threadCalls.length).toBeGreaterThan(0);
+      for (const call of threadCalls) expect(call.params.developerInstructions).toBe(system ?? "");
+      if (index > 0) expect(threadCalls[0].method).toBe("thread/resume");
+      const updates = calls.filter((call) => call.method === "thread/inject_items");
+      expect(updates).toHaveLength(index === 2 || index === 3 ? 1 : 0);
+      if (updates.length) expect(JSON.stringify(updates[0].params)).toContain(system || "No Dani Bot bot-specific instructions remain.");
+      for (const call of calls.filter((call) => call.method === "turn/start")) {
+        expect(call.params.input).toEqual([{ type: "text", text: `message-${index}` }]);
+      }
+    }
+  });
+
+  it.each(["ask", "auto", "full", "custom"] as const)("preserves configured native rules and keeps them private in %s mode", async (approvalMode) => {
+    await create({ mode: "resume" });
+    process.env.FAKE_CODEX_INSTRUCTIONS = "Private native rules.";
+    const dump = join(scratch, "native-instructions.json");
+    process.env.FAKE_CODEX_DUMP = dump;
+    mkdirSync(NATIVE_DIR, { recursive: true });
+    const threadId = `t-native-instructions-${approvalMode}`;
+    for (const [index, system] of ["Bot rules.", "", undefined].entries()) {
+      const { turnId } = await instance.adapter.sendTurn({
+        threadId, text: `message-${index}`, system, approvalMode,
+        ...(index > 0 ? { resumeCursor: "codex-thread-1" } : {}),
+      });
+      await expect(recorder.until((event) => event.type === "turn.completed" && event.turnId === turnId)).resolves.toMatchObject({ ok: true });
+      const calls = JSON.parse(readFileSync(dump, "utf8")).calls;
+      const threadCall = calls.find((call: { method: string }) => call.method === (index ? "thread/resume" : "thread/start"));
+      expect(threadCall.params.developerInstructions).toBe(`${system || "No Dani Bot bot-specific instructions remain."}\n\nPrivate native rules.`);
+      expect(calls.filter((call: { method: string }) => call.method === "thread/inject_items")).toHaveLength(index === 1 ? 1 : 0);
+      expect(calls.find((call: { method: string }) => call.method === "turn/start").params.input).toEqual([{ type: "text", text: `message-${index}` }]);
+    }
+    const nativeLog = readFileSync(join(NATIVE_DIR, `${threadId}.ndjson`), "utf8");
+    expect(nativeLog).toContain("[effective config omitted]");
+    expect(nativeLog).toContain("[developer instructions omitted]");
+    expect(nativeLog).toContain("[developer instruction update omitted]");
+    expect(nativeLog).not.toContain("Private native rules.");
+    expect(nativeLog).not.toContain("Bot rules.");
+    expect(nativeLog).not.toContain("innocuous-config-secret-7a9c");
   });
 
   it("surfaces an approval request and forwards the user's decision", async () => {
@@ -881,6 +1073,37 @@ describe("CodexDriver turns (fake app-server)", () => {
     await recorder.until((e) => e.type === "turn.completed");
   });
 
+  it.each([false, true])("keeps ownership after an uncertain stop even when root close arrives (before failure: %s)", async (closeFirst) => {
+    await create();
+    const stopping = vi.spyOn(procs, "killCliTree").mockImplementation(async (child) => {
+      if (closeFirst && child.exitCode === null && child.signalCode === null) {
+        const closed = once(child, "close");
+        child.kill("SIGKILL");
+        await closed;
+      }
+      return false;
+    });
+    try {
+      await instance.adapter.sendTurn({ threadId: "t-uncertain-stop", text: "one" });
+      await recorder.until((event) => event.type === "runtime.error" && event.message.includes("did not shut down"));
+      const child = stopping.mock.calls[0]![0];
+      if (!closeFirst) {
+        const closed = once(child, "close");
+        child.kill("SIGKILL");
+        await closed;
+        await expect.poll(() => stopping.mock.calls.length).toBeGreaterThan(1);
+      }
+      expect(recorder.events.some((event) => event.type === "turn.completed")).toBe(false);
+      expect(instance.adapter.hasSession("t-uncertain-stop")).toBe(true);
+      await expect(instance.adapter.sendTurn({ threadId: "t-uncertain-stop", text: "two" })).rejects.toThrow(/already running/);
+    } finally {
+      stopping.mockRestore();
+      await instance.adapter.interruptTurn("t-uncertain-stop");
+    }
+    await recorder.until((event) => event.type === "turn.completed");
+    expect(instance.adapter.hasSession("t-uncertain-stop")).toBe(false);
+  });
+
   it("a missing binary surfaces as a failed turn, and snapshot says unavailable", async () => {
     instance = await CodexDriver.create({
       instanceId: "codex-missing",
@@ -989,6 +1212,18 @@ describe("CodexDriver turns (fake app-server)", () => {
     });
   });
 
+  it.each(["safety-rpc", "safety-completion", "safety-notification"])("surfaces %s once without retrying or asking for login", async (mode) => {
+    await create({ mode });
+    const { turnId } = await instance.adapter.sendTurn({ threadId: "t-safety", text: "Deploy my site", approvalMode: "full" });
+    const done = await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+    expect(done).toMatchObject({ ok: false, stopReason: "provider_safety" });
+    const errors = recorder.events.filter((e) => e.type === "runtime.error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ message: expect.stringContaining("blocked by our safety systems") });
+    expect(errors[0]).not.toHaveProperty("setup");
+    expect(recorder.events.some((e) => e.type === "turn.retrying")).toBe(false);
+  });
+
   it("auto-retries a transient turn/start failure, then completes with one final message", async () => {
     process.env.FAKE_CODEX_TRANSIENTS = "2";
     process.env.FAKE_CODEX_STATE = join(scratch, "codex-launches");
@@ -1005,6 +1240,22 @@ describe("CodexDriver turns (fake app-server)", () => {
     const replies = recorder.events.filter((e) => e.type === "item.completed" && e.itemType === "assistant_text");
     expect(replies).toHaveLength(1);
   }, 20_000);
+
+  it("does not repeat an accepted instruction update when turn/start retries", async () => {
+    process.env.FAKE_CODEX_TRANSIENTS = "1";
+    process.env.FAKE_CODEX_STATE = join(scratch, "instruction-retry");
+    process.env.FAKE_CODEX_RETRY_SCALE = "0.001";
+    mkdirSync(NATIVE_DIR, { recursive: true });
+    await create({ mode: "resume" });
+    await instance.adapter.sendTurn({
+      threadId: "t-instruction-retry", text: "continue", system: "Updated rules.", resumeCursor: "old-session",
+    });
+    await recorder.until((e) => e.type === "turn.completed" && e.ok === true);
+    const outgoing = readFileSync(join(NATIVE_DIR, "t-instruction-retry.ndjson"), "utf8")
+      .trim().split("\n").map((line) => JSON.parse(line)).filter((entry) => entry.dir === "out");
+    expect(outgoing.filter((entry) => entry.msg.method === "thread/inject_items")).toHaveLength(1);
+    expect(outgoing.filter((entry) => entry.msg.method === "turn/start")).toHaveLength(2);
+  });
 
   it("stops retrying at the attempt cap and settles as failed", async () => {
     process.env.FAKE_CODEX_TRANSIENTS = "9";

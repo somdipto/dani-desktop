@@ -11,6 +11,7 @@ import {
   type WebhookIngress,
 } from "./webhook-ingress.ts";
 import { WebhookManager } from "./webhooks.ts";
+import { WorkspaceBackupMaintenance } from "./workspace-backup-maintenance.ts";
 
 let dir: string;
 let ingress: WebhookIngress;
@@ -41,10 +42,26 @@ afterAll(async () => {
 });
 
 describe("webhook-only ingress", () => {
+  it("does not record or enqueue incoming webhooks during workspace backup", async () => {
+    const gate = new WorkspaceBackupMaintenance();
+    const guarded = await listenWebhookIngress(manager, { port: 0, claimRequest: () => gate.request() });
+    const before = manager.listAttempts();
+    const beforeQueued = queued.length;
+    try {
+      await gate.run(async () => {
+        const response = await fetch(`${guarded.baseUrl}/hooks/${endpointId}/${secret}`, { method: "POST", body: "{}" });
+        expect(response.status).toBe(503);
+        expect(manager.listAttempts()).toEqual(before);
+        expect(queued).toHaveLength(beforeQueued);
+      }, { idle: () => true, pause: () => {}, resume: () => {}, flush: async () => {} });
+    } finally {
+      await new Promise<void>((resolve) => guarded.server.close(() => resolve()));
+    }
+  });
   it("exposes health but nothing from the main Dani Bot API", async () => {
     const health = await fetch(`${ingress.baseUrl}/health`);
     expect(health.status).toBe(200);
-    expect(await health.json()).toEqual({ app: "danibot-webhooks", ready: true });
+    expect(await health.json()).toEqual({ app: "openmausbot-webhooks", ready: true });
     expect((await fetch(`${ingress.baseUrl}/api/bots`)).status).toBe(404);
   });
 

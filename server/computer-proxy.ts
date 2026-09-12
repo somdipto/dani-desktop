@@ -72,7 +72,7 @@ const SHOT_PATH = "/tmp/ogb-shot.jpg";
 const SETTLE_MS = 350;
 /** Gap between batched actions so focus changes land before typing. */
 const ACTION_GAP_MS = 120;
-const CHROME_PROFILE = "$HOME/.danibot/chrome-profile";
+const CHROME_PROFILE = "$HOME/.openmausbot/chrome-profile";
 const CHROME_DEBUG_FLAGS =
   `--user-data-dir="${CHROME_PROFILE}" --password-store=basic --disable-session-crashed-bubble --no-first-run --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222`;
 // Keep one durable browser identity regardless of which Chromium binary an
@@ -88,7 +88,7 @@ const CHROME_PROFILE_SETUP = [
   '      echo "failed to copy browser profile: $browser_dir" >&2',
   "      exit 1",
   "    fi",
-  '    mv "$browser_dir" "$browser_dir.pre-danibot-$(date +%s)-$$"',
+  '    mv "$browser_dir" "$browser_dir.pre-openmausbot-$(date +%s)-$$"',
   "  fi",
   '  if [ -L "$browser_dir" ]; then rm -f "$browser_dir"; fi',
   '  ln -s "$profile" "$browser_dir"',
@@ -821,14 +821,16 @@ async function semanticActAndObserve(
 const OPEN_WHILE_DRIVEN = new Set(["computer_request_help", "computer_status", "observation_metrics"]);
 
 async function call(id: unknown, name: string, args: any) {
-  if (!OPEN_WHILE_DRIVEN.has(name) && (await control.state(true)).held) {
-    return text(id, CONTROL_REFUSAL, true);
+  if (!OPEN_WHILE_DRIVEN.has(name)) {
+    const state = await control.state(true);
+    if (state.held) return text(id, state.blockedReason ?? CONTROL_REFUSAL, true);
   }
   if (name === "computer_request_help") {
     if (!control.configured) {
       return text(id, "nobody can be paged for this computer right now — carry on carefully", true);
     }
     const initial = await control.state(true);
+    if (initial.held && initial.blockedReason) return text(id, initial.blockedReason, true);
     // If the person is already driving, don't clobber whatever plea they
     // are reading — just wait for the hand-back.
     const requestId = initial.held ? null : await control.requestHelp(String(args?.reason ?? ""));
@@ -840,6 +842,10 @@ async function call(id: unknown, name: string, args: any) {
     while (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, CONTROL_POLL_MS));
       const state = await control.state(true);
+      if (state.held && state.blockedReason) {
+        if (requestId) await control.expireHelp(requestId);
+        return text(id, state.blockedReason, true);
+      }
       if (state.held) sawHold = true;
       if (!state.held && !state.helpOpen) {
         return text(
@@ -1115,7 +1121,7 @@ async function handle(msg: any) {
       result: {
         protocolVersion: msg.params?.protocolVersion ?? "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "danibot-computer", version: "3" },
+        serverInfo: { name: "openmausbot-computer", version: "3" },
       },
     });
   }

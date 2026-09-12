@@ -58,7 +58,7 @@ const entryPoint = (resourcesPath) =>
 // stayed closed until the user rediscovered the switch. The position of the
 // toggle is state worth keeping, and it lives in the app's own userData —
 // like cua-connection.json — because the app owns the toggle. Not in the
-// sidecar's ~/.danibot-companion, which is the child process's directory,
+// sidecar's ~/.openmausbot-companion, which is the child process's directory,
 // and not in the harness's config.json, which is somebody else's data layout.
 
 const settingsFile = () => path.join(app.getPath("userData"), "companion-settings.json");
@@ -187,7 +187,7 @@ export function stopCompanion() {
 }
 
 /** startCompanion's body, run inside the transition queue. */
-async function start({ resourcesPath, harnessPort, hostedUrl = null, secretPublicKey = null, log }) {
+async function start({ resourcesPath, harnessPort, mutationToken, hostedUrl = null, secretPublicKey = null, log }) {
   if (proc) return companionState();
   lastError = null;
   const resolved = entryPoint(resourcesPath);
@@ -249,6 +249,15 @@ async function start({ resourcesPath, harnessPort, hostedUrl = null, secretPubli
     lastError = "the companion process could not be started";
     return companionState();
   }
+  child.once("spawn", () => {
+    // Never expose this capability in argv, environment, logs or the renderer.
+    try {
+      child.postMessage({ type: "openmausbot:companion-mutation-token", token: mutationToken });
+    } catch {
+      log?.("companion authorization could not be initialized");
+      child.kill();
+    }
+  });
   child.stdout?.on("data", (d) => log?.(`[companion] ${String(d).trimEnd()}`));
   child.stderr?.on("data", (d) => log?.(`[companion err] ${String(d).trimEnd()}`));
 

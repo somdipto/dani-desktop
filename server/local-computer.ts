@@ -2,6 +2,7 @@ import { lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import type { Stats } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
+import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 
 export const REQUIRED_LINUX_TOOLS = ["click", "get_window_state", "list_apps", "type_text"];
 // Keep this exact field set synchronized with DRIVER_FILE_IDENTITY_KEYS in
@@ -25,6 +26,30 @@ export type LocalComputerConnection = {
   generation?: string;
   scope: "local-computer";
 };
+
+/** Keep the platform descriptor intact, but acquire computer authority only
+ * when the first actual tool call reaches the shared stdio gate. */
+export function gatedLocalComputer(
+  connection: LocalComputerConnection,
+  control: { url: string; token: string },
+): LocalComputerConnection {
+  return {
+    ...connection,
+    command: process.execPath,
+    args: ["--experimental-strip-types", SPAWNED_PROXIES.localComputer],
+    env: {
+      ...connection.env,
+      // In a packaged desktop process execPath is Electron, not node. Without
+      // this the MCP client relaunches OMB, whose single-instance handler
+      // focuses the user's window, instead of starting the headless gate.
+      ELECTRON_RUN_AS_NODE: "1",
+      OMB_CUA_COMMAND: connection.command,
+      OMB_CUA_ARGS: JSON.stringify(connection.args),
+      OMB_CONTROL_URL: control.url,
+      OMB_CONTROL_TOKEN: control.token,
+    },
+  };
+}
 
 type LegacyConnectionDescriptor = {
   mode?: string;
@@ -200,7 +225,7 @@ export function decodeLinuxDescriptor(value: LinuxConnectionDescriptor): LocalCo
       ...(wayland ? ["CUA_DRIVER_RS_ENABLE_WAYLAND"] : []),
     ]) ||
     (mcp.env as Record<string, unknown>).CUA_DRIVER_EMBEDDED !== "1" ||
-    (mcp.env as Record<string, unknown>).CUA_DRIVER_HOST_BUNDLE_ID !== "com.danibot.app" ||
+    (mcp.env as Record<string, unknown>).CUA_DRIVER_HOST_BUNDLE_ID !== "com.openmausbot.app" ||
     (mcp.env as Record<string, unknown>).CUA_DRIVER_RS_UPDATE_CHECK !== "false" ||
     (mcp.env as Record<string, unknown>).CUA_DRIVER_RS_TELEMETRY_ENABLED !== "false" ||
     (wayland && (mcp.env as Record<string, unknown>).CUA_DRIVER_RS_ENABLE_WAYLAND !== "1")
@@ -323,12 +348,12 @@ export function readCuaConnection({
   const candidates = userData ? [join(userData, "cua-connection.json")] : [];
   if (platform === "darwin") {
     // Legacy/dev fallback. Packaged Electron passes its exact userData path.
-    for (const directory of ["Dani Bot", "danibot", "OpenGrokBot", "opengrokbot", "Dani Bot", "DaniBot"]) {
+    for (const directory of ["Dani Bot", "openmausbot", "OpenGrokBot", "opengrokbot"]) {
       candidates.push(join(home, "Library", "Application Support", directory, "cua-connection.json"));
     }
   }
 
-  for (const file of [...new Set(candidates)]) {
+  for (const file of new Set(candidates)) {
     try {
       const raw = JSON.parse(readFileSync(file, "utf8"));
       if (platform === "linux") {

@@ -1,30 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Menu } from "lucide-react";
 import { StoreProvider, useStore } from "@/state/store";
-import { Onboarding } from "@/components/Onboarding";
+import { WelcomeFlow } from "@/components/onboarding/WelcomeFlow";
+import { FirstConversationTour } from "@/components/onboarding/FirstConversationTour";
+import { GuidedTour } from "@/components/onboarding/GuidedTour";
+import { welcomeDue } from "@/lib/onboarding";
+import { ThreadRefsProvider } from "@/components/ThreadRefs";
 import { emailGateDone, initAnalytics } from "@/lib/analytics";
 import { Sidebar } from "@/components/Sidebar";
 import { ChatView } from "@/components/ChatView";
 import { GroupView } from "@/components/GroupView";
-import { SettingsPanel } from "@/components/SettingsPanel";
+import { BotSettingsDialog } from "@/components/BotSettingsDialog";
 import { RemoteAgentSettingsPanel } from "@/components/RemoteAgentSettingsPanel";
+import { NewBotDialog } from "@/components/NewBotDialog";
 import { PluginsPanel, preloadConnectedApps } from "@/components/PluginsPanel";
 import { ComputerPanel } from "@/components/ComputerPanel";
 import { RemoteDesktopPanel } from "@/components/remote-desktop-panel";
 import { InspectorPanel } from "@/components/InspectorPanel";
 import { SettingsModal } from "@/components/SettingsModal";
+import { WorkspaceBackupRecovery } from "@/components/WorkspaceBackupSettings";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { DesktopCapabilitiesProvider } from "@/components/DesktopCapabilities";
 import { RoutinesPage } from "@/components/RoutinesPage";
 import { NoEngines } from "@/components/NoEngines";
 import { CommandPalette } from "@/components/CommandPalette";
+import { KeyboardShortcutsModal } from "@/components/KeyboardShortcutsModal";
 import { LocalVmWorkspace } from "@/components/LocalVmWorkspace";
-import { BrowserWorkspace } from "@/components/BrowserWorkspace";
-import { SkillRecorderPage } from "@/components/SkillRecorderPage";
 import { TeamMapPage } from "@/components/TeamMapPage";
-import { heldComputerControlBotIds } from "@/lib/computer-control";
-import { skillRecorderEnabled } from "@/lib/feature-flags";
 import { setLocale } from "@/lib/i18n";
+import { shouldOpenKeyboardShortcuts } from "@/lib/keyboard-shortcuts";
 
 function Shell() {
   const { state, dispatch } = useStore();
@@ -51,10 +55,9 @@ function Shell() {
   const [localVmWorkspaceBotId, setLocalVmWorkspaceBotId] = useState<string | null>(null);
   // the Browser tab, expanded into the main column (the small preview in
   // the panel hands off to this and back)
-  const [browserWorkspaceBotId, setBrowserWorkspaceBotId] = useState<string | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const previousViewRef = useRef(state.activeView);
-  const calendarOriginRef = useRef<"chat" | "team-map" | "skill-recorder">("chat");
+  const calendarOriginRef = useRef<"chat" | "team-map">("chat");
   const group = state.groups.find((g) => g.id === state.selectedId);
   const bot = group ? undefined : (state.bots.find((b) => b.id === state.selectedId) ?? state.bots[0]);
   const calendarFocus = state.activeView === "routines";
@@ -68,16 +71,23 @@ function Shell() {
     state.instances.length > 0 &&
     !state.instances.some((i) => i.snapshot.state === "available");
 
-  // App-wide shortcuts: ⌘N new bot · ⌘1–9 jump to bot · ⌘⇧[ / ⌘⇧] prev/next.
+  // App-wide shortcuts: ⌘N new bot · ⌘1–9 jump to bot · ⌘⇧[ / ⌘⇧] prev/next · ⌘/ or ? shortcuts cheat sheet.
   // Kept deliberately small; every panel already closes on Esc.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || state.shortcutsOpen) return;
+      if (shouldOpenKeyboardShortcuts(e)) {
+        e.preventDefault();
+        dispatch({ type: "toggleShortcuts", open: true });
+        return;
+      }
+
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
       const bots = state.bots.filter((b) => !b.hidden);
       if (e.key === "n" && !e.shiftKey) {
         e.preventDefault();
-        dispatch({ type: "newBot" });
+        dispatch({ type: "toggleNewBot", open: true });
       } else if (/^[1-9]$/.test(e.key)) {
         const target = bots[Number(e.key) - 1];
         if (target) {
@@ -95,23 +105,11 @@ function Shell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [state.bots, state.selectedId, dispatch]);
+  }, [state.bots, state.selectedId, state.shortcutsOpen, dispatch]);
 
   useEffect(() => {
     window.ogb?.setUnreadCount?.(unreadCount);
   }, [unreadCount]);
-
-  // Re-assert every authoritative positive hold in the process that owns the
-  // native browser. This covers initial hydration, SSE updates from another
-  // computer surface, and renderer reloads. Deliberately never mirror false:
-  // only a trusted two-phase release may open Electron's direct browser gate.
-  useEffect(() => {
-    const setter = window.ogb?.browser?.setHumanControl;
-    if (!setter) return;
-    for (const botId of heldComputerControlBotIds(state.computerControl)) {
-      void setter(botId, true).catch(() => {});
-    }
-  }, [state.computerControl]);
 
   // Warm connected-account state as soon as the local server is available.
   // The modal then opens with the correct Connect/Add account buttons and
@@ -129,7 +127,7 @@ function Shell() {
   // drawer whenever an action opens something over the chat.
   useEffect(() => {
     setDrawerOpen(false);
-  }, [state.selectedId, state.activeView, state.pluginsOpen, state.settingsOpen]);
+  }, [state.selectedId, bot?.threadId, group?.threadId, state.activeView, state.pluginsOpen, state.settingsOpen]);
 
   useEffect(() => {
     if (state.activeView === "routines" && previousViewRef.current !== "routines") {
@@ -151,19 +149,6 @@ function Shell() {
     dispatch({ type: "toggleComputer", open: false });
     setLocalVmWorkspaceBotId(botId);
   };
-  const openBrowserWorkspace = useCallback((botId: string) => {
-    dispatch({ type: "toggleComputer", open: false });
-    setBrowserWorkspaceBotId(botId);
-  }, [dispatch]);
-  const closeBrowserWorkspace = useCallback(() => {
-    setBrowserWorkspaceBotId(null);
-    dispatch({ type: "toggleComputer", open: true });
-  }, [dispatch]);
-  useEffect(() => {
-    if (browserWorkspaceBotId && (state.activeView !== "chat" || state.selectedId !== browserWorkspaceBotId)) {
-      setBrowserWorkspaceBotId(null);
-    }
-  }, [browserWorkspaceBotId, state.activeView, state.selectedId]);
 
   const openComputerFromWorkspace = (botId: string) => {
     setLocalVmWorkspaceBotId(null);
@@ -176,12 +161,8 @@ function Shell() {
       dispatch({ type: "showTeamMap" });
       return;
     }
-    if (calendarOriginRef.current === "skill-recorder" && skillRecorderEnabled(state.config)) {
-      dispatch({ type: "showSkillRecorder" });
-      return;
-    }
     dispatch({ type: "select", id: state.selectedId });
-  }, [dispatch, state.config, state.selectedId]);
+  }, [dispatch, state.selectedId]);
   const openCalendarRoom = useCallback((id: string) => {
     dispatch({ type: "select", id });
   }, [dispatch]);
@@ -252,10 +233,6 @@ function Shell() {
         <TeamMapPage />
       ) : state.activeView === "routines" ? (
         <RoutinesPage onBack={closeCalendar} onOpenRoom={openCalendarRoom} />
-      ) : !remoteClient && state.activeView === "skill-recorder" ? (
-        <SkillRecorderPage />
-      ) : !remoteClient && browserWorkspaceBotId && bot && bot.id === browserWorkspaceBotId ? (
-        <BrowserWorkspace bot={bot} onClose={closeBrowserWorkspace} />
       ) : !remoteClient && localVmWorkspaceBotId ? (
         <LocalVmWorkspace
           primaryBotId={localVmWorkspaceBotId}
@@ -285,7 +262,7 @@ function Shell() {
       {state.settingsOpen && bot && (
         remoteClient
           ? <RemoteAgentSettingsPanel bot={bot} />
-          : <SettingsPanel bot={bot} />
+          : <BotSettingsDialog key={bot.id} bot={bot} />
       )}
       {state.computerOpen && bot && (
         remoteClient ? (
@@ -295,13 +272,19 @@ function Shell() {
             key={bot.id}
             bot={bot}
             onOpenVmWorkspace={openLocalVmWorkspace}
-            onExpandBrowser={openBrowserWorkspace}
           />
         )
       )}
-      {!remoteClient && state.inspectorOpen && bot && <InspectorPanel bot={bot} />}
+      {!remoteClient && state.inspectorOpen && bot && <InspectorPanel key={bot.threadId} bot={bot} />}
       {state.appSettingsOpen && <SettingsModal />}
       {state.pluginsOpen && <PluginsPanel />}
+      {state.newBotOpen && <NewBotDialog />}
+      {state.shortcutsOpen && (
+        <KeyboardShortcutsModal
+          open={state.shortcutsOpen}
+          onClose={() => dispatch({ type: "toggleShortcuts", open: false })}
+        />
+      )}
       {/* mounted after the modals: same z-50 tier, so DOM order keeps the
           palette on top when one of them is open underneath */}
       <CommandPalette onOpenChange={setPaletteOpen} />
@@ -310,17 +293,53 @@ function Shell() {
   );
 }
 
-export default function App() {
-  const [gated, setGated] = useState(() => window.ogb?.remoteClient?.active !== true && !emailGateDone());
+/** Opens the welcome flow on a fresh workspace (the server's onboarding
+ * record says so) or on request from Settings. The decision waits for the
+ * config to arrive, so a returning user never sees the tour flash. */
+function WelcomeGate() {
+  const { state, dispatch } = useStore();
+  const [dismissed, setDismissed] = useState(false);
+  const due =
+    !dismissed &&
+    welcomeDue(state.config, {
+      remoteClient: window.ogb?.remoteClient?.active === true,
+      legacyDone: emailGateDone(),
+    });
+  if (!state.welcomeOpen && !due) return null;
+  const bot = state.bots.find((b) => !b.hidden) ?? null;
+  const replay = state.welcomeOpen && !due;
+  return (
+    <WelcomeFlow
+      bot={bot}
+      replay={replay}
+      onDone={() => {
+        setDismissed(true);
+        dispatch({ type: "toggleWelcome", open: false });
+        // the first real finish hands over to the guided tour; a replay does not
+        if (!replay) dispatch({ type: "toggleTour", open: true });
+      }}
+    />
+  );
+}
+
+function Application() {
   useEffect(() => {
     initAnalytics();
   }, []);
   return (
     <DesktopCapabilitiesProvider>
       <StoreProvider>
-        <Shell />
-        {gated && <Onboarding onDone={() => setGated(false)} />}
+        <ThreadRefsProvider>
+          <Shell />
+        </ThreadRefsProvider>
+        <WelcomeGate />
+        <GuidedTour />
+        <FirstConversationTour />
       </StoreProvider>
     </DesktopCapabilitiesProvider>
   );
+}
+
+export default function App() {
+  return <WorkspaceBackupRecovery><Application /></WorkspaceBackupRecovery>;
 }

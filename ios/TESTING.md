@@ -31,7 +31,7 @@ GitHub CLI can create the correct local branch:
 
 ```sh
 git clone https://github.com/somdipto/dani-desktop
-cd dani-desktop
+cd Dani Bot
 gh pr checkout 161        # omit after the PR is merged
 ```
 
@@ -98,7 +98,7 @@ Verify from a second terminal that the socket is real and refuses strangers:
 ```sh
 curl -s http://192.168.x.x:8810/api/bots            # expect 401 + "pair this device…"
 curl -s http://127.0.0.1:8811/state | jq            # addresses, pairing, devices, discovery
-dns-sd -B _danibot._tcp                         # macOS: should list the service
+dns-sd -B _openmausbot._tcp                         # macOS: should list the service
 ```
 
 ### If discovery says it is not advertising
@@ -120,15 +120,15 @@ This is the likeliest snag on macOS, and it is not a bug in the phone.
 
 ```sh
 brew install xcodegen
-cd ios && xcodegen generate && open DaniCompanion.xcodeproj
+cd ios && xcodegen generate && open OpenMausCompanion.xcodeproj
 ```
 
 Build for the simulator first — it is a faster loop for compile errors.
 The same gate can run without opening Xcode:
 
 ```sh
-xcodebuild -project DaniCompanion.xcodeproj \
-  -scheme DaniCompanion \
+xcodebuild -project OpenMausCompanion.xcodeproj \
+  -scheme OpenMausCompanion \
   -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   CODE_SIGNING_ALLOWED=NO build
@@ -141,7 +141,7 @@ device token with "A required entitlement isn't present", right after the
 code is accepted:
 
 ```sh
-xcodebuild -project DaniCompanion.xcodeproj -scheme DaniCompanion \
+xcodebuild -project OpenMausCompanion.xcodeproj -scheme OpenMausCompanion \
   -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   DEVELOPMENT_TEAM=<your team id> CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual build
 ```
@@ -177,7 +177,7 @@ paid account is required to run on your own phone.
 On the phone, in order:
 
 1. **Pair.** In Dani Bot → Settings → Phone, choose **Pair a phone**.
-   Scan the QR code with the phone's Camera, open Dani Mobile,
+   Scan the QR code with the phone's Camera, open OpenMausMobile,
    confirm that the computer and six-digit code are filled in, then tap
    **Connect**. The computer should also appear by name for the manual path:
    tap it and type the same code.
@@ -186,7 +186,7 @@ On the phone, in order:
      into Keychain rather than only living in memory.
    - If the list stays empty, check in this order:
      1. **Local Network permission.** iOS asks once, and a denial is
-        permanent and silent. Settings → Dani Mobile → Local Network. If the
+        permanent and silent. Settings → Dani Bot → Local Network. If the
         toggle is not even there, the prompt never fired — which points at the
         Info.plist. Deleting the app and reinstalling resets the decision and
         asks again.

@@ -348,9 +348,9 @@ describe("phone setup flow", () => {
     });
     const device = newlyPairedDevice(started.baselineDeviceIds, [
       { id: "old", name: "Old phone" },
-      { id: "new", name: "Ada's iPhone" },
+      { id: "new", name: "Milind’s iPhone" },
     ]);
-    expect(device?.name).toBe("Ada's iPhone");
+    expect(device?.name).toBe("Milind’s iPhone");
 
     const success = phoneSetupReducer(started, {
       type: "paired",
@@ -387,7 +387,7 @@ describe("phone setup flow", () => {
     expect(pairingOpen.baselineDeviceIds).toEqual(["old-1", "old-2", "old-3"]);
     expect(newlyPairedDeviceForFlow(pairingOpen, historicalDevices)).toBeNull();
 
-    const newPhone = { id: "new-1", name: "Ada's iPhone" };
+    const newPhone = { id: "new-1", name: "Milind’s iPhone" };
     expect(newlyPairedDeviceForFlow(pairingOpen, [...historicalDevices, newPhone])).toBe(newPhone);
 
     const success = phoneSetupReducer(pairingOpen, {

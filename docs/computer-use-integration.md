@@ -38,7 +38,7 @@ Electron main process
 
 ## Local desktop use: CUA only — Electron owns the driver lifecycle
 
-**Decision (2026-08-12): CUA is the ONLY local desktop-control provider.
+**Decision (Milind, 2026-08-12): CUA is the ONLY local desktop-control provider.
 No cliclick, no robotjs/nut.js, no Python computer-server, no fallbacks.**
 All local desktop-control and input actions go through the validated
 `cua-driver` binary. Linux screen preview uses the supported Xorg or
@@ -116,7 +116,7 @@ So the harness just adds one entry to a bot's `--mcp-config`:
 { "mcpServers": { "computer": {
     "command": "<cua-driver binary>",
     "args": ["mcp", "--embedded", "--socket", "<socketPath>"],
-    "env": { "CUA_DRIVER_EMBEDDED": "1", "CUA_DRIVER_HOST_BUNDLE_ID": "com.danibot.app" }
+    "env": { "CUA_DRIVER_EMBEDDED": "1", "CUA_DRIVER_HOST_BUNDLE_ID": "com.opengrokbot.app" }
 } } }
 ```
 
@@ -178,7 +178,3 @@ app doesn't embed it).
    `EmbeddedCuaDriverHost` for production.
 5. Later: axstream-style macro teach/replay, extension bridge, playwright-mcp
    tier.
-
-## Month-1 browser eval (Webcmd)
-
-Interview method only — not the in-app Browser destination yet. See [`docs/browser-webcmd.md`](browser-webcmd.md). Do not treat the generic click-loop as the success path. Wiring `@agentrhq/webcmd` into the desktop Browser destination is [`docs/superpowers/specs/2026-09-06-webcmd-browser-destination.md`](superpowers/specs/2026-09-06-webcmd-browser-destination.md).

@@ -37,8 +37,8 @@ describe("bundled skill library", () => {
     }, "/skills/phone-harness")).toThrow(/invalid id/);
   });
 
-  it("loads a recorded skill without letting a broken sibling disable it", () => {
-    const root = mkdtempSync(join(tmpdir(), "danibot-skills-"));
+  it("loads a user skill without letting a broken sibling disable it", () => {
+    const root = mkdtempSync(join(tmpdir(), "openmausbot-skills-"));
     const valid = join(root, "file-expense");
     mkdirSync(valid);
     writeFileSync(join(valid, "manifest.json"), JSON.stringify({
@@ -59,7 +59,7 @@ describe("bundled skill library", () => {
   });
 
   it("treats a non-directory user skill root as empty", () => {
-    const root = mkdtempSync(join(tmpdir(), "danibot-skills-root-"));
+    const root = mkdtempSync(join(tmpdir(), "openmausbot-skills-root-"));
     const file = join(root, "not-a-directory");
     writeFileSync(file, "nope");
     expect(loadUserSkills(file)).toEqual([]);
@@ -75,7 +75,7 @@ describe("bundled verification skill", () => {
     expect(ids).toContain("create-verification-skill");
     expect(ids).not.toContain("maintain-verification-skill");
     expect(instructions).toContain("skill_manage");
-    expect(instructions).not.toContain("~/.danibot");
+    expect(instructions).not.toContain("~/.openmausbot");
     expect(instructions).not.toContain("propose_routine");
   });
 

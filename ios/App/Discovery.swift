@@ -1,7 +1,7 @@
 // Finding computers on the network, so nobody types an IP address.
 //
 // The other half of `server/mdns.ts`: the harness advertises
-// `_danibot._tcp` while its companion listener is up, and this browses
+// `_openmausbot._tcp` while its companion listener is up, and this browses
 // for it. NWBrowser is first-party and does the mDNS work; all that is left
 // is resolving each result to a host and port.
 //
@@ -11,6 +11,7 @@
 import Foundation
 import Network
 import CompanionCore
+import SwiftUI
 
 @MainActor
 final class Discovery: ObservableObject {
@@ -28,16 +29,13 @@ final class Discovery: ObservableObject {
     /// Set when the browser could not start at all — almost always the
     /// missing Info.plist keys, so it is worth surfacing rather than
     /// showing an empty list forever.
-    @Published private(set) var failure: String?
+    @Published private(set) var failure: LocalizedStringKey?
 
-    private var browsers: [NWBrowser] = []
-    private var foundByType: [String: [Found]] = [:]
+    private var browser: NWBrowser?
     private var retryTask: Task<Void, Never>?
     private var retryCount = 0
     private var generation = 0
     private var shouldBrowse = false
-
-    private static let serviceTypes = ["_danibot._tcp", "_openmausbot._tcp"]
 
     func start() {
         guard !shouldBrowse else { return }
@@ -46,64 +44,50 @@ final class Discovery: ObservableObject {
         startBrowser()
     }
 
-    private func publishFound() {
-        var seen = Set<String>()
-        found = Self.serviceTypes
-            .flatMap { foundByType[$0] ?? [] }
-            .filter { seen.insert($0.name).inserted }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
     private func startBrowser() {
-        guard shouldBrowse, browsers.isEmpty else { return }
+        guard shouldBrowse, browser == nil else { return }
         retryTask = nil
         generation += 1
         let currentGeneration = generation
-        foundByType = [:]
-        for type in Self.serviceTypes {
-            let parameters = NWParameters()
-            parameters.includePeerToPeer = false
-            let browser = NWBrowser(
-                for: .bonjour(type: type, domain: nil),
-                using: parameters
-            )
-            browser.stateUpdateHandler = { [weak self] state in
-                Task { @MainActor in
-                    guard let self, self.generation == currentGeneration else { return }
-                    switch state {
-                    case .ready:
-                        self.retryCount = 0
-                        self.browsing = true
-                        self.failure = nil
-                    case let .waiting(error):
-                        if !self.browsing {
-                            self.failure = Self.failureMessage(for: error)
-                        }
-                    case let .failed(error):
-                        self.handleFailure(error)
-                    case .cancelled:
-                        if self.browsers.isEmpty {
-                            self.browsing = false
-                        }
-                    default:
-                        break
-                    }
+        let parameters = NWParameters()
+        parameters.includePeerToPeer = false
+        let browser = NWBrowser(
+            for: .bonjour(type: "_openmausbot._tcp", domain: nil),
+            using: parameters
+        )
+
+        browser.stateUpdateHandler = { [weak self] state in
+            Task { @MainActor in
+                guard let self, self.generation == currentGeneration else { return }
+                switch state {
+                case .ready:
+                    self.retryCount = 0
+                    self.browsing = true
+                    self.failure = nil
+                case let .waiting(error):
+                    self.browsing = false
+                    self.failure = Self.failureMessage(for: error)
+                case let .failed(error):
+                    self.handleFailure(error)
+                case .cancelled:
+                    self.browsing = false
+                default:
+                    break
                 }
             }
-            browser.browseResultsChangedHandler = { [weak self] results, _ in
-                let found = results.compactMap { result -> Found? in
-                    guard case let .service(name, _, _, _) = result.endpoint else { return nil }
-                    return Found(name: name, endpoint: result.endpoint)
-                }
-                Task { @MainActor in
-                    guard let self, self.generation == currentGeneration else { return }
-                    self.foundByType[type] = found
-                    self.publishFound()
-                }
-            }
-            browsers.append(browser)
-            browser.start(queue: .main)
         }
+
+        browser.browseResultsChangedHandler = { [weak self] results, _ in
+            let found = results.compactMap { result -> Found? in
+                guard case let .service(name, _, _, _) = result.endpoint else { return nil }
+                return Found(name: name, endpoint: result.endpoint)
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            Task { @MainActor in self?.found = found }
+        }
+
+        self.browser = browser
+        browser.start(queue: .main)
     }
 
     func stop() {
@@ -111,9 +95,8 @@ final class Discovery: ObservableObject {
         retryTask?.cancel()
         retryTask = nil
         generation += 1
-        browsers.forEach { $0.cancel() }
-        browsers = []
-        foundByType = [:]
+        browser?.cancel()
+        browser = nil
         browsing = false
     }
 
@@ -122,9 +105,8 @@ final class Discovery: ObservableObject {
     /// browser is the only useful recovery; keep it bounded so a persistent
     /// local-network problem does not turn into a retry loop.
     private func handleFailure(_ error: NWError) {
-        browsers.forEach { $0.cancel() }
-        browsers = []
-        foundByType = [:]
+        browser?.cancel()
+        browser = nil
         browsing = false
         found = []
 
@@ -148,7 +130,7 @@ final class Discovery: ObservableObject {
         return Int(code) == kDNSServiceErr_DefunctConnection
     }
 
-    private static func failureMessage(for error: NWError) -> String {
+    private static func failureMessage(for error: NWError) -> LocalizedStringKey {
         if case let .dns(code) = error,
            Int(code) == kDNSServiceErr_PolicyDenied {
             return "Local Network access is off. Enable it in Settings, or enter a Tailscale address below."

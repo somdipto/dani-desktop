@@ -7,6 +7,7 @@ export type BotUpdatePatch = Partial<
     | "name"
     | "title"
     | "description"
+    | "soul"
     | "notifications"
     | "cloudBackend"
     | "autoStartVps"
@@ -27,6 +28,7 @@ export type BotUpdatePatch = Partial<
     | "composio"
     | "browser"
     | "browserProfile"
+    | "mcpServers"
     | "modelSelection"
   >
 > & {

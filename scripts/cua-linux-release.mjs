@@ -428,7 +428,7 @@ async function readVerifiedArchive({
   let bytes;
   try {
     const response = await fetchImpl(LINUX_CUA_RELEASE.url, {
-      headers: { "user-agent": "DaniBot-packager" },
+      headers: { "user-agent": "Dani Bot-packager" },
       signal: controller.signal,
     });
     if (!response?.ok) {
@@ -496,7 +496,7 @@ export async function stageLinuxCua({
     rootDirectory,
     "node_modules",
     ".cache",
-    "danibot",
+    "openmausbot",
     LINUX_CUA_RELEASE.archiveName,
   );
   const archive = await readVerifiedArchive({

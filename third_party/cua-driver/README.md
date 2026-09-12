@@ -22,7 +22,7 @@ cargo-about generate \
   --target x86_64-unknown-linux-gnu \
   --manifest-path crates/cua-driver/Cargo.toml \
   --features portal-input \
-  --config /path/to/dani-desktop/third_party/cua-driver/about.toml \
+  --config /path/to/Dani Bot/third_party/cua-driver/about.toml \
   --format json \
   > cua-driver.cargo-about.json
 
@@ -30,15 +30,15 @@ cargo-about generate \
   --locked \
   --target x86_64-unknown-linux-gnu \
   --manifest-path crates/cursor-theme-cli/Cargo.toml \
-  --config /path/to/dani-desktop/third_party/cua-driver/about.toml \
+  --config /path/to/Dani Bot/third_party/cua-driver/about.toml \
   --format json \
   > cursor-theme.cargo-about.json
 
-node /path/to/dani-desktop/scripts/generate-cua-sbom.mjs \
+node /path/to/Dani Bot/scripts/generate-cua-sbom.mjs \
   cua-driver.cargo-about.json \
   cursor-theme.cargo-about.json \
   Cargo.lock \
-  /path/to/dani-desktop/third_party/cua-driver
+  /path/to/Dani Bot/third_party/cua-driver
 ```
 
 The generator fails unless the reports contain the reviewed root-scoped sets: 325 registry packages for the driver, 113 for the cursor-theme sidecar, and a 330-package union. The final CycloneDX inventory contains those 330 packages, eight Cua workspace packages, and the embedded Inter font. The MPL-2.0 set is exactly seven packages. Regeneration is expected to produce a reviewed diff; no release process accepts new native inputs automatically.

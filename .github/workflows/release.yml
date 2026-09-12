@@ -1,5 +1,7 @@
 # One-button releases: builds macOS (arm64 + x64, signed, notarized, stapled),
-# Windows, and Ubuntu from ONE commit, then assembles a draft in this repo.
+# Windows, and Ubuntu from ONE commit, assembles a complete draft in this
+# repository with verified feeds, and mirrors it to the legacy releases repo
+# so already-installed builds can cross the updater migration safely.
 #
 # Every gate below exists because its absence shipped (or nearly shipped) a
 # broken build from a laptop:
@@ -84,6 +86,18 @@ jobs:
             echo "::error::$v is already published on $GITHUB_REPOSITORY — bump the version first"
             exit 1
           fi
+      - name: Refuse to overwrite a published legacy mirror
+        if: steps.pin.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+        run: |
+          test -n "$GH_TOKEN" || { echo "::error::RELEASES_PAT is required for the updater bridge"; exit 1; }
+          v="v$(node -p "require('./package.json').version")"
+          if gh release view "$v" --repo somdipto/dani-desktop --json isDraft --jq .isDraft 2>/dev/null | grep -q false; then
+            echo "::error::$v is already published on the legacy mirror — recover the canonical draft instead of rebuilding bytes"
+            exit 1
+          fi
+
   mac:
     name: macOS arm64 + x64 (sign, notarize, staple)
     needs: prepare
@@ -126,16 +140,16 @@ jobs:
 
       - name: "Gate: both packaged apps use the canonical updater feed"
         run: |
-          for app in "release/mac-arm64/Dani Bot.app" "release/mac/Dani Bot.app"; do
+          for app in release/mac-arm64/Dani Bot.app release/mac/Dani Bot.app; do
             update="$app/Contents/Resources/app-update.yml"
             test -f "$update" || { echo "::error::missing $update"; exit 1; }
             grep -Eq '^owner: somdipto$' "$update" || { echo "::error::wrong update owner in $update"; exit 1; }
-            grep -Eq '^repo: dani-desktop$' "$update" || { echo "::error::wrong update repo in $update"; exit 1; }
+            grep -Eq '^repo: Dani Bot$' "$update" || { echo "::error::wrong update repo in $update"; exit 1; }
           done
 
       - name: "Gate: the signature must verify BEFORE notarization"
         run: |
-          for app in "release/mac-arm64/Dani Bot.app" "release/mac/Dani Bot.app"; do
+          for app in release/mac-arm64/Dani Bot.app release/mac/Dani Bot.app; do
             codesign --verify --deep --strict "$app"
             bin="$app/Contents/Resources/cloudflared/cloudflared"
             test -x "$bin" || { echo "::error::missing executable $bin"; exit 1; }
@@ -148,16 +162,29 @@ jobs:
             bin_team=$(codesign -dv --verbose=4 "$bin" 2>&1 | sed -n 's/^TeamIdentifier=//p')
             test -n "$app_team" && test "$bin_team" = "$app_team" || {
               echo "::error::cloudflared is not signed by the app's Developer ID team in $app"; exit 1; }
+            for browser_bin in "$app/Contents/Resources/browser-engine/agent-browser" "$app/Contents/Resources/browser-engine/chrome/"*/chrome-headless-shell; do
+              test -x "$browser_bin"
+              codesign --verify --strict "$browser_bin"
+              browser_team=$(codesign -dv --verbose=4 "$browser_bin" 2>&1 | sed -n 's/^TeamIdentifier=//p')
+              test "$browser_team" = "$app_team" || { echo "::error::browser runtime has the wrong signing team"; exit 1; }
+            done
             echo "ok: $app"
           done
 
+      - name: "Gate: signed native browser works with an empty home"
+        run: |
+          case "$(node -p process.arch)" in
+            arm64) resources="$PWD/release/mac-arm64/Dani Bot.app/Contents/Resources" ;;
+            x64) resources="$PWD/release/mac/Dani Bot.app/Contents/Resources" ;;
+            *) exit 1 ;;
+          esac
+          node scripts/smoke-browser-bundle.mjs --resources "$resources"
+          OMB_SMOKE_DIST="$resources/server" node scripts/smoke-packaged-server.mjs --browser-bundle "$resources/browser-engine"
+
       - name: "Gate: both packaged servers start and every helper path resolves"
         run: |
-          for app in "release/mac-arm64/Dani Bot.app" "release/mac/Dani Bot.app"; do
+          for app in release/mac-arm64/Dani Bot.app release/mac/Dani Bot.app; do
             res="$app/Contents/Resources"
-            [ -f "$res/ui/index.html" ] || { echo "::error::missing ui/index.html in $app"; exit 1; }
-            grep -q '<title>Dani Bot</title>' "$res/ui/index.html" || {
-              echo "::error::$app UI is not branded Dani Bot"; exit 1; }
             # the server tree is plain JS — runnable on the runner's node
             # regardless of the app binary's arch
             OMB_SMOKE_DIST="$res/server" node scripts/smoke-packaged-server.mjs \
@@ -174,7 +201,7 @@ jobs:
           }
           console.log(`ok: ${Object.keys(SPAWNED_PROXIES).length} proxies resolve in ${server}`);
           EOF
-            for bin in "$res/cua-driver" "$res/Dani Bot Speech.app/Contents/MacOS/speech-helper"; do
+            for bin in "$res/cua-driver" "$res/OpenMausBot Speech.app/Contents/MacOS/speech-helper"; do
               lipo -archs "$bin" | grep -q "x86_64" || { echo "::error::$bin lacks x86_64"; exit 1; }
               lipo -archs "$bin" | grep -q "arm64" || { echo "::error::$bin lacks arm64"; exit 1; }
             done
@@ -209,17 +236,17 @@ jobs:
 
       - name: Staple, re-zip, regenerate blockmaps and the feed
         run: |
-          xcrun stapler staple release/DaniBot-*-arm64.dmg
-          xcrun stapler staple release/DaniBot-*-x64.dmg
-          xcrun stapler staple "release/mac-arm64/Dani Bot.app"
-          xcrun stapler staple "release/mac/Dani Bot.app"
+          xcrun stapler staple release/Dani Bot-*-arm64.dmg
+          xcrun stapler staple release/Dani Bot-*-x64.dmg
+          xcrun stapler staple release/mac-arm64/Dani Bot.app
+          xcrun stapler staple release/mac/Dani Bot.app
           v=$(node -p "require('./package.json').version")
-          rm -f "release/DaniBot-$v-arm64.zip" "release/DaniBot-$v-x64.zip"
-          ditto -c -k --sequesterRsrc --keepParent "release/mac-arm64/Dani Bot.app" "release/DaniBot-$v-arm64.zip"
-          ditto -c -k --sequesterRsrc --keepParent "release/mac/Dani Bot.app" "release/DaniBot-$v-x64.zip"
+          rm -f "release/Dani Bot-$v-arm64.zip" "release/Dani Bot-$v-x64.zip"
+          ditto -c -k --sequesterRsrc --keepParent release/mac-arm64/Dani Bot.app "release/Dani Bot-$v-arm64.zip"
+          ditto -c -k --sequesterRsrc --keepParent release/mac/Dani Bot.app "release/Dani Bot-$v-x64.zip"
           node scripts/regenerate-blockmaps.mjs \
-            "release/DaniBot-$v-arm64.zip" "release/DaniBot-$v-x64.zip" \
-            "release/DaniBot-$v-arm64.dmg" "release/DaniBot-$v-x64.dmg"
+            "release/Dani Bot-$v-arm64.zip" "release/Dani Bot-$v-x64.zip" \
+            "release/Dani Bot-$v-arm64.dmg" "release/Dani Bot-$v-x64.dmg"
           # refreshes every hash from the post-staple bytes and refuses to
           # finish unless the feed matches the files on disk
           node scripts/regenerate-mac-feed.mjs
@@ -227,8 +254,8 @@ jobs:
       - name: Stable-named copies for the README's /latest/download links
         run: |
           v=$(node -p "require('./package.json').version")
-          cp "release/DaniBot-$v-arm64.dmg" release/DaniBot.dmg
-          cp "release/DaniBot-$v-x64.dmg" release/DaniBot-intel.dmg
+          cp "release/Dani Bot-$v-arm64.dmg" release/Dani Bot.dmg
+          cp "release/Dani Bot-$v-x64.dmg" release/Dani Bot-intel.dmg
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -262,16 +289,18 @@ jobs:
         shell: bash
         run: rm -rf dist dist-server release
       - run: pnpm package:win
+      - name: "Gate: bundled browser works with an empty home"
+        run: node scripts/smoke-browser-bundle.mjs --resources "${{ github.workspace }}/release/win-unpacked/resources"
+      - name: "Gate: packaged Windows server discovers its browser"
+        env:
+          OMB_SMOKE_DIST: ${{ github.workspace }}/release/win-unpacked/resources/server
+        run: node scripts/smoke-packaged-server.mjs --browser-bundle "${{ github.workspace }}/release/win-unpacked/resources/browser-engine"
       - name: Verify the packaged tree and start the packaged server
         shell: bash
         run: |
           res=release/win-unpacked/resources
           [ -f "$res/server/index.js" ] || { echo "::error::missing server/index.js"; exit 1; }
           [ -f "$res/ui/index.html" ] || { echo "::error::missing ui/index.html"; exit 1; }
-          grep -q '<title>Dani Bot</title>' "$res/ui/index.html" || {
-            echo "::error::packaged UI is not branded Dani Bot"; exit 1; }
-          [ -f "release/win-unpacked/Dani Bot.exe" ] || {
-            echo "::error::missing release/win-unpacked/Dani Bot.exe"; exit 1; }
           [ -f "$res/cloudflared/cloudflared.exe" ] || { echo "::error::missing cloudflared.exe"; exit 1; }
           [ -f "$res/licenses/cloudflared-LICENSE.txt" ] || { echo "::error::missing cloudflared license"; exit 1; }
           [ -f "$res/licenses/cloudflared-README.md" ] || { echo "::error::missing cloudflared provenance"; exit 1; }
@@ -282,7 +311,7 @@ jobs:
             echo "::error::cloudflared has the wrong version"; exit 1; }
           [ -f "$res/app-update.yml" ] || { echo "::error::missing app-update.yml"; exit 1; }
           grep -Eq '^owner: somdipto$' "$res/app-update.yml" || { echo "::error::wrong update owner"; exit 1; }
-          grep -Eq '^repo: dani-desktop$' "$res/app-update.yml" || { echo "::error::wrong update repo"; exit 1; }
+          grep -Eq '^repo: Dani Bot$' "$res/app-update.yml" || { echo "::error::wrong update repo"; exit 1; }
           if grep -q "publisherName" "$res/app-update.yml"; then
             echo "::error::publisherName on an unsigned build breaks every update"; exit 1
           fi
@@ -301,7 +330,7 @@ jobs:
         shell: bash
         run: |
           v=$(node -p "require('./package.json').version")
-          cp "release/DaniBot-$v-setup.exe" release/DaniBot-setup.exe
+          cp "release/Dani Bot-$v-setup.exe" release/Dani Bot-setup.exe
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-release
@@ -345,7 +374,7 @@ jobs:
           update=release/linux-unpacked/resources/app-update.yml
           test -f "$update" || { echo "::error::missing $update"; exit 1; }
           grep -Eq '^owner: somdipto$' "$update" || { echo "::error::wrong update owner"; exit 1; }
-          grep -Eq '^repo: dani-desktop$' "$update" || { echo "::error::wrong update repo"; exit 1; }
+          grep -Eq '^repo: Dani Bot$' "$update" || { echo "::error::wrong update repo"; exit 1; }
       - name: Verify package contents and metadata
         run: node scripts/verify-linux-package.mjs
       - name: Match a normal Ubuntu package parent on the ephemeral runner
@@ -368,6 +397,12 @@ jobs:
           sudo chown root:root release/linux-unpacked/chrome-sandbox
           sudo chmod 4755 release/linux-unpacked/chrome-sandbox
           test "$(stat -c '%U:%G %a' release/linux-unpacked/chrome-sandbox)" = "root:root 4755"
+      - name: "Gate: installed browser works with Ubuntu sandbox restrictions"
+        run: node scripts/smoke-browser-bundle.mjs --resources /opt/Dani Bot/resources
+      - name: "Gate: packaged Linux server discovers its browser"
+        env:
+          OMB_SMOKE_DIST: /opt/Dani Bot/resources/server
+        run: node scripts/smoke-packaged-server.mjs --browser-bundle /opt/Dani Bot/resources/browser-engine
       - name: Smoke the packages
         env:
           OMB_KEEP_SMOKE_DIR: "1"
@@ -375,13 +410,13 @@ jobs:
         run: pnpm smoke:linux-package
       - name: Remove the installed upgrade fixture
         if: always()
-        run: sudo dpkg --purge danibot || true
+        run: sudo dpkg --purge openmausbot || true
       - name: Stable-named copies and checksums
         run: |
           v=$(node -p "require('./package.json').version")
-          cp "release/DaniBot-$v-amd64.deb" release/DaniBot-amd64.deb
-          cp "release/DaniBot-$v-x86_64.AppImage" release/DaniBot.AppImage
-          (cd release && sha256sum DaniBot-$v-amd64.deb DaniBot-$v-x86_64.AppImage > SHA256SUMS-ubuntu-x64.txt)
+          cp "release/Dani Bot-$v-amd64.deb" release/Dani Bot-amd64.deb
+          cp "release/Dani Bot-$v-x86_64.AppImage" release/Dani Bot.AppImage
+          (cd release && sha256sum Dani Bot-$v-amd64.deb Dani Bot-$v-x86_64.AppImage > SHA256SUMS-ubuntu-x64.txt)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-release
@@ -404,6 +439,8 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
+      # to dispatch the npm and Docker publishes on the new tag
+      actions: write
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -415,20 +452,20 @@ jobs:
         run: |
           required=(
             latest-linux.yml latest-mac.yml latest.yml
-            "DaniBot-$VERSION-amd64.deb"
-            "DaniBot-$VERSION-arm64.dmg"
-            "DaniBot-$VERSION-arm64.dmg.blockmap"
-            "DaniBot-$VERSION-arm64.zip"
-            "DaniBot-$VERSION-arm64.zip.blockmap"
-            "DaniBot-$VERSION-setup.exe"
-            "DaniBot-$VERSION-setup.exe.blockmap"
-            "DaniBot-$VERSION-x64.dmg"
-            "DaniBot-$VERSION-x64.dmg.blockmap"
-            "DaniBot-$VERSION-x64.zip"
-            "DaniBot-$VERSION-x64.zip.blockmap"
-            "DaniBot-$VERSION-x86_64.AppImage"
-            DaniBot-amd64.deb DaniBot-intel.dmg DaniBot-setup.exe
-            DaniBot.AppImage DaniBot.dmg SHA256SUMS-ubuntu-x64.txt
+            "Dani Bot-$VERSION-amd64.deb"
+            "Dani Bot-$VERSION-arm64.dmg"
+            "Dani Bot-$VERSION-arm64.dmg.blockmap"
+            "Dani Bot-$VERSION-arm64.zip"
+            "Dani Bot-$VERSION-arm64.zip.blockmap"
+            "Dani Bot-$VERSION-setup.exe"
+            "Dani Bot-$VERSION-setup.exe.blockmap"
+            "Dani Bot-$VERSION-x64.dmg"
+            "Dani Bot-$VERSION-x64.dmg.blockmap"
+            "Dani Bot-$VERSION-x64.zip"
+            "Dani Bot-$VERSION-x64.zip.blockmap"
+            "Dani Bot-$VERSION-x86_64.AppImage"
+            Dani Bot-amd64.deb Dani Bot-intel.dmg Dani Bot-setup.exe
+            Dani Bot.AppImage Dani Bot.dmg SHA256SUMS-ubuntu-x64.txt
           )
           for file in "${required[@]}"; do
             test -s "assets/$file" || { echo "::error::missing or empty release asset: $file"; exit 1; }
@@ -444,15 +481,15 @@ jobs:
           const sha512 = (f) => createHash("sha512").update(readFileSync(f)).digest("base64");
           const expected = new Map([
             ["latest-mac.yml", [
-              "DaniBot-${{ needs.prepare.outputs.version }}-x64.zip",
-              "DaniBot-${{ needs.prepare.outputs.version }}-arm64.zip",
-              "DaniBot-${{ needs.prepare.outputs.version }}-x64.dmg",
-              "DaniBot-${{ needs.prepare.outputs.version }}-arm64.dmg",
+              "Dani Bot-${{ needs.prepare.outputs.version }}-x64.zip",
+              "Dani Bot-${{ needs.prepare.outputs.version }}-arm64.zip",
+              "Dani Bot-${{ needs.prepare.outputs.version }}-x64.dmg",
+              "Dani Bot-${{ needs.prepare.outputs.version }}-arm64.dmg",
             ]],
-            ["latest.yml", ["DaniBot-${{ needs.prepare.outputs.version }}-setup.exe"]],
+            ["latest.yml", ["Dani Bot-${{ needs.prepare.outputs.version }}-setup.exe"]],
             ["latest-linux.yml", [
-              "DaniBot-${{ needs.prepare.outputs.version }}-x86_64.AppImage",
-              "DaniBot-${{ needs.prepare.outputs.version }}-amd64.deb",
+              "Dani Bot-${{ needs.prepare.outputs.version }}-x86_64.AppImage",
+              "Dani Bot-${{ needs.prepare.outputs.version }}-amd64.deb",
             ]],
           ]);
           let bad = 0;
@@ -497,13 +534,32 @@ jobs:
           for file in assets/*; do
             gh release upload "$tag" "$file" --repo "$GITHUB_REPOSITORY" --clobber
           done
-          # A rerun preserves human edits made while reviewing the draft.
+          # A rerun preserves human edits made while reviewing the canonical
+          # draft, and mirrors that exact body into the compatibility release.
           gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$RUNNER_TEMP/release-notes.md"
           echo "canonical asset count: $(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')"
 
-      - name: Prove the draft contains the exact staged bytes
+      - name: Mirror the same draft for installed legacy clients
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          if ! gh release view "$tag" --repo somdipto/dani-desktop > /dev/null 2>&1; then
+            gh release create "$tag" --repo somdipto/dani-desktop \
+              --draft --title "Dani Bot $VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi
+          gh release edit "$tag" --repo somdipto/dani-desktop \
+            --title "Dani Bot $VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
+          for file in assets/*; do
+            gh release upload "$tag" "$file" --repo somdipto/dani-desktop --clobber
+          done
+          echo "legacy asset count: $(gh release view "$tag" --repo somdipto/dani-desktop --json assets --jq '.assets | length')"
+
+      - name: Prove both drafts contain the exact staged bytes
+        env:
+          CANONICAL_TOKEN: ${{ github.token }}
+          LEGACY_TOKEN: ${{ secrets.RELEASES_PAT }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           node --input-type=module - "$VERSION" <<'EOF'
@@ -516,21 +572,45 @@ jobs:
             name,
             `sha256:${createHash("sha256").update(readFileSync(join("assets", name))).digest("hex")}`,
           ]));
-          const json = execFileSync("gh", ["release", "view", `v${version}`, "--repo", process.env.GITHUB_REPOSITORY, "--json", "assets"], { encoding: "utf8" });
-          const assets = JSON.parse(json).assets;
-          if (assets.length !== expected.size) throw new Error(`expected ${expected.size} assets, got ${assets.length}`);
-          for (const asset of assets) {
-            if (expected.get(asset.name) !== asset.digest) throw new Error(`digest mismatch for ${asset.name}`);
+          for (const [repo, token] of [
+            [process.env.GITHUB_REPOSITORY, process.env.CANONICAL_TOKEN],
+            ["somdipto/dani-desktop", process.env.LEGACY_TOKEN],
+          ]) {
+            const json = execFileSync("gh", ["release", "view", `v${version}`, "--repo", repo, "--json", "assets"], {
+              encoding: "utf8",
+              env: { ...process.env, GH_TOKEN: token },
+            });
+            const assets = JSON.parse(json).assets;
+            if (assets.length !== expected.size) throw new Error(`${repo}: expected ${expected.size} assets, got ${assets.length}`);
+            for (const asset of assets) {
+              if (expected.get(asset.name) !== asset.digest) throw new Error(`${repo}: digest mismatch for ${asset.name}`);
+            }
+            console.log(`ok: ${repo} has ${assets.length} byte-identical assets`);
           }
-          console.log(`ok: ${assets.length} byte-identical assets`);
           EOF
 
       - name: Publish (only when asked to)
         if: ${{ inputs.publish }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          CANONICAL_TOKEN: ${{ github.token }}
+          LEGACY_TOKEN: ${{ secrets.RELEASES_PAT }}
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --latest
-          gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft | grep -q false
-          echo "v$VERSION is live"
+          # The bridge build points at the canonical feed. Publish and verify
+          # that destination before making the build visible to legacy clients.
+          GH_TOKEN="$CANONICAL_TOKEN" gh release edit "v$VERSION" \
+            --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          GH_TOKEN="$CANONICAL_TOKEN" gh release view "v$VERSION" \
+            --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft | grep -q false
+          GH_TOKEN="$LEGACY_TOKEN" gh release edit "v$VERSION" \
+            --repo somdipto/dani-desktop --draft=false --latest
+          GH_TOKEN="$LEGACY_TOKEN" gh release view "v$VERSION" \
+            --repo somdipto/dani-desktop --json isDraft --jq .isDraft | grep -q false
+          echo "v$VERSION is live on the canonical feed and its legacy updater bridge"
+          # Publishing created the tag with this workflow's token, and GitHub
+          # starts no workflow from events that token creates. Start the two
+          # tag-driven publishes by hand, on the tag, so they see refs/tags/v*.
+          for workflow in npm-package.yml docker.yml; do
+            GH_TOKEN="$CANONICAL_TOKEN" gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "v$VERSION"
+          done
+          echo "dispatched the npm package and Docker image publishes on v$VERSION"

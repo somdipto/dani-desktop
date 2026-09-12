@@ -6,6 +6,7 @@
 // ~/.gemini MCP config and could not surface interactive approvals. Official
 // ACP mounts MCP servers per session and uses the same trusted approval cards
 // as Dani Bot's other ACP engines.
+import type { ApprovalMode } from "../../shared/approval-mode.ts";
 import type {
   DriverCreateInput,
   ModelCatalog,
@@ -28,6 +29,7 @@ import {
   resolveAntigravityRuntime,
 } from "./antigravity-runtime.ts";
 import { resolveAntigravityReleaseAsset } from "./antigravity-release.ts";
+import { augmentedPath } from "../env-path.ts";
 
 export const STATIC_ANTIGRAVITY_MODELS: ModelCatalog = {
   default: "gemini-3.8-flash-high",
@@ -38,8 +40,12 @@ export const STATIC_ANTIGRAVITY_MODELS: ModelCatalog = {
   ],
 };
 
-export function antigravityPermissionMode(fullAuto: boolean): "yolo" | "default" {
-  return fullAuto ? "yolo" : "default";
+/** Antigravity's own session modes: `yolo` for Full access, `auto_edit` for
+ * auto-accept edits, `default` otherwise (Ask, and Auto, which it has no
+ * reviewer for). */
+export function antigravityPermissionMode(fullAuto: boolean, approvalMode?: ApprovalMode): "yolo" | "auto_edit" | "default" {
+  if (fullAuto) return "yolo";
+  return approvalMode === "edits" ? "auto_edit" : "default";
 }
 
 export function antigravityModelsFromSession(value: unknown): ModelCatalog | null {
@@ -119,8 +125,8 @@ const support: AcpSupport = {
     }
   },
 
-  configureSession: async ({ request, sessionId, config }) => {
-    const wanted = antigravityPermissionMode(config.fullAuto);
+  configureSession: async ({ request, sessionId, config, turn }) => {
+    const wanted = antigravityPermissionMode(config.fullAuto, turn.approvalMode);
     const result = await request("session/set_config_option", {
       sessionId,
       configId: "mode",
@@ -140,8 +146,11 @@ export const AntigravityDriver: ProviderDriver<AcpConfig> = {
   async create(input: DriverCreateInput<AcpConfig>): Promise<ProviderInstance> {
     const base = await AcpAntigravityDriver.create(input);
     const auth = new AntigravityAuthController();
+    let installFailure: string | undefined;
     const runtimeAndProfile = async () => {
-      const environment = { ...process.env, ...input.environment };
+      // Match the ACP driver's discovery/chat environment. A GUI launch's
+      // raw PATH may omit an official runtime that the model picker found.
+      const environment = { ...process.env, ...input.environment, PATH: augmentedPath() };
       const runtime = await resolveAntigravityRuntime(input.config.cli, environment);
       const profile = await prepareAntigravityProfile({
         instanceId: input.instanceId,
@@ -155,10 +164,25 @@ export const AntigravityDriver: ProviderDriver<AcpConfig> = {
       get models() {
         return base.models;
       },
+      snapshot: async () => {
+        const snapshot = await base.snapshot();
+        if (snapshot.state === "available") installFailure = undefined;
+        // A failed first install has no promoted executable yet. Preserve
+        // why it failed across closing/reopening setup in this app session.
+        return snapshot.state === "unavailable" && installFailure
+          ? { ...snapshot, reason: installFailure }
+          : snapshot;
+      },
       ...(antigravityManagedInstallAvailable()
         ? {
             installRuntime: async () => {
-              await installAntigravityRuntime({ validate: validateAntigravityRuntime });
+              installFailure = undefined;
+              try {
+                await installAntigravityRuntime({ validate: validateAntigravityRuntime });
+              } catch (error) {
+                installFailure = error instanceof Error ? error.message : String(error);
+                throw error;
+              }
             },
           }
         : {}),

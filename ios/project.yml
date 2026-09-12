@@ -1,13 +1,13 @@
 # XcodeGen spec. The .xcodeproj is generated, not committed — a project
 # file is a merge-conflict machine and nothing in it is worth reviewing.
 #
-#   brew install xcodegen && cd ios && xcodegen generate && open DaniCompanion.xcodeproj
+#   brew install xcodegen && cd ios && xcodegen generate && open OpenMausCompanion.xcodeproj
 #
 # XcodeGen is a development tool, not a dependency of the app: the app
 # itself has none. If you'd rather not install it, make an iOS App target
 # in Xcode by hand, add the App/ folder, and add the local CompanionCore
 # package — the Info.plist keys below are the part that is easy to miss.
-name: DaniCompanion
+name: OpenMausCompanion
 options:
   bundleIdPrefix: com.openmausbot
   deploymentTarget:
@@ -18,8 +18,19 @@ packages:
   CompanionCore:
     path: .
 
+schemes:
+  OpenMausCompanion:
+    build:
+      targets:
+        OpenMausCompanion: all
+        OpenMausCompanionUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - OpenMausCompanionUITests
+
 targets:
-  DaniCompanion:
+  OpenMausCompanion:
     type: application
     platform: iOS
     sources:
@@ -29,8 +40,8 @@ targets:
     dependencies:
       - package: CompanionCore
         product: CompanionCore
-      - target: DaniCompanionWidgets
-      - target: DaniShareExtension
+      - target: OpenMausCompanionWidgets
+      - target: OpenMausShareExtension
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openmausbot.app
@@ -41,7 +52,7 @@ targets:
         # The catalog lives in App/, which is already a source path.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     entitlements:
-      path: App/DaniCompanion.entitlements
+      path: App/OpenMausCompanion.entitlements
       properties:
         com.apple.security.application-groups:
           - group.com.openmausbot.shared
@@ -54,7 +65,7 @@ targets:
         # What appears under the icon. Distinct from the desktop app on
         # purpose: someone may well have both, and two identical labels on
         # one person's devices is a small cruelty.
-        CFBundleDisplayName: Dani Mobile
+        CFBundleDisplayName: OpenMausMobile
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.productivity
@@ -66,7 +77,6 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.openmausbot.companion.pairing
             CFBundleURLSchemes:
-              - danibot
               - openmausbot
         # REQUIRED, and easy to lose. Without a launch screen iOS runs the
         # app in compatibility scaling: letterboxed inside black bars, with
@@ -96,12 +106,11 @@ targets:
           Dani Bot uses the camera only to scan a pairing QR code shown on
           your computer.
         NSMicrophoneUsageDescription: >-
-          Dani Mobile listens while you dictate a message to a bot.
+          OpenMausMobile listens while you dictate a message to a bot.
         NSSpeechRecognitionUsageDescription: >-
-          Dani Mobile converts your speech into text so you can send it
+          OpenMausMobile converts your speech into text so you can send it
           to a bot. Recognition runs on this phone when it can.
         NSBonjourServices:
-          - _danibot._tcp
           - _openmausbot._tcp
         # The companion listener is plain HTTP on a local address. ATS has
         # to be told, and this is the narrowest way to say it: local
@@ -122,11 +131,27 @@ targets:
               NSIncludesSubdomains: true
               NSExceptionAllowsInsecureHTTPLoads: true
 
+  # Native navigation coverage uses bundled synthetic data and no pairing.
+  OpenMausCompanionUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: OpenMausCompanion
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.openmausbot.app.uitests
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: OpenMausCompanion
+
   # The system share sheet can send a link, text, image, or document straight
   # to a paired bot without first opening the containing app. Connection
   # metadata lives in the App Group; the bearer remains in the shared
   # Keychain access group.
-  DaniShareExtension:
+  OpenMausShareExtension:
     type: app-extension
     platform: iOS
     sources:
@@ -145,7 +170,7 @@ targets:
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: true
     entitlements:
-      path: ShareExtension/DaniShareExtension.entitlements
+      path: ShareExtension/OpenMausShareExtension.entitlements
       properties:
         com.apple.security.application-groups:
           - group.com.openmausbot.shared
@@ -181,7 +206,7 @@ targets:
 
   # The Live Activity lives in a widget extension. It shares the mascot's
   # drawing and data with the app, and the activity contract in Shared/.
-  DaniCompanionWidgets:
+  OpenMausCompanionWidgets:
     type: app-extension
     platform: iOS
     sources:
@@ -206,7 +231,7 @@ targets:
     info:
       path: Widgets/Info.plist
       properties:
-        CFBundleDisplayName: Dani Mobile
+        CFBundleDisplayName: OpenMausMobile
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:

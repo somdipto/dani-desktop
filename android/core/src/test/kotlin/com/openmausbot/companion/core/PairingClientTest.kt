@@ -412,7 +412,7 @@ class PairingClientTest {
 
     private companion object {
         const val CREDENTIAL = "omb_pair_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        const val HEALTH = """{"app":"danibot","pid":42,"static":true}"""
+        const val HEALTH = """{"app":"openmausbot","pid":42,"static":true}"""
         const val PAIRED =
             """{"token":"omb_device","device":{"id":"d","name":"Pixel","createdAt":1,"lastSeenAt":1},"serverName":"Mac","hosts":["192.168.1.42"]}"""
     }

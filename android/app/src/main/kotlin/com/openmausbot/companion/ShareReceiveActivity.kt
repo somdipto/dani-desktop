@@ -32,7 +32,7 @@ class ShareReceiveActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val app = application as DaniApp
+        val app = application as OpenMausApp
         // Stay alive until the inbox copy finishes; URI grants die with this record.
         scope.launch {
             ShareHandoff.run(

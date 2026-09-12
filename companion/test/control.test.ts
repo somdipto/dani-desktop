@@ -258,13 +258,13 @@ describe("hosted endpoint advertisement", () => {
       "PUT",
       "/hosted-endpoint",
       headers,
-      JSON.stringify({ url: "https://C-Opaque.DaniBot.Test/" }),
+      JSON.stringify({ url: "https://C-Opaque.Dani Bot.Test/" }),
     );
     expect(published.status).toBe(200);
     expect(published.body.endpoints[0]).toEqual({
       kind: "hosted",
       priority: 0,
-      url: "https://c-opaque.danibot.test",
+      url: "https://c-opaque.openmausbot.test",
     });
 
     expect(
@@ -291,7 +291,7 @@ describe("hosted endpoint advertisement", () => {
       { url: false },
       [],
       null,
-      "https://c-opaque.danibot.test",
+      "https://c-opaque.openmausbot.test",
     ]) {
       const result = await ask("PUT", "/hosted-endpoint", headers, JSON.stringify(body));
       expect(result).toEqual({ status: 400, body: { error: "invalid JSON body" } });

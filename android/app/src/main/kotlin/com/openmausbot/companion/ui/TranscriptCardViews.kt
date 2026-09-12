@@ -77,7 +77,7 @@ import kotlinx.coroutines.launch
  */
 
 /** What the clipboard shows a copied card came from. */
-private const val CARD_CLIP_LABEL = "Dani Mobile card"
+private const val CARD_CLIP_LABEL = "OpenMausMobile card"
 
 /** Added and removed, in the app's own palette rather than Tailwind's. */
 private val DiffAdded = Color(MausPalette.argb("green"))

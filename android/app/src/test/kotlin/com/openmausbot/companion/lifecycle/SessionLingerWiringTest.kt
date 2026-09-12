@@ -19,10 +19,10 @@ import org.w3c.dom.Element
  *
  * Two halves, because neither alone is enough:
  *
- * 1. [installSessionLinger] is the one function `DaniApp.onCreate` calls,
+ * 1. [installSessionLinger] is the one function `OpenMausApp.onCreate` calls,
  *    and here it is driven through a real lifecycle, registering the very
  *    observer the Application registers.
- * 2. A source pin on `DaniApp.kt`, in the spirit of `PairingLinkManifestTest`:
+ * 2. A source pin on `OpenMausApp.kt`, in the spirit of `PairingLinkManifestTest`:
  *    it fails if the Application goes back to an inline observer or to calling
  *    `disconnect()` on the way out. That is a text assertion, not a runtime
  *    proof — it is here because instantiating the real Application in a JVM
@@ -68,15 +68,15 @@ class SessionLingerWiringTest {
 
     @Test
     fun `the Application installs the linger and never disconnects on the way out`() {
-        val source = sourceFile("DaniApp.kt").readText()
+        val source = sourceFile("OpenMausApp.kt").readText()
 
         assertTrue(
             source.contains("installSessionLinger("),
-            "DaniApp must install the linger coordinator",
+            "OpenMausApp must install the linger coordinator",
         )
         assertFalse(
             source.contains("disconnect()"),
-            "DaniApp must not cancel the stream itself — that is what dropped the notification",
+            "OpenMausApp must not cancel the stream itself — that is what dropped the notification",
         )
         assertFalse(
             source.contains("DefaultLifecycleObserver"),
@@ -94,11 +94,16 @@ class SessionLingerWiringTest {
         assertEquals("", service.getAttributeNS(ANDROID, "permission"))
         assertEquals(0, service.getElementsByTagName("intent-filter").length)
 
-        val manifestText = manifestFile.readText()
-        assertFalse(
-            manifestText.contains("FOREGROUND_SERVICE"),
-            "the linger window must never be bought with a foreground service",
-        )
+        // The four assertEquals above are the actual invariant this test name
+        // promises: SessionLingerService itself declares no foregroundServiceType,
+        // no permission, no intent-filter, and stays exported=false/stopWithTask=true.
+        // A manifest-wide "contains FOREGROUND_SERVICE" ban used to stand in for
+        // that, back when this was the only service in the app; it stopped being a
+        // proxy for this test's own claim once AlwaysOnConnectionService — a
+        // separate, user-opt-in, Settings-toggled service for a different job
+        // (surviving the app being fully closed, not a 25s post-background grace
+        // window) — legitimately needed one. See AlwaysOnConnectionService's own
+        // kdoc for why that service does need FOREGROUND_SERVICE.
     }
 
     private val ANDROID = "http://schemas.android.com/apk/res/android"

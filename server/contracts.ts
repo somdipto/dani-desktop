@@ -6,6 +6,7 @@
 // readable.
 
 import type { ApprovalMode } from "../shared/approval-mode.ts";
+import type { AskQuestion } from "../shared/ask-question.ts";
 
 export type DriverKind = string;
 export type InstanceId = string;
@@ -117,7 +118,15 @@ export type RuntimeEvent = RuntimeEventBase &
          * delta, a thread total, a per-step figure) and must never be summed. */
         usage?: { input: number; output: number; cachedInput?: number };
       }
-    | { type: "item.started"; itemType: "tool" | "reasoning"; title?: string }
+    | {
+        type: "item.started";
+        itemType: "tool" | "reasoning";
+        title?: string;
+        /** The shell command the call runs, on one redacted line of at most
+         * 200 characters, for the chip and the Verify card. Absent for calls
+         * that run no command (a Read, a fetch). */
+        summary?: string;
+      }
     | { type: "item.updated"; itemType: "tool" | "reasoning"; tokens?: number | null }
     | { type: "item.completed"; itemType: "tool"; ok: boolean }
     | { type: "item.completed"; itemType: "assistant_text"; text: string }
@@ -133,10 +142,26 @@ export type RuntimeEvent = RuntimeEventBase &
         tool: string;
         summary: string;
         choices?: string[];
+        /** A provider's structured ask (Claude's AskUserQuestion): the whole
+         * set of questions, each with its own options, so the card can offer
+         * them instead of an Allow/Deny a person cannot answer. */
+        questions?: AskQuestion[];
         approvalScope?: "local-computer";
         /** Provider asks to widen its configured sandbox. Only explicit Full
          * access may answer this automatically; Auto/remembered grants may not. */
         requiresExplicitApproval?: boolean;
+        /** Whether the provider's own automatic reviewer was running when it
+         * raised this request. Only providers that can tell set it: Claude
+         * reports the effective permission mode in its init frame, and starts
+         * in Manual without a word when Auto is unavailable for the model.
+         * "inactive" means this ask is not a reviewer's verdict, so the app's
+         * own safe-Auto rules may answer it; unset means nobody knows. */
+        nativeReview?: "active" | "inactive";
+        /** The provider can keep an allow for the rest of its session
+         * ("Always allow this session"): Claude through its own suggested
+         * permission rules, ACP agents through `allow_always` or the
+         * driver's per-session memory. Unset when answers are one-shot. */
+        allowSession?: boolean;
       }
     | {
         type: "request.resolved";
@@ -168,6 +193,13 @@ export type RequestOutcome = "allowed-once" | "rejected" | "answered" | "unavail
 // carrying the provider-native continuation (e.g. a claude session id).
 export interface SendTurnInput {
   threadId: ThreadId;
+  /** The bot this turn belongs to. threadIds are meant to be unique per bot
+   * task, but a driver's process-level resource maps (permission-broker
+   * socket, CLI session) key off threadId alone — botId lets a driver namespace
+   * those resources so a threadId that unexpectedly coincides across two
+   * bots (e.g. a delegation still holding its own broker open) can never
+   * collide with another bot's live session or broker (see #1017). */
+  botId?: string;
   text: string;
   /** Per-bot approval policy, reasserted by providers on every turn so a
    * resumed native session cannot retain a stale, more permissive mode. */
@@ -179,10 +211,25 @@ export interface SendTurnInput {
   model?: string;
   effort?: EffortLevel;
   resumeCursor?: unknown;
+  /** The turn with the conversation so far replayed inline, attached only
+   * alongside resumeCursor. A cursor-resuming driver sends it once, on a
+   * fresh session, when the provider refuses the cursor before reading the
+   * prompt (server/resume-recovery.ts) — so a session the provider lost
+   * does not brick the thread, and the new session is not blank. */
+  recoveryText?: string;
   /** Prior turns for transcript-replay providers (API-backed drivers). */
   transcript?: Array<{ role: "user" | "assistant"; text: string }>;
   /** Bot persona (name/title/description) as a system prompt. */
   system?: string;
+  /** `system` split at the sections that legitimately change mid-conversation
+   * (memory today): `systemStable` is everything else, `systemVolatile` is
+   * those sections' text. A driver that keeps one CLI process per thread keys
+   * that process on the stable half, so a memory edit no longer respawns the
+   * session and makes the provider re-cache the entire prompt; the changed half
+   * is delivered inside the next turn instead. Drivers that rebuild their
+   * request every turn ignore both and keep reading `system`. */
+  systemStable?: string;
+  systemVolatile?: string;
   /** Per-bot integrations the driver may hand to the agent as tools. */
   integrations?: {
     /** A local stdio bridge owns the remote Composio transport. Keeping the
@@ -295,7 +342,15 @@ export interface ProviderAdapter {
   respondToRequest(
     threadId: ThreadId,
     requestId: string,
-    decision: { behavior: "allow" | "deny" | "answer"; message?: string },
+    decision: {
+      behavior: "allow" | "deny" | "answer";
+      message?: string;
+      /** "Always allow this session": hand the provider its own remembered
+       * approval (Claude's suggested permission rules, ACP `allow_always`)
+       * so it stops asking about this operation for the rest of the
+       * session. The app keeps no grant of its own. */
+      always?: boolean;
+    },
   ): Promise<RequestOutcome>;
   /** Deliver a user message into the RUNNING turn on this thread. Resolves
    * false when there is no live turn to steer (the caller then sends it as
@@ -311,6 +366,10 @@ export interface ProviderSnapshot {
   state: "available" | "unavailable";
   reason?: string;
   authenticated?: boolean;
+  /** Vetted display identity from the provider CLI, never credentials.
+   * `method` says how it is signed in when the CLI reports it: a personal
+   * login, or the workspace API key. */
+  account?: { email?: string; organization?: string; method?: "login" | "api-key" };
   version?: string | null;
   /** A non-blocking provider update that unlocks newer capabilities. The
    * engine remains usable; renderer surfaces the exact terminal command. */
@@ -349,6 +408,11 @@ export interface EngineInstall {
     label: string;
     downloadBytes: number;
   };
+  /** Settings can install or update this engine on the machine running the
+   * server, as the server's own user, into a directory the app owns. Set by
+   * the registry when the install one-liner is an npm package and npm is on
+   * PATH; never something a client chooses. */
+  server?: { package: string };
 }
 
 export interface ProviderAuthenticationStart {
@@ -356,6 +420,14 @@ export interface ProviderAuthenticationStart {
   flowId: string | null;
   authorizationUrl: string | null;
   expiresAt: string | null;
+  /** A short-lived code to enter only at the provider's authorization URL. */
+  userCode?: string;
+}
+
+export interface ProviderAuthenticationStatus extends Omit<ProviderAuthenticationStart, "phase"> {
+  phase: "waiting" | "succeeded" | "failed" | "expired" | "cancelled";
+  /** Safe, actionable copy; never unfiltered CLI output or credentials. */
+  message?: string;
 }
 
 // ── driver SPI (upstream ProviderDriver — a plain record, not a service) ─
@@ -399,8 +471,12 @@ export interface ProviderInstance {
   /** Optional first-party runtime installation and account setup. */
   readonly installRuntime?: () => Promise<void>;
   readonly startAuthentication?: () => Promise<ProviderAuthenticationStart>;
+  readonly getAuthentication?: (flowId: string) => Promise<ProviderAuthenticationStatus>;
   readonly completeAuthentication?: (flowId: string, callbackUrl: string) => Promise<void>;
   readonly cancelAuthentication?: () => Promise<void>;
+  /** Remove the sign-in the provider CLI stores on this server, so a
+   * different account can connect. Never touches another instance's home. */
+  readonly signOut?: () => Promise<void>;
   readonly adapter: ProviderAdapter;
   snapshot(): Promise<ProviderSnapshot>;
   /** Cheap one-shot text call (upstream TextGeneration) — titles, summaries. */

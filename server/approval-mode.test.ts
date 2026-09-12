@@ -5,7 +5,6 @@ import {
   approvalModeFor,
   supportsApprovalMode,
   hasNativeAutoReview,
-  requiresNativeApproval,
   isEmergencyApprovalDowngrade,
   isApprovalMode,
 } from "../shared/approval-mode.ts";
@@ -15,15 +14,27 @@ describe("approval modes", () => {
     for (const driver of ["codex", "claudeAgent", "antigravityAgent", "cursorAgent", "grokAgent", "opencodeGo"]) {
       expect(supportsApprovalMode(driver, "full")).toBe(true);
       expect(supportsApprovalMode(driver, "custom")).toBe(driver === "codex");
-      expect(hasNativeAutoReview(driver)).toBe(["codex", "claudeAgent", "cursorAgent"].includes(driver));
-      expect(requiresNativeApproval(driver, "auto")).toBe(true);
+      expect(hasNativeAutoReview(driver)).toBe(["codex", "claudeAgent", "cursorAgent", "grokAgent"].includes(driver));
+      // auto-accept edits exists only where the engine has such a mode
+      expect(supportsApprovalMode(driver, "edits")).toBe(["claudeAgent", "grokAgent", "antigravityAgent"].includes(driver));
     }
-    for (const driver of [undefined, "customAgent", "pi"]) expect(supportsApprovalMode(driver, "full")).toBe(false);
-    expect(requiresNativeApproval("antigravityAgent", "full")).toBe(true);
-    expect(requiresNativeApproval("opencodeGo", "full")).toBe(false);
+    expect(supportsApprovalMode(undefined, "full")).toBe(false);
+    expect(supportsApprovalMode(undefined, "edits")).toBe(false);
   });
-  it("recognizes only the four durable values", () => {
-    expect(APPROVAL_MODES).toEqual(["ask", "auto", "full", "custom"]);
+
+  it.each([
+    "geminiAgent", "kimiAgent", "droidAgent", "qwenAgent", "hermesAgent", "customAcp",
+    "piAgent", "grok", "openai-compat", "boxAgent", "minimax", "unknown",
+  ])("keeps %s on supported approval levels without claiming native Auto", (driver) => {
+    expect(supportsApprovalMode(driver, "ask")).toBe(true);
+    expect(supportsApprovalMode(driver, "auto")).toBe(true);
+    expect(supportsApprovalMode(driver, "edits")).toBe(false);
+    expect(supportsApprovalMode(driver, "full")).toBe(false);
+    expect(supportsApprovalMode(driver, "custom")).toBe(false);
+    expect(hasNativeAutoReview(driver)).toBe(false);
+  });
+  it("recognizes only the five durable values", () => {
+    expect(APPROVAL_MODES).toEqual(["ask", "edits", "auto", "full", "custom"]);
     for (const mode of APPROVAL_MODES) expect(isApprovalMode(mode)).toBe(true);
     for (const value of [undefined, null, true, "automatic", "bypass"]) {
       expect(isApprovalMode(value)).toBe(false);

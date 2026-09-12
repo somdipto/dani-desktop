@@ -73,8 +73,56 @@ describe("connector MCP bridge", () => {
     expect(reply.id).toBe(7);
     expect(reply.result.content[0].text).toMatch(/secure connection card/i);
     expect(received.authorization).toBe("Bearer bridge-secret");
-    expect(received.body).toMatchObject({ botId: "bot-1", threadId: "thread-1", slugs: ["gmail"] });
+    expect(received.body).toMatchObject({ botId: "bot-1", threadId: "thread-1", items: [{ slug: "gmail" }] });
     expect(received.body.resumeKey).toMatch(/^[\w-]{8,100}$/);
+  });
+
+  it("carries an account alias when the agent asks for a second account", async () => {
+    let received: any = null;
+    const harness = await listen((request, response) => {
+      let body = "";
+      request.on("data", (chunk) => { body += chunk; });
+      request.on("end", () => {
+        received = { authorization: request.headers.authorization, body: JSON.parse(body) };
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end("{}");
+      });
+    });
+    const lines = start({
+      OMB_HARNESS_URL: harness,
+      OMB_CONNECTOR_TOKEN: "bridge-secret",
+      OMB_BOT_ID: "bot-1",
+      OMB_THREAD_ID: "thread-1",
+    });
+    child!.stdin.write(`${JSON.stringify({
+      jsonrpc: "2.0",
+      id: 8,
+      method: "tools/call",
+      params: {
+        name: "COMPOSIO_MANAGE_CONNECTIONS",
+        arguments: {
+          toolkits: [
+            { toolkit: "googledrive", alias: "work-devhouse" },
+            { name: "LINEAR", account: "personal" },
+            { toolkit: "googledrive", alias: "personal" },
+            { toolkit: "GOOGLEDRIVE", alias: " Work-Devhouse " },
+          ],
+        },
+      },
+    })}\n`);
+    const reply = await nextJson(lines);
+    expect(reply.id).toBe(8);
+    expect(reply.result.content[0].text).toMatch(/secure connection card for googledrive \(work-devhouse\), linear \(personal\)/i);
+    expect(received.authorization).toBe("Bearer bridge-secret");
+    expect(received.body).toMatchObject({
+      botId: "bot-1",
+      threadId: "thread-1",
+      items: [
+        { slug: "googledrive", alias: "work-devhouse" },
+        { slug: "linear", alias: "personal" },
+        { slug: "googledrive", alias: "personal" },
+      ],
+    });
   });
 
   it("answers initialize locally so a missing or failing upstream cannot fail the MCP handshake", async () => {
@@ -92,7 +140,7 @@ describe("connector MCP bridge", () => {
       result: {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "danibot-connectors", version: "1" },
+        serverInfo: { name: "openmausbot-connectors", version: "1" },
       },
     });
     expect(reply.result).not.toHaveProperty("isError");
@@ -156,7 +204,7 @@ describe("connector MCP bridge", () => {
     child!.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "initialize", params: { protocolVersion: "2024-11-05" } })}\n`);
     const reply = await nextJson(lines);
     expect(reply.result.protocolVersion).toBe("2024-11-05");
-    expect(reply.result.serverInfo).toEqual({ name: "danibot-connectors", version: "1" });
+    expect(reply.result.serverInfo).toEqual({ name: "openmausbot-connectors", version: "1" });
     expect(upstreamAuthorization).toBe("Bearer upstream-secret");
     expect(upstreamBody).toMatchObject({ method: "initialize" });
     expect(JSON.stringify(reply)).not.toContain("upstream-secret");

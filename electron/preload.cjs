@@ -4,8 +4,6 @@ const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 // Sandboxed preloads receive Electron's restricted `require`, which cannot
 // load sibling CommonJS files. Keep this tiny predicate inline here; main's
-// privileged process uses the shared browser-platform helper.
-const browserSurfaceSupported = process.platform === "darwin" || process.platform === "linux";
 const desktopRemoteClient = process.argv.includes("--openmausbot-remote-client");
 
 let pendingPackageInstallUrl = null;
@@ -100,29 +98,6 @@ const bridge = {
     ipcRenderer.on("speech:end", handler);
     return () => ipcRenderer.removeListener("speech:end", handler);
   },
-  /** A local-first demonstration recorder. Global events stay in main; the
-   * renderer receives only the privacy-filtered event stream. */
-  skillRecorder: {
-    permissions: () => ipcRenderer.invoke("skill-recorder:permissions"),
-    start: () => ipcRenderer.invoke("skill-recorder:start"),
-    stop: () => ipcRenderer.invoke("skill-recorder:stop"),
-    save: (payload) => ipcRenderer.invoke("skill-recorder:save", payload),
-    onEvent: (cb) => {
-      const handler = (_event, value) => cb(value);
-      ipcRenderer.on("skill-recorder:event", handler);
-      return () => ipcRenderer.removeListener("skill-recorder:event", handler);
-    },
-    onEnd: (cb) => {
-      const handler = (_event, value) => cb(value);
-      ipcRenderer.on("skill-recorder:end", handler);
-      return () => ipcRenderer.removeListener("skill-recorder:end", handler);
-    },
-  },
-  transcription: {
-    status: () => ipcRenderer.invoke("assemblyai:status"),
-    setKey: (value) => ipcRenderer.invoke("assemblyai:set-key", value),
-    streamingToken: () => ipcRenderer.invoke("assemblyai:streaming-token"),
-  },
   /** Absolute path of a dropped File — Electron 32 removed File.path, and
    * only the preload can ask. "" when the drag carried no file on disk. */
   getPathForFile: (file) => {
@@ -150,7 +125,7 @@ const bridge = {
   /** Tell the window which skin the page wears, so the native chrome the
    * renderer cannot paint (the Windows caption-button overlay) matches. */
   applySkin: (skin) => ipcRenderer.invoke("desktop:skin", skin),
-  /** A reviewed BotMRR package opened through danibot://install. */
+  /** A reviewed BotMRR package opened through openmausbot://install. */
   onPackageInstall: (cb) => {
     packageInstallListeners.add(cb);
     if (pendingPackageInstallUrl) cb(pendingPackageInstallUrl);
@@ -181,39 +156,12 @@ const bridge = {
       return () => ipcRenderer.removeListener("desktop-workspace:state", handler);
     },
   },
-  /** The built-in browser: a native page view per bot that the Browser tab
-   * positions over its own rectangle. Bots drive it through their tools; the
-   * person drives it by clicking into the view. */
-  browser: browserSurfaceSupported && !desktopRemoteClient ? {
-    available: () => ipcRenderer.invoke("browser:available"),
-    state: (botId) => ipcRenderer.invoke("browser:state", botId),
-    layout: (botId, bounds, profile, mode, layoutOwner) =>
-      ipcRenderer.invoke("browser:layout", botId, bounds, profile, mode, layoutOwner),
-    navigate: (botId, url, profile) => ipcRenderer.invoke("browser:navigate", botId, url, profile),
-    back: (botId, profile) => ipcRenderer.invoke("browser:back", botId, profile),
-    forward: (botId, profile) => ipcRenderer.invoke("browser:forward", botId, profile),
-    reload: (botId, profile) => ipcRenderer.invoke("browser:reload", botId, profile),
-    setHumanControl: (botId, held, profile) => ipcRenderer.invoke("browser:set-human-control", botId, held, profile),
-    /** Wipe a named profile's logins, storage and cache after it is deleted. */
-    forgetProfile: (partitionId) => ipcRenderer.invoke("browser:forget-profile", partitionId),
-    close: (botId) => ipcRenderer.invoke("browser:close", botId),
-    onState: (cb) => {
-      const handler = (_event, state) => cb(state);
-      ipcRenderer.on("browser:state", handler);
-      return () => ipcRenderer.removeListener("browser:state", handler);
-    },
-    onUserInteraction: (cb) => {
-      const handler = (_event, state) => cb(state);
-      ipcRenderer.on("browser:user-interaction", handler);
-      return () => ipcRenderer.removeListener("browser:user-interaction", handler);
-    },
-  } : undefined,
   /** Native folder picker for a bot's working folder; null when cancelled. */
   pickFolder: (current) => ipcRenderer.invoke("desktop:pick-folder", current),
   /** Writes the redacted diagnostics report to a user-chosen file; resolves
    * the path, or null when the save dialog was cancelled. */
   exportDiagnostics: () => ipcRenderer.invoke("desktop:export-diagnostics"),
-  /** Ask where to save a bot-created file (inside ~/.danibot), copy it
+  /** Ask where to save a bot-created file (inside ~/.openmausbot), copy it
    * there and reveal it. Returns the chosen path, or null if the user
    * cancelled the dialog. The chat bubble shows the
    * rejection text verbatim, so strip the "Error invoking remote method"

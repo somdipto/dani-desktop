@@ -40,7 +40,7 @@ describe("private managed origin", () => {
       const socketPath = path.join(directory, "origin.sock");
       const server = createServer((_incoming, response) => {
         response.writeHead(200, { "content-type": "application/json" });
-        response.end(JSON.stringify({ app: "danibot" }));
+        response.end(JSON.stringify({ app: "openmausbot" }));
       });
       await listenCompanionOrigin(server, socketPath);
       expect(fs.statSync(socketPath).mode & 0o777).toBe(0o600);
@@ -54,7 +54,7 @@ describe("private managed origin", () => {
         outgoing.once("error", reject);
         outgoing.end();
       });
-      expect(JSON.parse(body)).toEqual({ app: "danibot" });
+      expect(JSON.parse(body)).toEqual({ app: "openmausbot" });
       await new Promise<void>((resolve) => server.close(() => resolve()));
     },
   );

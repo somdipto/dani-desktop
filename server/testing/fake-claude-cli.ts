@@ -4,9 +4,14 @@
 // scripted session. Failure modes are toggled by env var, mirroring how
 // the real thing misbehaves:
 //
-//   FAKE_CLAUDE_MODE   happy (default) | exit-early | hang | malformed
+//   FAKE_CLAUDE_MODE   happy (default) | exit-early | hang | malformed |
+//                      dead-session (fails only when --resume is passed)
+//                      | resume-dies-after-init (a --resume launch emits
+//                        init, then exits without result or output)
 //                      | stream (partial-message text deltas before the
 //                        whole-message frame, plus subagent noise to drop)
+//                      | not-logged-in (the frames a signed-out CLI really
+//                        sends, captured from 2.1.263)
 //   FAKE_CLAUDE_DUMP   path to write {argv, env, prompt, systemPrompt,
 //                      mcpConfig} as JSON,
 //                      so the test can assert on argv shape and env hygiene.
@@ -19,11 +24,21 @@
 //                      bounded multi-turn orchestration deterministic.
 //   FAKE_CLAUDE_REPLY_STATE Optional counter file shared by fresh CLI
 //                      processes so scripted replies keep their order.
+//   FAKE_CLAUDE_TOOL_CALLS JSON array of {name, input?, ok?}: the tool calls
+//                      each turn makes, in order and before its reply text —
+//                      one tool_use (fresh id, that name and input) followed
+//                      by its tool_result (is_error unless ok, default true).
+//                      Unset, a turn makes the single default Bash call.
 //   FAKE_CLAUDE_AUTH   in (default) | out | unsupported | malformed |
 //                      inherited-api-key — what `auth status` reports
+//   FAKE_CLAUDE_AUTO_UNAVAILABLE_MODELS comma-separated --model values for
+//                      which `--permission-mode auto` starts in "default",
+//                      the way the real CLI (2.1.266) does for Haiku 4.5 and
+//                      Sonnet 4.5: init reports the mode it actually runs in.
 //
 // Keep this file dependency-free — it runs as a bare `node` subprocess.
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { runRoomHandoffAgent } from "./room-handoff-agent.ts";
 
 const mode = process.env.FAKE_CLAUDE_MODE ?? "happy";
 const scriptedReplies = (() => {
@@ -37,6 +52,26 @@ const scriptedReplies = (() => {
     return [];
   }
 })();
+type ScriptedToolCall = { name: string; input: Record<string, unknown>; ok: boolean };
+// null = unset (or unparseable): keep the single default Bash call.
+const scriptedToolCalls: ScriptedToolCall[] | null = (() => {
+  const raw = process.env.FAKE_CLAUDE_TOOL_CALLS;
+  if (raw === undefined) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed
+      .filter((call): call is { name: string; input?: unknown; ok?: unknown } => typeof call?.name === "string")
+      .map((call) => ({
+        name: call.name,
+        input: call.input && typeof call.input === "object" && !Array.isArray(call.input) ? call.input as Record<string, unknown> : {},
+        ok: call.ok !== false,
+      }));
+  } catch {
+    return null;
+  }
+})();
+let toolUseCount = 0;
 let scriptedReplyIndex = 0;
 const nextScriptedReply = (): string[] => {
   const stateFile = process.env.FAKE_CLAUDE_REPLY_STATE;
@@ -63,7 +98,9 @@ const out = (obj: unknown) => process.stdout.write(JSON.stringify(obj) + "\n");
 
 // Snapshot probes: both answer on argv alone and exit without reading stdin.
 if (argv[0] === "--version") {
-  process.stdout.write("2.1.232 (Claude Code)\n");
+  // FAKE_CLAUDE_VERSION lets a test stand in for an older CLI: the driver
+  // withholds flags that version predates (CLAUDE_FLAG_FLOORS).
+  process.stdout.write(`${process.env.FAKE_CLAUDE_VERSION ?? "2.1.232"} (Claude Code)\n`);
   process.exit(0);
 }
 
@@ -122,6 +159,12 @@ if (argAfter("--output-format") === "text") {
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 const sessionId = argAfter("--resume") ?? argAfter("--session-id") ?? "fake-session";
 const model = argAfter("--model") ?? "claude-fake";
+// The mode init reports: what was asked for, unless auto is unavailable for
+// this model, in which case the real CLI silently runs Manual ("default").
+const requestedPermissionMode = argAfter("--permission-mode") ?? "default";
+const autoUnavailableFor = (process.env.FAKE_CLAUDE_AUTO_UNAVAILABLE_MODELS ?? "").split(",").filter(Boolean);
+const permissionMode =
+  requestedPermissionMode === "auto" && autoUnavailableFor.includes(model) ? "default" : requestedPermissionMode;
 let dumped = false;
 let turnRunning = false;
 let steered: string[] = [];
@@ -156,6 +199,10 @@ const finishIfDone = () => {
 const playTurn = (prompt: JsonValue) => {
   turnRunning = true;
   steered = [];
+  // Every prompt this process receives, one JSON object per line. FAKE_CLAUDE_DUMP
+  // records only the first, which cannot show what a REUSED session was sent on
+  // its second and later turns.
+  if (process.env.FAKE_CLAUDE_PROMPTS) appendFileSync(process.env.FAKE_CLAUDE_PROMPTS, `${JSON.stringify(prompt)}\n`);
   if (!dumped && process.env.FAKE_CLAUDE_DUMP) {
     dumped = true;
     const configPath = argAfter("--mcp-config");
@@ -168,6 +215,9 @@ const playTurn = (prompt: JsonValue) => {
       }
     }
     const systemPromptPath = argAfter("--append-system-prompt-file");
+    const settingsPath = argAfter("--settings");
+    const settings = settingsPath ? JSON.parse(readFileSync(settingsPath, "utf8")) : null;
+    const settingsMode = settingsPath ? statSync(settingsPath).mode & 0o777 : null;
     let systemPrompt: string | null = null;
     if (systemPromptPath) {
       try {
@@ -178,8 +228,16 @@ const playTurn = (prompt: JsonValue) => {
     }
     writeFileSync(
       process.env.FAKE_CLAUDE_DUMP,
-      JSON.stringify({ pid: process.pid, argv, env: process.env, prompt, systemPrompt, mcpConfig }, null, 2),
+      JSON.stringify({ pid: process.pid, argv, env: process.env, prompt, systemPrompt, mcpConfig, settings, settingsMode }, null, 2),
     );
+  }
+
+  // A resumed session the CLI no longer has: it exits before any `init`
+  // frame, so the prompt on stdin is never read. A FRESH launch (--session-id)
+  // works normally, which is what makes recovery observable.
+  if (mode === "dead-session" && argv.includes("--resume")) {
+    process.stderr.write(`fake-claude: No conversation found with session ID: ${argAfter("--resume")}\n`);
+    process.exit(1);
   }
 
   if (mode === "exit-early") {
@@ -200,7 +258,7 @@ const playTurn = (prompt: JsonValue) => {
     } catch {}
     const quota = Number(process.env.FAKE_CLAUDE_TRANSIENTS) || 0;
     writeFileSync(process.env.FAKE_CLAUDE_STATE, String(launched + 1));
-    out({ type: "system", subtype: "init", session_id: sessionId, model });
+    out({ type: "system", subtype: "init", session_id: sessionId, model, permissionMode });
     if (launched < quota) {
       if (process.env.FAKE_CLAUDE_PARTIAL_FAILS) {
         out({ type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "half an answer" } } });
@@ -211,7 +269,25 @@ const playTurn = (prompt: JsonValue) => {
   }
 
   // the real CLI re-announces init on every turn of a live process
-  out({ type: "system", subtype: "init", session_id: sessionId, model });
+  out({ type: "system", subtype: "init", session_id: sessionId, model, permissionMode });
+
+  // The CLI accepted the resumed session — it read the prompt — and then
+  // died with nothing to show. The prompt may already have run tools, so
+  // the driver must NOT send it again.
+  if (mode === "resume-dies-after-init" && argv.includes("--resume")) {
+    process.stderr.write("fake-claude: simulated crash after accepting the resumed session\n");
+    process.exit(3);
+  }
+
+  if (process.env.FAKE_CLAUDE_ROOM_PLAN) {
+    void runRoomHandoffAgent(argv, process.env.FAKE_CLAUDE_ROOM_PLAN, prompt).then(text => {
+      out({ type: "assistant", message: { content: [{ type: "text", text }] } });
+      out({ type: "result", is_error: false, stop_reason: "end_turn", usage: { input_tokens: 10, output_tokens: 5 } });
+    }).catch(error => {
+      out({ type: "result", is_error: true, result: String(error), stop_reason: "error" });
+    }).finally(() => { turnRunning = false; finishIfDone(); });
+    return;
+  }
 
   if (mode === "hang") {
     // stay alive until killed — lets tests exercise interrupt + the
@@ -222,6 +298,28 @@ const playTurn = (prompt: JsonValue) => {
 
   if (mode === "malformed") {
     process.stdout.write("this is not json\n{broken\n");
+  }
+
+  // A signed-out CLI answers every prompt with this, verbatim: the login
+  // instruction arrives as assistant text, and only the frame's own error
+  // fields say it is a failure at all.
+  if (mode === "not-logged-in") {
+    out({
+      type: "assistant",
+      message: { model: "<synthetic>", content: [{ type: "text", text: "Not logged in \u00b7 Please run /login" }] },
+      error: "authentication_failed",
+      is_api_error_message: true,
+    });
+    out({
+      type: "result",
+      is_error: true,
+      stop_reason: "stop_sequence",
+      terminal_reason: "api_error",
+      result: "Not logged in \u00b7 Please run /login",
+    });
+    turnRunning = false;
+    finishIfDone();
+    return;
   }
 
   if (mode === "stream") {
@@ -238,20 +336,25 @@ const playTurn = (prompt: JsonValue) => {
   }
 
   const replyParts = nextScriptedReply();
-  replyParts.forEach((text, index) => {
-    const content: Array<
-      { type: "text"; text: string } | { type: "tool_use"; id: string; name: string }
-    > = [{ type: "text", text }];
-    if (index === replyParts.length - 1) content.push({ type: "tool_use", id: "tu-1", name: "Bash" });
-    out({
-      type: "assistant",
-      message: {
-        content,
-        usage: { input_tokens: 10, cache_read_input_tokens: 2, output_tokens: 5 },
-      },
+  const usage = { input_tokens: 10, cache_read_input_tokens: 2, output_tokens: 5 };
+  if (scriptedToolCalls) {
+    // scripted calls come first, each settled before the reply text
+    for (const call of scriptedToolCalls) {
+      const id = `tu-${++toolUseCount}`;
+      out({ type: "assistant", message: { content: [{ type: "tool_use", id, name: call.name, input: call.input }], usage } });
+      out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, is_error: !call.ok }] } });
+    }
+    for (const text of replyParts) out({ type: "assistant", message: { content: [{ type: "text", text }], usage } });
+  } else {
+    replyParts.forEach((text, index) => {
+      const content: Array<
+        { type: "text"; text: string } | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
+      > = [{ type: "text", text }];
+      if (index === replyParts.length - 1) content.push({ type: "tool_use", id: "tu-1", name: "Bash", input: { command: "echo hi" } });
+      out({ type: "assistant", message: { content, usage } });
     });
-  });
-  out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "tu-1", is_error: false }] } });
+    out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "tu-1", is_error: false }] } });
+  }
 
   const finish = () => {
     out({ type: "result", is_error: false, stop_reason: "end_turn", total_cost_usd: 0.01, usage: { input_tokens: 10, cache_read_input_tokens: 2, output_tokens: 5 } });

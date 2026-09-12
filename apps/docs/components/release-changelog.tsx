@@ -3,9 +3,12 @@ import ReactMarkdown from 'react-markdown';
 
 const RELEASE_REPOSITORIES = [
   'somdipto/dani-desktop',
+  'somdipto/dani-desktop',
 ] as const;
 const RELEASES_PER_PAGE = 100;
 const MAX_RELEASE_PAGES = 10;
+const LEGACY_DRAFT_NOTES =
+  /^Draft assembled by the release workflow from somdipto\/Dani Bot@([0-9a-f]{40})\. Edit these notes, then publish\.\s*$/i;
 
 interface GitHubRelease {
   body: string | null;
@@ -54,7 +57,14 @@ function compareVersions(
 }
 
 function releaseNotes(release: GitHubRelease) {
-  return release.body?.trim() || 'No release notes were published for this version.';
+  const body = release.body?.trim();
+  if (!body) return 'No release notes were provided for this build.';
+
+  const legacyDraft = LEGACY_DRAFT_NOTES.exec(body);
+  if (!legacyDraft) return body;
+
+  const commit = legacyDraft[1];
+  return `This build predates curated release notes. [View its source commit (${commit.slice(0, 7)})](https://github.com/somdipto/dani-desktop/commit/${commit}).`;
 }
 
 async function fetchPublishedReleases(repository: string): Promise<GitHubRelease[]> {
@@ -66,7 +76,7 @@ async function fetchPublishedReleases(repository: string): Promise<GitHubRelease
       const response = await fetch(endpoint, {
         headers: {
           Accept: 'application/vnd.github+json',
-          'User-Agent': 'DaniBot-docs',
+          'User-Agent': 'Dani Bot-docs',
           'X-GitHub-Api-Version': '2022-11-28',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
@@ -118,7 +128,8 @@ export async function ReleaseChangelog() {
   if (releases.length === 0) {
     return (
       <p>
-        Official installer links are not published in these docs yet.
+        The live release history is temporarily unavailable.{' '}
+        <a href="https://github.com/somdipto/dani-desktop/releases">Browse releases on GitHub</a>.
       </p>
     );
   }

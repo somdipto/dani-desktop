@@ -4,7 +4,7 @@ The iOS app is a thin, native client for the Dani Bot instance running on
 your Mac. The Mac remains the only machine that persists agent processes,
 credentials, SQLite data, transcripts, and computers. The iPhone trusts a Mac
 by scanning the QR code shown in desktop **Settings → Remote access**; it does not need
-a Dani Bot account of its own.
+an Dani Bot account of its own.
 
 ## Current status
 
@@ -102,7 +102,7 @@ harness API:
   If an API payload changes, regenerate the fixtures with
   `node scripts/capture-companion-fixtures.mjs` and review the diff.
 
-The sidecar keeps its device registry in `~/.danibot/devices.json`. That is
+The sidecar keeps its device registry in `~/.openmausbot/devices.json`. That is
 security state owned by the network boundary, not transcript data, so it does
 not belong in the message database.
 
@@ -141,7 +141,7 @@ WireGuard inside the tailnet. Use the MagicDNS name rather than the
 `100.64.0.0/10` address: App Transport Security exceptions are domain-based,
 and `ios/project.yml` narrowly allows insecure HTTP for `ts.net` subdomains.
 
-Tailscale is optional. The direct path does not use a Dani Bot-operated
+Tailscale is optional. The direct path does not use an Dani Bot-operated
 relay or create a cloud copy of local transcript data.
 
 ### Optional hosted HTTPS
@@ -202,7 +202,7 @@ new hosted address—or its withdrawal—without another pairing ceremony. The
 route never reaches the harness and returns only the computer name plus a
 bounded list of connection origins.
 
-A Dani Bot account is not required for nearby, manual, or Tailscale
+An Dani Bot account is not required for nearby, manual, or Tailscale
 connections. Only the desktop owner signs in when enabling the optional hosted
 HTTPS route; the iPhone always uses the same QR trust flow.
 
@@ -210,7 +210,7 @@ HTTPS route; the iPhone always uses the same QR trust flow.
 
 This is Password AutoFill, not a password-vault integration. A native
 `SecureField` marked as a password lets the user explicitly choose Apple
-Passwords or any enabled third-party AutoFill provider. Dani Mobile does
+Passwords or any enabled third-party AutoFill provider. OpenMausMobile does
 not enumerate a vault, receive a provider token, or save the entered value in
 its own Keychain.
 
@@ -230,7 +230,7 @@ Each submission uses RFC 9180 base-mode HPKE with P-256/HKDF-SHA256/AES-GCM-256
 and authenticates this exact newline-separated context:
 
 ```text
-danibot-phone-credential-v1
+openmausbot-phone-credential-v1
 <key id>
 <authenticated companion device id>
 <bot id>
@@ -343,8 +343,8 @@ pnpm check:electron
 cd ios
 swift test
 xcodegen generate
-xcodebuild -project DaniCompanion.xcodeproj \
-  -scheme DaniCompanion \
+xcodebuild -project OpenMausCompanion.xcodeproj \
+  -scheme OpenMausCompanion \
   -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' \
   CODE_SIGNING_ALLOWED=NO build

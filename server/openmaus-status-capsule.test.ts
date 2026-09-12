@@ -84,7 +84,7 @@ function successCapsule(options: {
   const expected = options.expected === undefined ? DUAL_VIEW_SHA : options.expected;
   const twoUp = options.twoUp ?? (source !== null && source === expected);
   return sign({
-    schema: "aos.danibot_status.v1",
+    schema: "aos.openmausbot_status.v1",
     observed_at: "2026-08-22T06:30:00Z",
     fresh_until: "2026-08-22T06:35:00Z",
     ttl_seconds: 300,
@@ -123,7 +123,7 @@ function failedCapsule(
   expected: string | null = DUAL_VIEW_SHA,
 ): TestCapsule {
   return sign({
-    schema: "aos.danibot_status.v1",
+    schema: "aos.openmausbot_status.v1",
     observed_at: "2026-08-22T06:30:00Z",
     fresh_until: "2026-08-22T06:35:00Z",
     ttl_seconds: 300,
@@ -143,7 +143,7 @@ function failedCapsule(
 function cachePath(capsule: TestCapsule): string {
   const root = mkdtempSync(join(tmpdir(), "openmaus-status-"));
   roots.push(root);
-  const parent = join(root, "danibot");
+  const parent = join(root, "openmausbot");
   mkdirSync(parent, { mode: 0o700 });
   chmodSync(parent, 0o700);
   const path = join(parent, "latest.json");
@@ -293,7 +293,7 @@ posixOnly("readOpenMausStatus", () => {
     const targetPath = cachePath(successCapsule());
     const linkRoot = mkdtempSync(join(tmpdir(), "openmaus-status-parent-link-"));
     roots.push(linkRoot);
-    const linkedParent = join(linkRoot, "danibot");
+    const linkedParent = join(linkRoot, "openmausbot");
     symlinkSync(dirname(targetPath), linkedParent, "dir");
     expect(
       readOpenMausStatus({ cachePath: join(linkedParent, "latest.json"), now: NOW }).reason,

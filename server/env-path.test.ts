@@ -7,7 +7,7 @@ import { homedir, tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { augmentedPath, resetPathCache, resetPathCacheForTests, splitCliString } from "./env-path.ts";
+import { augmentedPath, registerPathDir, resetPathCache, resetPathCacheForTests, splitCliString } from "./env-path.ts";
 import { resolveCli } from "./procs.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 
@@ -205,6 +205,16 @@ winOnly("resolveCli (Windows)", () => {
     });
   });
 
+  it("uses the supplied PATH and PATHEXT without depending on the app environment", () => {
+    shimWith("ombfake.cmd", EXE_SHIM, "ombfake.exe", "MZ-not-really");
+    expect(resolveCli("ombfake", ["acp"], { Path: dir, PATHEXT: ".CMD" })).toEqual({
+      command: join(dir, "node_modules", "pkg", "bin", "ombfake.exe"),
+      args: ["acp"],
+    });
+    onPath();
+    expect(resolveCli("ombfake", [], { PATH: "", PATHEXT: ".CMD" })).toEqual({ command: "ombfake", args: [] });
+  });
+
   it("parses an npm .cmd shim down to `node <cli.js>`, never the shim's own node.exe", async () => {
     shimWith("ombfake.cmd", JS_SHIM, "ombfake.js", "console.log('js target ' + process.argv.slice(2).join(','));\n");
     onPath();
@@ -311,5 +321,25 @@ describe("resolveCli with wrapper commands", () => {
       command: join(bin, "omb"),
       args: ["space", "dir/nope", "two", "words", "--version"],
     });
+  });
+});
+
+describe("registerPathDir", () => {
+  afterEach(() => resetPathCacheForTests());
+
+  it("puts an app-managed directory ahead of PATH once it exists, and survives a rescan", () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-registered-path-"));
+    const missing = join(dir, "not-yet");
+    try {
+      registerPathDir(missing);
+      expect(augmentedPath().split(delimiter)).not.toContain(missing);
+      mkdirSync(missing);
+      resetPathCache();
+      expect(augmentedPath().split(delimiter)[0]).toBe(missing);
+      registerPathDir(missing);
+      expect(augmentedPath().split(delimiter).filter((d) => d === missing)).toHaveLength(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

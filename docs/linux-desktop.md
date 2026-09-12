@@ -30,13 +30,14 @@ CUA supply-chain work is tracked in [issue #113](https://github.com/somdipto/dan
 
 ## Download packages
 
-Choose one Ubuntu 24.04 x86_64 package when a release is published:
+Choose one Ubuntu 24.04 x86_64 package from the latest release:
 
-- Debian package (`DaniBot-amd64.deb`) — recommended; APT installs its desktop dependencies. [Download](#)
-- Portable AppImage (`DaniBot.AppImage`) — does not install system files. [Download](#)
-- SHA-256 checksums. [Download](#)
+- [Debian package (`Dani Bot-amd64.deb`)](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot-amd64.deb) — recommended; APT installs its desktop dependencies and configures the bundled bot browser's sandbox.
+- [Portable AppImage (`Dani Bot.AppImage`)](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot.AppImage) — does not install system files.
+- [SHA-256 checksums](https://github.com/somdipto/dani-desktop/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
 
-Installer URLs are not published in this document yet.
+Versioned packages and previous releases remain available on the
+[releases page](https://github.com/somdipto/dani-desktop/releases).
 
 ## Build packages
 
@@ -48,7 +49,7 @@ Requirements for building from source:
 
 ```sh
 git clone https://github.com/somdipto/dani-desktop.git
-cd dani-desktop
+cd Dani Bot
 corepack enable
 pnpm install --frozen-lockfile
 pnpm package:linux
@@ -56,8 +57,8 @@ pnpm package:linux
 
 The build creates:
 
-- `release/DaniBot-<version>-amd64.deb`
-- `release/DaniBot-<version>-x86_64.AppImage`
+- `release/Dani Bot-<version>-amd64.deb`
+- `release/Dani Bot-<version>-x86_64.AppImage`
 
 The AppImage uses a static runtime and does not require the legacy `libfuse2` package.
 
@@ -66,26 +67,39 @@ The AppImage uses a static runtime and does not require the legacy `libfuse2` pa
 Install a downloaded Debian package with APT so its desktop dependencies are resolved:
 
 ```sh
-sudo apt install ./DaniBot-amd64.deb
+sudo apt install ./Dani Bot-amd64.deb
 ```
 
 Then open **Dani Bot** from the GNOME application launcher. To remove it:
 
 ```sh
-sudo apt remove danibot
+sudo apt remove openmausbot
 ```
 
 The portable AppImage does not install system files:
 
 ```sh
-chmod +x release/DaniBot-*-x86_64.AppImage
-./release/DaniBot-*-x86_64.AppImage
+chmod +x release/Dani Bot-*-x86_64.AppImage
+./release/Dani Bot-*-x86_64.AppImage
 ```
 
-For a downloaded release AppImage, use `DaniBot.AppImage` in place of the versioned path above.
+For a downloaded release AppImage, use `Dani Bot.AppImage` in place of the versioned path above.
 
-Application data remains local in `~/.danibot`. Electron browser data and window state use the normal XDG
-configuration directory (`~/.config/danibot` unless the environment overrides it).
+### Bundled bot browser on Ubuntu 24.04
+
+The desktop packages include the browser engine and browser runtime; no separate browser download is needed.
+Use the **`.deb` package** for browser-ready installation on Ubuntu 24.04. Its installer secures the browser's
+package-owned files and loads an AppArmor rule for that exact executable. The browser sandbox stays enabled,
+and the machine-wide user-namespace restriction is unchanged. Upgrades refresh the same rule; uninstalling
+the package removes it. Enabling a bot's browser and approving its actions remain explicit choices.
+
+An AppImage is portable and cannot install privileged system policy. On hosts restricting unprivileged
+user namespaces, its bundled browser can still report `No usable sandbox`. Install the `.deb` instead;
+do not add `--no-sandbox`, disable AppArmor globally, or allowlist arbitrary executables under your home
+directory. See [Chromium's explanation of the Ubuntu restriction](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md).
+
+Application data remains local in `~/.openmausbot`. Electron browser data and window state use the normal XDG
+configuration directory (`~/.config/openmausbot` unless the environment overrides it).
 
 ## Develop the desktop shell
 
@@ -101,7 +115,7 @@ For a package-shaped build without creating `.deb` or AppImage artifacts:
 
 ```sh
 pnpm package:linux:dir
-./release/linux-unpacked/danibot
+./release/linux-unpacked/openmausbot
 ```
 
 ## Agent CLI discovery
@@ -122,7 +136,7 @@ It also probes the login shell in the background. If a CLI still is not detected
 path before launching the app from a terminal and verify it there:
 
 ```sh
-OMB_EXTRA_PATH=/your/custom/bin ./release/DaniBot-*-x86_64.AppImage
+OMB_EXTRA_PATH=/your/custom/bin ./release/Dani Bot-*-x86_64.AppImage
 ```
 
 Restart Dani Bot after installing or signing in to a CLI.
@@ -211,7 +225,7 @@ pnpm smoke:linux-package
 The verifier checks `.deb` metadata, desktop identity, the exact dormant Cua resource tree and provenance,
 SquashFS/DEB directory modes, runtime path policy, and matching binary hashes across all artifacts. The local smoke
 launches the unpacked app and AppImage without `--no-sandbox`; CI first reproduces a `0.1.7` in-place DEB upgrade and
-then runs the same smoke against `/opt/Dani Bot/danibot`. These lanes prove the embedded server and UI are
+then runs the same smoke against `/opt/Dani Bot/openmausbot`. These lanes prove the embedded server and UI are
 usable while an optional Composio broker stalls, verify that an old local-control opt-in is cleared, and assert that
 no Cua executable starts on Xorg or simulated Wayland. Low-level runtime tests retain the future private-daemon
 contract without activating it in a packaged app. Only a real-seat acceptance matrix can authorize re-enablement.
@@ -246,8 +260,8 @@ open a new chooser. Cancelling or stopping sharing never causes an automatic sec
 Confirm the executable bit and architecture:
 
 ```sh
-chmod +x DaniBot-*-x86_64.AppImage
-file DaniBot-*-x86_64.AppImage
+chmod +x Dani Bot-*-x86_64.AppImage
+file Dani Bot-*-x86_64.AppImage
 ```
 
 Run it from a terminal once to collect the startup output. Do not install `libfuse2` just for this AppImage; the

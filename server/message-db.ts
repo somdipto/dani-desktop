@@ -10,11 +10,12 @@
 // Legacy JSON thread files import lazily: the first read of a thread with
 // no rows pulls the old file in, after which the DB is the source of
 // truth (the JSON file is left behind as a one-time backup).
-import { chmodSync, closeSync, existsSync, openSync, readFileSync, renameSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { DATA_DIR } from "./config.ts";
+import { peerProvenanceAuthor } from "./peer-provenance.ts";
 import type { Message } from "./store.ts";
 
 const DB_FILE = () => join(DATA_DIR, "messages.db");
@@ -23,6 +24,7 @@ let handle: DatabaseSync | null = null;
 let handlePath: string | null = null;
 
 function open(): DatabaseSync {
+  mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
   const file = DB_FILE();
   // Transcripts can contain private conversations and tool output. Create
   // the database with owner-only permissions and also repair an existing
@@ -50,9 +52,52 @@ function open(): DatabaseSync {
       thread_id TEXT PRIMARY KEY,
       active_leaf_id TEXT
     );
+    CREATE TABLE IF NOT EXISTS chat_followups (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      thread_id TEXT NOT NULL,
+      send_id TEXT,
+      status TEXT NOT NULL,
+      payload TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS chat_followups_receipt ON chat_followups(kind, owner_id, thread_id, send_id);
   `);
   ensureRecallIndex(db);
+  ensureMemoryIndex(db);
   return db;
+}
+
+// The bot's memory files — MEMORY.md, memory/<topic>.md, memory/log/<day>.md
+// — indexed for the same session_search. One row per file, with the size
+// and mtime it was indexed at so a search can notice a file the bot's own
+// file tools rewrote without any filesystem watcher. Kept in this database
+// because FTS5 is already here; the files themselves stay the source of
+// truth on disk and this table is rebuilt from them at any time.
+function ensureMemoryIndex(db: DatabaseSync): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS memory_files (
+      bot_id TEXT NOT NULL,
+      path TEXT NOT NULL,
+      text TEXT NOT NULL,
+      mtime_ms INTEGER NOT NULL,
+      bytes INTEGER NOT NULL,
+      PRIMARY KEY (bot_id, path)
+    );
+    CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+      text, content='memory_files', content_rowid='rowid', tokenize='unicode61'
+    );
+    CREATE TRIGGER IF NOT EXISTS memory_fts_ai AFTER INSERT ON memory_files BEGIN
+      INSERT INTO memory_fts(rowid, text) VALUES (new.rowid, new.text);
+    END;
+    CREATE TRIGGER IF NOT EXISTS memory_fts_ad AFTER DELETE ON memory_files BEGIN
+      INSERT INTO memory_fts(memory_fts, rowid, text) VALUES ('delete', old.rowid, old.text);
+    END;
+    CREATE TRIGGER IF NOT EXISTS memory_fts_au AFTER UPDATE ON memory_files BEGIN
+      INSERT INTO memory_fts(memory_fts, rowid, text) VALUES ('delete', old.rowid, old.text);
+      INSERT INTO memory_fts(rowid, text) VALUES (new.rowid, new.text);
+    END;
+  `);
 }
 
 // Ranked recall over transcript text, for the bot's own session_search tool.
@@ -62,14 +107,34 @@ function open(): DatabaseSync {
 // is no more of a dependency than the table it indexes. The sidebar's LIKE
 // search below stays as it is — substring find over a single thread wants
 // every occurrence, not a relevance ranking.
+/** FTS5 is in every runtime Dani Bot supports — node:sqlite on Node ≥ 24
+ * (package.json engines) and the Node inside Electron 43 — so a SQLite
+ * without it is a mis-installed runtime, not a mode to run in. Say that,
+ * instead of surfacing SQLite's own "no such module: fts5" from deep inside
+ * open() with nothing about what to do. Anything else is rethrown as-is. */
+export function describeMissingFts5(error: unknown): Error | null {
+  const message = error instanceof Error ? error.message : String(error);
+  if (!/no such module:\s*fts5/i.test(message)) return null;
+  return new Error(
+    `Dani Bot needs SQLite with FTS5, which is built into Node 24 and newer (and into the app). ` +
+    `This Node (${process.version}) has none: install Node 24 or newer. (${message})`,
+  );
+}
+
 function ensureRecallIndex(db: DatabaseSync): void {
   const existed = db
     .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'messages_fts'")
     .get();
+  try {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+        text, content='messages', content_rowid='rowid', tokenize='unicode61'
+      );
+    `);
+  } catch (error) {
+    throw describeMissingFts5(error) ?? error;
+  }
   db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
-      text, content='messages', content_rowid='rowid', tokenize='unicode61'
-    );
     CREATE TRIGGER IF NOT EXISTS messages_fts_ai AFTER INSERT ON messages BEGIN
       INSERT INTO messages_fts(rowid, text) VALUES (new.rowid, new.text);
     END;
@@ -107,6 +172,78 @@ function db(): DatabaseSync {
   return handle;
 }
 
+export interface FollowupPayload {
+  text: string;
+  prompt?: string;
+  replyToId?: string;
+  sendId?: string;
+  reason?: "capacity";
+  unattended?: boolean;
+  mode?: "chat" | "goal";
+  via?: "api";
+}
+export type FollowupStatus = "pending" | "dispatching" | "interrupted" | "cancelled";
+export interface ChatFollowup {
+  id: string;
+  kind: "bot" | "channel";
+  ownerId: string;
+  threadId: string;
+  status: FollowupStatus;
+  payload: FollowupPayload;
+}
+
+/** A 202/cancel/dispatch claim must reach disk before publishing its result.
+ * Use the existing transcript DB (and backup path), with FULL sync for these
+ * small transactions only; ordinary transcript writes keep their policy. */
+function writeFollowups(write: (connection: DatabaseSync) => void): void {
+  const connection = db();
+  connection.exec("PRAGMA synchronous = FULL");
+  try {
+    connection.exec("BEGIN IMMEDIATE");
+    try { write(connection); connection.exec("COMMIT"); }
+    catch (error) { connection.exec("ROLLBACK"); throw error; }
+  } finally { connection.exec("PRAGMA synchronous = NORMAL"); }
+}
+
+export function saveChatFollowup(followup: Omit<ChatFollowup, "status">): void {
+  writeFollowups((connection) => connection.prepare(
+    "INSERT INTO chat_followups(id, kind, owner_id, thread_id, send_id, status, payload) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
+  ).run(followup.id, followup.kind, followup.ownerId, followup.threadId, followup.payload.sendId ?? null, JSON.stringify(followup.payload)));
+}
+
+/** Null retires a dispatch whose canonical transcript is already durable.
+ * Cancellation tombstones remain so a retried sendId cannot resurrect it. */
+export function settleChatFollowups(ids: string[], status: FollowupStatus | null): void {
+  if (!ids.length) return;
+  writeFollowups((connection) => {
+    const statement = connection.prepare(status === null
+      ? "DELETE FROM chat_followups WHERE id = ?"
+      : status === "cancelled"
+        ? "UPDATE chat_followups SET status = ?, payload = '{\"text\":\"\"}' WHERE id = ?"
+        : "UPDATE chat_followups SET status = ? WHERE id = ?");
+    for (const id of ids) {
+      if (status === null) statement.run(id);
+      else statement.run(status, id);
+    }
+  });
+}
+
+export function chatFollowups(kind?: ChatFollowup["kind"]): ChatFollowup[] {
+  const rows = (kind
+    ? db().prepare("SELECT * FROM chat_followups WHERE kind = ? ORDER BY rowid").all(kind)
+    : db().prepare("SELECT * FROM chat_followups ORDER BY rowid").all()) as Array<{
+      id: string; kind: ChatFollowup["kind"]; owner_id: string; thread_id: string; status: FollowupStatus; payload: string;
+    }>;
+  return rows.map((row) => ({ id: row.id, kind: row.kind, ownerId: row.owner_id, threadId: row.thread_id,
+    status: row.status, payload: JSON.parse(row.payload) as FollowupPayload }));
+}
+
+export function cancelledChatFollowup(kind: ChatFollowup["kind"], ownerId: string, threadId: string, sendId: string): boolean {
+  return Boolean(db().prepare(
+    "SELECT 1 FROM chat_followups WHERE kind = ? AND owner_id = ? AND thread_id = ? AND send_id = ? AND status = 'cancelled'",
+  ).get(kind, ownerId, threadId, sendId));
+}
+
 const rowToMessage = (row: { json: string }): Message => JSON.parse(row.json) as Message;
 
 export interface ThreadRows {
@@ -124,6 +261,34 @@ export function readThread(threadId: string, legacyFile: string): ThreadRows {
       .prepare("SELECT active_leaf_id FROM thread_state WHERE thread_id = ?")
       .get(threadId) as { active_leaf_id: string | null } | undefined;
     return { messages: rows.map(rowToMessage), activeLeafId: state?.active_leaf_id ?? null };
+  }
+  return importLegacy(threadId, legacyFile);
+}
+
+export interface ThreadTailRows extends ThreadRows {
+  /** `true` means older rows exist beyond this page; `false` means the SQL
+   * read returned the complete thread. Absent for a full legacy import.
+   * Both false and absent results can be cached as a full load. */
+  hasMore?: boolean;
+}
+
+/** The newest `limit` rows only, read at the SQL boundary — the fast path
+ * for a display page (startup hydrate, a fresh scrollback view) that never
+ * needs the rest of a long transcript. Falls back to a full legacy import
+ * on first touch, same as readThread(); that read is a one-time migration
+ * cost regardless of how much of the result the caller keeps. */
+export function readThreadTail(threadId: string, legacyFile: string, limit: number): ThreadTailRows {
+  const rows = db()
+    .prepare("SELECT json FROM messages WHERE thread_id = ? ORDER BY rowid DESC LIMIT ?")
+    .all(threadId, limit + 1) as Array<{ json: string }>;
+  if (rows.length) {
+    const hasMore = rows.length > limit;
+    if (hasMore) rows.length = limit;
+    rows.reverse();
+    const state = db()
+      .prepare("SELECT active_leaf_id FROM thread_state WHERE thread_id = ?")
+      .get(threadId) as { active_leaf_id: string | null } | undefined;
+    return { messages: rows.map(rowToMessage), activeLeafId: state?.active_leaf_id ?? null, hasMore };
   }
   return importLegacy(threadId, legacyFile);
 }
@@ -232,8 +397,11 @@ export function setActiveLeaf(threadId: string, leafId: string | null): void {
 }
 
 export function deleteThread(threadId: string): void {
-  db().prepare("DELETE FROM messages WHERE thread_id = ?").run(threadId);
-  db().prepare("DELETE FROM thread_state WHERE thread_id = ?").run(threadId);
+  writeFollowups((connection) => {
+    connection.prepare("DELETE FROM chat_followups WHERE thread_id = ?").run(threadId);
+    connection.prepare("DELETE FROM messages WHERE thread_id = ?").run(threadId);
+    connection.prepare("DELETE FROM thread_state WHERE thread_id = ?").run(threadId);
+  });
 }
 
 export interface SearchHit {
@@ -316,7 +484,21 @@ export interface RecallHit {
   snippet: string;
   /** room messages: which member said it */
   from?: string;
+  /** a user-role line another bot delivered with ask_bot: that bot's name.
+   * The stored text opens with a note saying so, but the snippet windows
+   * around the match and drops it, so the reader learns it here. */
+  peer?: string;
 }
+
+/** Who wrote a user-role line that reads as the user's. The structural
+ * field wins; rows stored before it existed still open with the note. */
+function peerAuthor(peerName: string | null, text: string): string | null {
+  return peerName ?? peerProvenanceAuthor(text);
+}
+
+/** Enough of a line to see whether it opens with an ask_bot note — the
+ * note's fixed wording plus a bot name — without reading the whole text. */
+const PEER_NOTE_HEAD_CHARS = 160;
 
 // Every query token must match, so a function word the model happened to
 // include ("archive reference on") turns a good query into a miss. Drop
@@ -349,15 +531,27 @@ const SNIPPET_TOKENS = 48;
 export function readMessageText(
   threadId: string,
   messageId: string,
-): { threadId: string; messageId: string; at: number; role: string; text: string; from?: string } | null {
+): { threadId: string; messageId: string; at: number; role: string; text: string; from?: string; peer?: string } | null {
   const row = db()
     .prepare(
-      "SELECT at, role, text, json_extract(json, '$.from.name') AS from_name FROM messages " +
+      "SELECT at, role, text, json_extract(json, '$.from.name') AS from_name, " +
+        "json_extract(json, '$.peerAsk.name') AS peer_name FROM messages " +
         "WHERE thread_id = ? AND id = ? AND kind = 'text' AND text IS NOT NULL",
     )
-    .get(threadId, messageId) as { at: number; role: string; text: string; from_name: string | null } | undefined;
+    .get(threadId, messageId) as
+    | { at: number; role: string; text: string; from_name: string | null; peer_name: string | null }
+    | undefined;
   if (!row) return null;
-  return { threadId, messageId, at: row.at, role: row.role, text: row.text, ...(row.from_name ? { from: row.from_name } : {}) };
+  const peer = peerAuthor(row.peer_name, row.text);
+  return {
+    threadId,
+    messageId,
+    at: row.at,
+    role: row.role,
+    text: row.text,
+    ...(row.from_name ? { from: row.from_name } : {}),
+    ...(peer ? { peer } : {}),
+  };
 }
 
 /** Relevance-ranked recall over the text messages of the given threads:
@@ -372,6 +566,7 @@ export function recallMessages(query: string, threadIds: readonly string[], limi
   const rows = db()
     .prepare(
       "SELECT m.thread_id, m.id, m.at, m.role, json_extract(m.json, '$.from.name') AS from_name, " +
+        `json_extract(m.json, '$.peerAsk.name') AS peer_name, substr(m.text, 1, ${PEER_NOTE_HEAD_CHARS}) AS head, ` +
         `snippet(messages_fts, 0, '[', ']', '…', ${SNIPPET_TOKENS}) AS snippet ` +
         "FROM messages_fts JOIN messages m ON m.rowid = messages_fts.rowid " +
         `WHERE messages_fts MATCH ? AND m.kind = 'text' AND m.thread_id IN (${placeholders}) ` +
@@ -383,16 +578,80 @@ export function recallMessages(query: string, threadIds: readonly string[], limi
     at: number;
     role: string;
     from_name: string | null;
+    peer_name: string | null;
+    head: string;
     snippet: string;
   }>;
-  return rows.map((row) => ({
-    threadId: row.thread_id,
-    messageId: row.id,
-    at: row.at,
-    role: row.role,
-    snippet: row.snippet.replace(/\s+/g, " ").trim(),
-    ...(row.from_name ? { from: row.from_name } : {}),
-  }));
+  return rows.map((row) => {
+    const peer = peerAuthor(row.peer_name, row.head);
+    return {
+      threadId: row.thread_id,
+      messageId: row.id,
+      at: row.at,
+      role: row.role,
+      snippet: row.snippet.replace(/\s+/g, " ").trim(),
+      ...(row.from_name ? { from: row.from_name } : {}),
+      ...(peer ? { peer } : {}),
+    };
+  });
+}
+
+export interface MemoryFileStat {
+  path: string;
+  mtimeMs: number;
+  bytes: number;
+}
+
+/** Index one memory file (upsert keeps the rowid, so the update trigger
+ * keeps the FTS rows in step — the same reasoning as UPSERT_MESSAGE). */
+export function indexMemoryFile(botId: string, path: string, text: string, stat: { mtimeMs: number; bytes: number }): void {
+  db()
+    .prepare(
+      "INSERT INTO memory_files (bot_id, path, text, mtime_ms, bytes) VALUES (?, ?, ?, ?, ?) " +
+        "ON CONFLICT(bot_id, path) DO UPDATE SET text = excluded.text, mtime_ms = excluded.mtime_ms, bytes = excluded.bytes",
+    )
+    .run(botId, path, text, Math.trunc(stat.mtimeMs), stat.bytes);
+}
+
+export function removeMemoryFile(botId: string, path: string): void {
+  db().prepare("DELETE FROM memory_files WHERE bot_id = ? AND path = ?").run(botId, path);
+}
+
+/** What is indexed for a bot, so the caller can compare against the disk. */
+export function indexedMemoryFiles(botId: string): MemoryFileStat[] {
+  const rows = db()
+    .prepare("SELECT path, mtime_ms, bytes FROM memory_files WHERE bot_id = ?")
+    // SAFETY: the SELECT names exactly these three NOT NULL columns
+    .all(botId) as Array<{ path: string; mtime_ms: number; bytes: number }>;
+  return rows.map((row) => ({ path: row.path, mtimeMs: row.mtime_ms, bytes: row.bytes }));
+}
+
+export interface MemoryHit {
+  /** workspace-relative: MEMORY.md, memory/<topic>.md, memory/log/<day>.md */
+  file: string;
+  /** the matched passage, with each matched term wrapped in [brackets] */
+  snippet: string;
+  /** when the file was last written, from its mtime */
+  at: number;
+}
+
+/** Relevance-ranked recall over ONE bot's memory files. Scoped by bot id
+ * in SQL, the same way recallMessages scopes by thread: another bot's
+ * memory is not a lower-ranked result, it is not a result. */
+export function recallMemory(query: string, botId: string, limit = 12): MemoryHit[] {
+  const match = ftsQuery(query);
+  if (!match) return [];
+  const rows = db()
+    .prepare(
+      "SELECT f.path, f.mtime_ms, " +
+        `snippet(memory_fts, 0, '[', ']', '…', ${SNIPPET_TOKENS}) AS snippet ` +
+        "FROM memory_fts JOIN memory_files f ON f.rowid = memory_fts.rowid " +
+        "WHERE memory_fts MATCH ? AND f.bot_id = ? " +
+        "ORDER BY bm25(memory_fts), f.mtime_ms DESC LIMIT ?",
+    )
+    // SAFETY: the SELECT names exactly these three columns; snippet() is never null
+    .all(match, botId, limit) as Array<{ path: string; mtime_ms: number; snippet: string }>;
+  return rows.map((row) => ({ file: row.path, at: row.mtime_ms, snippet: row.snippet.replace(/\s+/g, " ").trim() }));
 }
 
 /** Test/shutdown hook — closes the handle so a wiped DATA_DIR starts clean. */

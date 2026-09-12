@@ -23,7 +23,7 @@ import kotlinx.coroutines.withTimeout
  * this pins both by watching what the store actually does to a
  * `SharedPreferences` it was handed.
  *
- * 1. **It never works on the caller's thread.** `DaniApp` builds `appScope`
+ * 1. **It never works on the caller's thread.** `OpenMausApp` builds `appScope`
  *    on `Dispatchers.Main.immediate` and hands this store to `Session`, so the
  *    launch-time restore and the pairing write both arrive on the main thread.
  *    `EncryptedSharedPreferences.create` — which is what the `prefs` lazy runs —

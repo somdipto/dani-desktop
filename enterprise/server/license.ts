@@ -1,7 +1,7 @@
 // License keys: signed entitlement claims.
 //
 // A key is `omb1.<claims>.<signature>`: base64url JSON claims, Ed25519-signed
-// by a Dani Bot signing key. The public keys are baked in below, so one
+// by an Dani Bot signing key. The public keys are baked in below, so one
 // build serves every customer — the key, not the code, decides the feature
 // set. Verification is offline; nothing phones home.
 import { createPrivateKey, createPublicKey, sign, verify, type JsonWebKeyInput } from "node:crypto";
@@ -41,7 +41,7 @@ export function verifyLicenseKey(
 ): LicenseClaims {
   const parts = key.trim().split(".");
   if (parts.length !== 3 || parts[0] !== PREFIX || !parts[1] || !parts[2]) {
-    throw new Error(`OMB_LICENSE_KEY is not a Dani Bot license key (expected "${PREFIX}.<claims>.<signature>")`);
+    throw new Error(`OMB_LICENSE_KEY is not an Dani Bot license key (expected "${PREFIX}.<claims>.<signature>")`);
   }
   const [, claimsPart, signaturePart] = parts;
   const signature = Buffer.from(signaturePart, "base64url");

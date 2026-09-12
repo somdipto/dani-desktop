@@ -1,8 +1,10 @@
+import { ComposerTray } from "./ComposerTray";
 import { track } from "@/lib/analytics";
 import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { ArrowUp, BookOpen, Clock, Mic, Paperclip, Square, Target, Users, X } from "lucide-react";
-import { useStore, visibleMessages, type Bot, type Group, type Message } from "@/state/store";
+import { useStore, visibleMessages, currentTaskBot, type Bot, type Group, type Message } from "@/state/store";
 import { cn } from "@/lib/cn";
+import { activeLocale, t } from "@/lib/i18n";
 import {
   draftRevision,
   appendDraftAttachments,
@@ -20,11 +22,12 @@ import {
   type ComposerSendSnapshot,
   type FailedComposerSend,
 } from "@/lib/drafts";
-import { MausAvatar } from "./Avatar";
+import { BotAvatar } from "./Avatar";
+import { MentionTextarea } from "./MentionTextarea";
 import { ComposerAttachments, pathForFile } from "./ComposerAttachments";
 import { LocalComputerAutoWarning } from "./LocalComputerAutoWarning";
-import { ApprovalModeSelector } from "./ApprovalModeSelector";
 import { FullAccessWarning } from "./FullAccessWarning";
+import { ApprovalModeSelector } from "./ApprovalModeSelector";
 import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode";
 import {
   appendPastedText,
@@ -50,7 +53,8 @@ import {
   QueuedComposerMessages,
   composerCanSteerQueuedMessages,
 } from "./ComposerQueuedMessages";
-import { skillRecorderEnabled } from "@/lib/feature-flags";
+import { skillAuthoringEnabled } from "@/lib/feature-flags";
+import { mentionChoicesForQuery } from "@/lib/mentions";
 import {
   composerSlashTrigger,
   goalTextFromComposer,
@@ -72,25 +76,13 @@ function mentionQueryAt(text: string, caret: number): { start: number; query: st
 
 type MentionChoice = { id: string; name: string; bot?: Bot };
 
-const GOAL_COMMAND: ComposerSlashCommand = {
-  id: "goal",
-  label: "/goal",
-  description: "Keep a team working until the goal is complete",
-};
-
-const LEARN_COMMAND: ComposerSlashCommand = {
-  id: "learn",
-  label: "/learn",
-  description: "Teach a reusable workflow from this conversation",
-};
-
 interface ComposerDraftSnapshot extends ComposerSendSnapshot {
   reply: Message | null;
 }
 
 /** Renders the editable message composer and its pending attachments. */
 export function Composer({
-  bot,
+  bot: profile,
   group,
   members,
   onEditLast,
@@ -98,7 +90,7 @@ export function Composer({
   onClearReply,
   onConsumeReply,
   onRestoreReply,
-  locked = false,
+  locked: setupLocked = false,
 }: {
   bot?: Bot;
   group?: Group;
@@ -111,6 +103,8 @@ export function Composer({
   /** New rooms keep the composer inert until their setup is saved or skipped. */
   locked?: boolean;
 }) {
+  const bot = profile ? currentTaskBot(profile) : undefined;
+  const locked = setupLocked || Boolean(bot?.awaitingThreadSnapshot);
   const { state, dispatch } = useStore();
   const { capabilities } = useDesktopCapabilities();
   const remoteClient = window.ogb?.remoteClient?.active === true;
@@ -133,8 +127,9 @@ export function Composer({
       members?.find((member) => member.id === group.busyBotId)
     : bot;
   const busyName = group
-    ? (members?.find((b) => b.id === group.busyBotId)?.name ?? (group.working ? "The team" : "A bot"))
-    : (bot?.name ?? "The bot");
+    ? (members?.find((b) => b.id === group.busyBotId)?.name ??
+      (group.working ? t("composer.busy.team") : t("composer.busy.aBot")))
+    : (bot?.name ?? t("composer.busy.theBot"));
   // Per-thread draft: switching bots unmounts this component, so both the
   // text and its attachment chips have to outlive it (see lib/drafts).
   const draftId = group
@@ -209,6 +204,7 @@ export function Composer({
   const [dismissedAt, setDismissedAt] = useState<number | null>(null); // Esc'd this @
   const [dismissedSlashAt, setDismissedSlashAt] = useState<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const mentionListRef = useRef<HTMLDivElement>(null);
   // what was typed before the mic went on — partials append after it
   const baseText = useRef("");
 
@@ -235,6 +231,7 @@ export function Composer({
 
   // ── Slash commands and @mentions ─────────────────────────────────────
   const slash = composerSlashTrigger(text, caret);
+  const locale = activeLocale();
   const commandCandidates = useMemo(() => {
     if (!slash || slash.start === dismissedSlashAt) return [];
     const supportsAgents = (candidate?: Bot) =>
@@ -245,13 +242,28 @@ export function Composer({
           )?.capabilities?.agentsMcp,
       );
     const available: ComposerSlashCommand[] = [];
-    if (group && !group.dm) available.push(GOAL_COMMAND);
+    if (group && !group.dm) available.push({
+      id: "goal",
+      label: "/goal",
+      description: t("composer.command.goalDesc"),
+    });
     if (
-      skillRecorderEnabled(state.config) &&
+      skillAuthoringEnabled(state.config) &&
       (group ? (members ?? []).some(supportsAgents) : supportsAgents(bot))
     ) {
-      available.push(LEARN_COMMAND);
+      available.push({
+        id: "learn",
+        label: "/learn",
+        description: t("composer.command.learnDesc"),
+      });
     }
+    // Setup mode needs the agents tools (propose_profile and friends) and a
+    // single bot: a room cannot set itself up.
+    if (!group && supportsAgents(bot)) available.push({
+      id: "setup",
+      label: "/setup",
+      description: t("composer.command.setupDesc"),
+    });
     const query = slash.query.toLowerCase();
     return available.filter(
       (command) =>
@@ -259,7 +271,7 @@ export function Composer({
         command.id.startsWith(query) ||
         command.description.toLowerCase().includes(query),
     );
-  }, [slash, dismissedSlashAt, group, members, bot, state.config, state.instances]);
+  }, [slash, dismissedSlashAt, group, members, bot, state.config, state.instances, locale]);
   const commandPickerOpen = commandCandidates.length > 0;
 
   // Tag another bot; the agent reaches it via ask_bot.
@@ -268,17 +280,13 @@ export function Composer({
     if (!mention || mention.start === dismissedAt) return [];
     const pool: MentionChoice[] = group
       ? [
-          { id: "__everyone__", name: "everyone" },
+          ...(!group.dm ? [{ id: "__everyone__", name: "everyone" }] : []),
           ...(members ?? []).map((member) => ({ id: member.id, name: member.name, bot: member })),
         ]
       : state.bots
           .filter((member) => member.id !== bot?.id && !member.hidden)
           .map((member) => ({ id: member.id, name: member.name, bot: member }));
-    const q = mention.query.trim().toLowerCase();
-    // "@Scout " — the full name plus a space — is a COMPLETED tag, not a
-    // search: keep the picker closed so Enter sends instead of re-picking
-    if (mention.query.endsWith(" ") && pool.some((b) => b.name.toLowerCase() === q)) return [];
-    return pool.filter((b) => !q || b.name.toLowerCase().includes(q)).slice(0, 6);
+    return mentionChoicesForQuery(pool, mention.query);
   }, [mention, dismissedAt, state.bots, bot?.id, group, members]);
   const mentionPickerOpen = candidates.length > 0;
 
@@ -287,15 +295,12 @@ export function Composer({
     [mention?.start, mention?.query, slash?.start, slash?.query],
   );
 
-  // one line at rest, then grow with the draft — hard cap at six lines
   useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    const line = parseFloat(getComputedStyle(el).lineHeight) || 24;
-    const cap = line * 6;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, cap)}px`;
-  }, [text]);
+    if (!mentionPickerOpen) return;
+    mentionListRef.current
+      ?.querySelector<HTMLElement>(`[data-mention-index="${highlight}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [highlight, mentionPickerOpen]);
 
   const pickMention = (peer: MentionChoice) => {
     if (!mention) return;
@@ -314,7 +319,7 @@ export function Composer({
 
   const pickCommand = (command: ComposerSlashCommand) => {
     if (!slash) return;
-    const replacement = command.id === "learn" ? "/learn " : "";
+    const replacement = command.id === "learn" ? "/learn " : command.id === "setup" ? "/setup " : "";
     const next = replaceComposerSlashTrigger(text, slash, replacement);
     editText(next.text);
     setCaret(next.caret);
@@ -339,8 +344,8 @@ export function Composer({
   );
   const [steering, setSteering] = useState(false);
   const interruptTurn = () => {
-    if (group) dispatch({ type: "interruptGroup", groupId: group.id });
-    else if (bot) dispatch({ type: "interrupt", botId: bot.id });
+    if (group) dispatch({ type: "interruptGroup", groupId: group.id, threadId });
+    else if (bot) dispatch({ type: "interrupt", botId: bot.id, threadId });
   };
   const steerQueued = () => {
     setSteering(true);
@@ -369,13 +374,18 @@ export function Composer({
   const [approvalWarning, setApprovalWarning] = useState<{
     mode: "auto" | "full";
     botId: string;
+    threadId: string;
   } | null>(null);
+  const [applyingThreadAccess, setApplyingThreadAccess] = useState(false);
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   // Approval mode belongs to one bot; a room has several, each with its own.
   const modeBot = group ? undefined : bot;
   const approvalEngine = modeBot
     ? state.instances.find((instance) => instance.instanceId === modeBot.modelSelection.instanceId)
     : undefined;
+  const canApplyBotFullAccess = Boolean(modeBot && profile && !remoteClient && window.ogb?.approvals && capabilities.host.packaged &&
+    approvalModeFor(profile) === "full" && approvalModeFor(modeBot) !== "full" &&
+    approvalEngine?.driverKind === state.instances.find((instance) => instance.instanceId === profile.modelSelection.instanceId)?.driverKind);
   const uploadImage = useCallback(async (file: File): Promise<Attachment | null> => {
     const optimistic = optimisticImageAttachment(file);
     if (!optimistic) return null;
@@ -418,23 +428,20 @@ export function Composer({
   };
   const setApprovalMode = (mode: ApprovalMode) => {
     if (!modeBot || modeBot.busy || mode === approvalModeFor(modeBot)) return;
-    if (mode === "full") {
-      setApprovalWarning({ mode: "full", botId: modeBot.id });
-      return;
-    }
+    if (mode === "full" || mode === "custom") return;
     // Safe Auto still needs its dedicated warning when it can drive the host.
     if (mode === "auto" && modeBot.computer === "local") {
-      setApprovalWarning({ mode: "auto", botId: modeBot.id });
+      setApprovalWarning({ mode: "auto", botId: modeBot.id, threadId: modeBot.threadId });
       return;
     }
-    dispatch({ type: "updateBot", botId: modeBot.id, patch: { approvalMode: mode } });
+    dispatch({ type: "updateTask", botId: modeBot.id, threadId: modeBot.threadId, patch: { approvalMode: mode } });
   };
 
   const hasContent = Boolean(effectiveText.trim()) || attachments.length > 0;
   const retryFailedSend = (failed: FailedComposerSend) => {
     const failedMode = failed.channelMode ?? "chat";
     if (failed.requestText.includes("<attached-image ") && !imageTargetsSupport(failed.requestText, failedMode)) {
-      dispatch({ type: "error", message: "The selected responder does not support image attachments." });
+      dispatch({ type: "error", message: t("composer.error.noImages") });
       return;
     }
     forgetFailedComposerSend(draftId, failed.id);
@@ -466,17 +473,18 @@ export function Composer({
       attachments.some((attachment) => attachment.kind === "image") &&
       !imageTargetsSupport(effectiveText, effectiveChannelMode)
     ) {
-      dispatch({ type: "error", message: "The selected responder does not support image attachments." });
+      dispatch({ type: "error", message: t("composer.error.noImages") });
       return;
     }
-    const t = composeMessage(effectiveText, attachments);
-    if (!t) return;
+    // named `body`, not `t` — that name belongs to the catalog lookup now
+    const body = composeMessage(effectiveText, attachments);
+    if (!body) return;
     const sentDraft: ComposerDraftSnapshot = {
       draftId,
       revision: draftRevision(draftId),
       sendId: restoredSendId(draftId) ?? crypto.randomUUID(),
       text,
-      requestText: t,
+      requestText: body,
       attachments: [...attachments],
       reply: replyTo ?? null,
       replyToId: replyTo?.id,
@@ -487,7 +495,7 @@ export function Composer({
       dispatch({
         type: "sendGroup",
         groupId: group.id,
-        text: t,
+        text: body,
         sendId: sentDraft.sendId,
         replyToId: replyTo?.id,
         threadId,
@@ -499,7 +507,7 @@ export function Composer({
       dispatch({
         type: "send",
         botId: bot.id,
-        text: t,
+        text: body,
         sendId: sentDraft.sendId,
         replyToId: replyTo?.id,
         threadId,
@@ -530,12 +538,12 @@ export function Composer({
       if (!engineSupportsImages) {
         dispatch({
           type: "error",
-          message: "The selected responder does not support image attachments.",
+          message: t("composer.error.noImages"),
         });
         return;
       }
       if (!imageFiles.length) {
-        dispatch({ type: "error", message: "Could not read the clipboard image. Try attaching the image file instead." });
+        dispatch({ type: "error", message: t("composer.error.clipboardImage") });
         return;
       }
       if (imageFiles.length > 0) {
@@ -592,11 +600,9 @@ export function Composer({
     const offEnd = bridge.onSpeechEnd(({ code }) => {
       setRecording(false);
       if (code === 2) {
-        setSpeechError("Dictation is only available on macOS for now.");
+        setSpeechError(t("composer.dictation.macOnly"));
       } else if (code === 1) {
-        setSpeechError(
-          "Dictation needs Microphone + Speech Recognition access — System Settings → Privacy & Security.",
-        );
+        setSpeechError(t("composer.dictation.permission"));
       }
     });
     void bridge.speechStart();
@@ -609,7 +615,7 @@ export function Composer({
 
   const toggleMic = () => {
     if (!capabilities.dictation.available || !window.ogb) {
-      setSpeechError("Dictation isn't available in this build.");
+      setSpeechError(t("composer.dictation.unavailable"));
       return;
     }
     baseText.current = text.trim();
@@ -632,20 +638,22 @@ export function Composer({
             className="mb-2 flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-[12.5px] text-danger"
           >
             <span className="min-w-0 flex-1 truncate">
-              Not sent: “{failed.text.trim() || "attachment"}”
+              {t("composer.failed.notSent", {
+                text: failed.text.trim() || t("composer.failed.attachment"),
+              })}
             </span>
             <button
               type="button"
               onClick={() => retryFailedSend(failed)}
               className="shrink-0 rounded px-2 py-1 font-medium hover:bg-danger/10"
             >
-              Retry
+              {t("chat.retry")}
             </button>
             <button
               type="button"
               onClick={() => forgetFailedComposerSend(draftId, failed.id)}
-              aria-label="Dismiss failed message"
-              title="Dismiss"
+              aria-label={t("composer.failed.dismissAria")}
+              title={t("composer.failed.dismiss")}
               className="flex size-5 shrink-0 items-center justify-center rounded hover:bg-danger/10"
             >
               <X size={13} strokeWidth={2.5} />
@@ -655,11 +663,11 @@ export function Composer({
         {commandPickerOpen && (
           <div
             role="listbox"
-            aria-label="Composer commands"
+            aria-label={t("composer.commands.aria")}
             className="absolute bottom-full left-2 z-20 mb-2 w-80 overflow-hidden rounded-xl border border-hairline/40 bg-raised shadow-lg"
           >
             <div className="border-b border-hairline/20 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-secondary">
-              Commands
+              {t("composer.commands.title")}
             </div>
             {commandCandidates.map((command, index) => (
               <button
@@ -694,13 +702,15 @@ export function Composer({
         )}
         {mentionPickerOpen && (
           <div
+            ref={mentionListRef}
             role="listbox"
-            aria-label="Tag a bot"
-            className="absolute bottom-full left-2 z-20 mb-2 w-72 overflow-hidden rounded-xl border border-hairline/40 bg-raised shadow-lg"
+            aria-label={t("composer.mention.aria")}
+            className="absolute bottom-full left-2 z-20 mb-2 max-h-72 w-72 overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-hairline/40 bg-raised shadow-lg"
           >
             {candidates.map((peer, i) => (
               <button
                 key={peer.id}
+                data-mention-index={i}
                 role="option"
                 aria-selected={i === highlight}
                 onClick={() => pickMention(peer)}
@@ -711,9 +721,8 @@ export function Composer({
                 )}
               >
                 {peer.bot ? (
-                  <MausAvatar
-                    color={peer.bot.color}
-                    bodyId={peer.bot.mascotBody ?? undefined}
+                  <BotAvatar
+                    bot={peer.bot}
                     state={normalizeState(peer.bot.mascotExpression) ?? "happy"}
                     size={24}
                   />
@@ -723,7 +732,9 @@ export function Composer({
                   </span>
                 )}
                 <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{peer.name}</span>
-                <span className="shrink-0 text-xs text-ink-secondary">{peer.bot ? "Agent" : "Channel"}</span>
+                <span className="shrink-0 text-xs text-ink-secondary">
+                  {peer.bot ? t("composer.mention.agent") : t("composer.mention.channel")}
+                </span>
               </button>
             ))}
           </div>
@@ -732,7 +743,14 @@ export function Composer({
             can type again, so a waiting bot is impossible to miss. */}
         {approval && (
           <div className="mb-2 overflow-hidden rounded-2xl border border-accent/40 bg-card">
-            <PendingApprovalPanel pending={approval} count={approvals.length} index={0} />
+            {/* locale: the panel is memoized and its other props do not
+                change with the language — see MessagesList in ChatView */}
+            <PendingApprovalPanel
+              pending={approval}
+              count={approvals.length}
+              index={0}
+              locale={activeLocale()}
+            />
             <PendingApprovalActions
               pending={approval}
               threadId={threadId}
@@ -768,18 +786,35 @@ export function Composer({
           steering={steering}
           onCancel={(queueId) => {
             if (group) dispatch({ type: "cancelGroupQueued", groupId: group.id, threadId, queueId });
-            else if (bot) dispatch({ type: "cancelQueued", botId: bot.id, queueId });
+            else if (bot) dispatch({ type: "cancelQueued", botId: bot.id, threadId, queueId });
           }}
         />
         <div className="relative">
           {/* App-ground from the pill midline down, full-bleed. Bubbles may
               tuck into the top half of the radius; they must not show below
-              center — including the corner pockets around the paperclip. */}
+              center. End at the dock's pb-3 padding: a viewport-height
+              backdrop extends the document and lets focus scroll the header
+              away. Only the decoration is bounded; upward menus stay free. */}
           <div
             aria-hidden
-            className="absolute -left-5 -right-5 top-1/2 h-[50vh] bg-app"
+            data-composer-backdrop
+            className="pointer-events-none absolute -left-5 -right-5 -bottom-3 top-1/2 bg-app"
           />
-        <div className="relative z-[1] flex items-end gap-1 rounded-3xl bg-raised px-2 py-1.5">
+        <div data-tour="composer" className="relative z-[1] rounded-3xl bg-composer px-2 py-1.5 ring-1 ring-composer-ring">
+        {canApplyBotFullAccess && modeBot && !locked && (
+          <button
+            type="button"
+            disabled={Boolean(profile?.busy || modeBot.busy || applyingThreadAccess)}
+            onClick={() => setApprovalWarning({ mode: "full", botId: modeBot.id, threadId: modeBot.threadId })}
+            className="block max-w-full px-3 pb-2 pt-1 text-left text-[12px] text-ink-secondary hover:text-ink disabled:opacity-50"
+            title={profile?.busy || modeBot.busy
+              ? "Stop this bot’s current work before changing this thread’s access"
+              : "Other existing threads keep their current approval levels"}
+          >
+            Use bot’s Full access for this thread
+          </button>
+        )}
+        <div className="flex items-end gap-1">
           <input
             ref={fileInput}
             type="file"
@@ -796,8 +831,8 @@ export function Composer({
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                aria-label="Attach a file"
-                title="Attach a file"
+                aria-label={t("composer.attach")}
+                title={t("composer.attach")}
                 className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-secondary hover:bg-control hover:text-ink"
               >
                 <Paperclip size={17} />
@@ -806,8 +841,8 @@ export function Composer({
                 <button
                   type="button"
                   aria-pressed={effectiveChannelMode === "goal"}
-                  aria-label="Finish together"
-                  title="Finish together — the team keeps working until the goal is complete"
+                  aria-label={t("composer.goal.aria")}
+                  title={t("composer.goal.title")}
                   onClick={() => {
                     markDraftEdited(draftId);
                     if (typedGoalText !== null) {
@@ -831,7 +866,7 @@ export function Composer({
                   )}
                 >
                   <Target size={14} aria-hidden="true" />
-                  {effectiveChannelMode === "goal" ? "/goal" : "Goal"}
+                  {effectiveChannelMode === "goal" ? "/goal" : t("composer.goal.chip")}
                 </button>
               )}
               {modeBot && approvalEngine && !remoteClient && (
@@ -842,13 +877,18 @@ export function Composer({
                   driverKind={approvalEngine.driverKind}
                   onSelect={setApprovalMode}
                   disabled={Boolean(modeBot.busy)}
-                  trustedModesAvailable={Boolean(window.ogb?.approvals && capabilities.host.packaged)}
+                  trustedModesAvailable={false}
+                  trustedModesNotice={t("approvalMode.threadTrustedNotice")}
                 />
               )}
             </div>
           )}
-          <textarea
-          ref={inputRef}
+          <MentionTextarea
+          inputRef={inputRef}
+          peers={group ? members ?? [] : state.bots.filter((member) => member.id !== bot?.id)}
+          everyone={Boolean(group && !group.dm)}
+          // the message is composed in the writer's language, not the UI's
+          dir="auto"
           rows={1}
           value={text}
           onChange={(e) => {
@@ -913,29 +953,33 @@ export function Composer({
             if (e.key === "Escape" && recording) setRecording(false);
           }}
           disabled={Boolean(approval) || locked || attachmentPending}
+          aria-busy={bot?.awaitingThreadSnapshot || undefined}
           placeholder={
-            locked
-              ? "Finish room setup to start chatting"
+            setupLocked
+              ? t("composer.placeholder.locked")
               : approval
-              ? "Answer the approval above to continue"
+              ? t("composer.placeholder.approval")
               : attachmentPending
-              ? "Attaching files…"
+              ? t("composer.placeholder.attaching")
               : recording
-              ? "Listening…"
+              ? t("composer.placeholder.listening")
               : busy && canSteer
-                ? `${busyName} is working — Enter sends this into the running turn`
+                ? t("composer.placeholder.steer", { name: busyName })
               : busy
                 ? group
-                  ? `${busyName} is working — Enter queues your message`
-                  : `${busyName} is working — sends when this turn finishes`
+                  ? t("composer.placeholder.queueGroup", { name: busyName })
+                  : t("composer.placeholder.queue", { name: busyName })
                 : group
                   ? channelMode === "goal"
-                    ? `Describe what ${group.name} should finish together`
-                    : `Message ${group.name} — ${groupComposerHint(group, members ?? [])}`
-                  : `Message ${bot?.name ?? ""}`
+                    ? t("composer.placeholder.goal", { name: group.name })
+                    : t("composer.placeholder.group", {
+                        name: group.name,
+                        hint: groupComposerHint(group, members ?? []),
+                      })
+                  : t("composer.placeholder.bot", { name: bot?.name ?? "" })
           }
-          aria-label={`Message ${group ? group.name : (bot?.name ?? "")}`}
-            className="max-h-[9rem] min-h-6 min-w-0 flex-1 resize-none overflow-y-auto self-center bg-transparent px-1 py-1 text-[15px] leading-6 text-ink placeholder:text-ink-secondary focus:outline-none"
+          aria-label={t("composer.placeholder.bot", { name: group ? group.name : (bot?.name ?? "") })}
+            className="block max-h-[9rem] min-h-6 w-full resize-none overflow-y-auto bg-transparent px-1 py-1 text-[15px] leading-6 placeholder:text-ink-secondary focus:outline-none"
           />
           <div className="flex items-center gap-1">
           {/* Stop stays a stop. Stop-then-steer is named beside the queued
@@ -943,9 +987,9 @@ export function Composer({
           {busy && !locked && (
           <button
             onClick={interruptTurn}
-            aria-label="Stop this turn"
+            aria-label={t("chat.stopTurn")}
             className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-secondary hover:bg-raised hover:text-ink"
-            title="Stop"
+            title={t("chat.stop")}
           >
             <Square size={14} className="fill-current" />
           </button>
@@ -953,14 +997,14 @@ export function Composer({
         {!locked && !busy && !hasContent && capabilities.dictation.available && (
           <button
             onClick={toggleMic}
-            aria-label={recording ? "Stop dictation" : "Start dictation"}
+            aria-label={recording ? t("composer.dictation.stop") : t("composer.dictation.start")}
             className={cn(
               "flex size-8 shrink-0 items-center justify-center rounded-full",
               recording
                 ? "animate-pulse bg-danger/20 text-danger"
                 : "text-ink-secondary hover:bg-raised hover:text-ink",
             )}
-            title={recording ? "Stop dictation (Esc)" : "Dictate"}
+            title={recording ? t("composer.dictation.stopHint") : t("composer.dictation.hint")}
           >
             <Mic size={18} />
           </button>
@@ -971,17 +1015,17 @@ export function Composer({
             disabled={attachmentPending}
             aria-label={
               busy && canSteer
-                  ? "Send into the running turn"
+                  ? t("composer.send.steer")
                   : busy
-                    ? "Queue message"
-                    : "Send message"
+                    ? t("composer.send.queue")
+                    : t("composer.send.message")
             }
             title={
               busy && canSteer
-                  ? "Send into the running turn"
+                  ? t("composer.send.steer")
                   : busy
-                    ? "Sends when the current turn finishes"
-                    : "Send"
+                    ? t("composer.send.queueHint")
+                    : t("chat.send")
             }
             className={cn(
               "flex size-8 shrink-0 items-center justify-center rounded-full text-white",
@@ -995,32 +1039,37 @@ export function Composer({
           )}
           </div>
         </div>
+        {bot && !group && !remoteClient && !locked && <ComposerTray bot={bot} />}
+        </div>
         </div>
       </div>
       <div className="pointer-events-auto">
+      <FullAccessWarning
+        open={approvalWarning?.mode === "full"}
+        scope="thread"
+        onCancel={() => setApprovalWarning(null)}
+        onConfirm={() => {
+          const target = approvalWarning;
+          setApprovalWarning(null);
+          if (target?.mode !== "full" || !window.ogb?.approvals || applyingThreadAccess) return;
+          setApplyingThreadAccess(true);
+          // The private reply predates commit. SSE supplies the final task;
+          // applying that early reply here could overwrite its new mode.
+          void window.ogb.approvals.setMode(target.botId, "full", { threadId: target.threadId })
+            .catch((error) => dispatch({ type: "error", message: error instanceof Error ? error.message : String(error) }))
+            .finally(() => setApplyingThreadAccess(false));
+        }}
+      />
       <LocalComputerAutoWarning
         open={approvalWarning?.mode === "auto"}
         onCancel={() => setApprovalWarning(null)}
         onConfirm={() => {
           if (approvalWarning?.mode === "auto") {
             dispatch({
-              type: "updateBot",
+              type: "updateTask",
               botId: approvalWarning.botId,
+              threadId: approvalWarning.threadId,
               patch: { approvalMode: "auto", acknowledgeLocalAuto: true },
-            });
-          }
-          setApprovalWarning(null);
-        }}
-      />
-      <FullAccessWarning
-        open={approvalWarning?.mode === "full"}
-        onCancel={() => setApprovalWarning(null)}
-        onConfirm={() => {
-          if (approvalWarning?.mode === "full") {
-            dispatch({
-              type: "updateBot",
-              botId: approvalWarning.botId,
-              patch: { approvalMode: "full", confirmFullAccess: true },
             });
           }
           setApprovalWarning(null);

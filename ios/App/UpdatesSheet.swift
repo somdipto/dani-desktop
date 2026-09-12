@@ -50,11 +50,12 @@ struct UpdatesSheet: View {
     }
 
     @ViewBuilder
-    private func section(_ title: String, tint: Color?, kind: ChatUpdate.Kind) -> some View {
+    private func section(_ title: LocalizedStringKey, tint: Color?, kind: ChatUpdate.Kind) -> some View {
         let items = updates.filter { $0.kind == kind }
         if !items.isEmpty {
             let color = kind == .needsYou ? MausPalette.color(items[0].chat.color) : Color.secondary
-            Text(title.uppercased())
+            Text(title)
+                .textCase(.uppercase)
                 .font(.system(size: 12, weight: .bold))
                 .tracking(0.5)
                 .foregroundStyle(color)
@@ -84,6 +85,10 @@ private struct UpdateRow: View {
                     Text(update.chat.name)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Color.primary)
+                    Text(update.chat.threadTitle)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.secondary)
+                        .lineLimit(1)
                     Text(update.line.isEmpty ? " " : update.line)
                         .font(.system(size: 14))
                         .foregroundStyle(Color.secondary)
@@ -153,6 +158,7 @@ private struct UpdateRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("update-\(update.chat.threadId)")
     }
 }
 

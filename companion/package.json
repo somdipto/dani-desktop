@@ -1,11 +1,11 @@
 {
-  "name": "@openmausbot/companion",
+  "name": "@danibot/companion",
   "version": "0.1.0",
   "private": true,
   "description": "A sidecar that lets a paired phone reach an unmodified Dani Bot harness",
   "type": "module",
   "bin": {
-    "openmausbot-companion": "./src/index.ts"
+    "danibot-companion": "./src/index.ts"
   },
   "engines": {
     "node": ">=24"

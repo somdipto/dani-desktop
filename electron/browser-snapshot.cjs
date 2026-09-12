@@ -209,7 +209,7 @@ function browserNavigationAllowed(raw) {
  * Electron actually is. */
 function browserUserAgent(userAgent) {
   return String(userAgent ?? "")
-    .replace(/\s?OpenMausBot\/\S+/g, "")
+    .replace(/\s?Dani Bot\/\S+/g, "")
     .replace(/\s?openmausbot\/\S+/g, "")
     .replace(/\s?DaniBot\/\S+/g, "")
     .replace(/\s?Dani Bot\/\S+/g, "")

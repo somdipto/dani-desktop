@@ -68,7 +68,7 @@ async function signIn(email: string) {
 async function createInstall(
   token: string,
   clientInstanceId: string = crypto.randomUUID(),
-  name = "Ada's Mac",
+  name = "Milind's Mac",
   platform: "darwin" | "windows" | "linux" = "darwin",
   appVersion: string | undefined = "0.1.0",
 ) {

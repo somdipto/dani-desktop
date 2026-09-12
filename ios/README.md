@@ -49,6 +49,24 @@ real `URLSession` tests:
 `EventStreamTests` catches that class by driving a real `URLSession`.
 [`TESTING.md`](TESTING.md) is the end-to-end runbook.
 
+## Threads on iPhone and iPad
+
+Tap **Threads** beneath a bot on the home screen to expand its conversations.
+Desktop folders appear in the same order, with working, queued, waiting and
+unread state shown on each thread. Search matches thread and folder names.
+Internal routine runs are kept out of this list.
+
+Inside a chat, tap the bot/thread name in the header to switch conversations,
+create a thread, or rename/delete one. Tap the avatar for bot settings.
+Picking a bot thread is local to the phone; it does not move the desktop's
+selection. Draft text and attachments stay with their original thread while
+switching in that chat. Updates also lists sibling conversations separately.
+Group conversations retain their existing shared, serial switching behavior.
+
+Folder creation, moving threads between folders and folder reordering remain
+desktop actions. See the [isolated thread checks](../docs/verification/ios-threads.md)
+for simulator verification and its limits.
+
 ## Layout
 
 ```
@@ -73,7 +91,7 @@ ios/
   App/                           SwiftUI, and everything that needs a device
     CompanionApp.swift           entry; owns when the stream lives and dies
     Session.swift                connection, lifecycle, actions
-    Discovery.swift              NWBrowser for _danibot._tcp
+    Discovery.swift              NWBrowser for _openmausbot._tcp
     Keychain.swift               the device token
     MausAvatar.swift             the mascot face, in the desktop's palette
     PairingView.swift            QR handoff, discovery, address and code fallback
@@ -106,7 +124,7 @@ The app needs Xcode. The `.xcodeproj` is generated rather than committed:
 
 ```sh
 brew install xcodegen
-cd ios && xcodegen generate && open DaniCompanion.xcodeproj
+cd ios && xcodegen generate && open OpenMausCompanion.xcodeproj
 ```
 
 **Re-run `xcodegen generate` after pulling any change that adds a file to

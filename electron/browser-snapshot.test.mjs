@@ -127,7 +127,7 @@ describe("browser snapshot", () => {
 
   it("presents as the Chrome it is", () => {
     expect(
-      browserUserAgent("Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) OpenMausBot/0.1.38 Chrome/140.0.0.0 Electron/43.4.0 Safari/537.36"),
+      browserUserAgent("Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Dani Bot/0.1.38 Chrome/140.0.0.0 Electron/43.4.0 Safari/537.36"),
     ).toBe("Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36");
     expect(
       browserUserAgent("Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Dani Bot/0.1.38 Chrome/140.0.0.0 Electron/43.4.0 Safari/537.36"),

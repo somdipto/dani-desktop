@@ -65,7 +65,7 @@ try {
   await rpc("initialize", {
     protocolVersion: "2024-11-05",
     capabilities: {},
-    clientInfo: { name: "danibot-package-smoke", version: "1" },
+    clientInfo: { name: "openmausbot-package-smoke", version: "1" },
   });
   proxy.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
   const listed = await rpc("tools/list");

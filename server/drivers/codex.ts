@@ -8,7 +8,7 @@
 // codex-cli 0.144.4 by agentcal.
 //
 // resumeCursor is the codex thread id; a later turn tries thread/resume
-// and falls back to a fresh thread/start.
+// and preserves that history or reports a failed resume.
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 
@@ -33,7 +33,11 @@ import { codexLocalProviderArgs } from "./local-inject.ts";
 import { augmentedPath, splitCliString } from "../env-path.ts";
 import { classifyError, computeBackoff, RETRY_MAX_ATTEMPTS } from "./retry.ts";
 import { appendNative } from "./native.ts";
+import { commandSummary } from "../tool-summary.ts";
+import { codexDeveloperInstructions, syncCodexInstructions } from "./codex-instructions.ts";
 import type { ApprovalMode } from "../../shared/approval-mode.ts";
+import { CodexDeviceAuthController } from "./codex-device-auth.ts";
+import { codexAccountEmail } from "./codex-identity.ts";
 
 export { decodeCodexSelection, readCodexModelCatalog, STATIC_CODEX_MODELS } from "./codex-catalog.ts";
 
@@ -228,6 +232,9 @@ function mcpAppApprovalForm(params: unknown): McpApprovalForm | null {
 /** Codex persists these values on its native thread. Keep them explicit on
  * start, resume, and every turn so switching modes cannot leave a more
  * permissive sandbox/reviewer stuck to the next request. */
+/** Ask and Edits both run Codex's workspace-write sandbox with the person as
+ * reviewer: Codex has no narrower "edits only" mode, so the selector never
+ * offers Edits for it (supportsApprovalMode) and a stray value asks. */
 function namedApprovalParams(mode: Exclude<ApprovalMode, "custom">): CodexApprovalParams {
   if (mode === "full") {
     return {
@@ -355,15 +362,21 @@ function permissionProfileUnsupported(error: unknown): boolean {
   return /(?:experimental api|invalid params|unknown field|unknown.*permissions|permissions.*(?:unsupported|sandbox)|cannot.*permissions)/i.test(message);
 }
 
-/** Keep private host paths out of diagnostics while preserving enough of the
- * app-server input shape to debug image delivery. The unmodified request is
+/** Keep native instructions and private host paths out of diagnostics while
+ * preserving enough of the input shape to debug delivery. The unmodified request is
  * still written to the provider immediately after this log copy is made. */
 function codexNativeLogMessage(message: unknown): unknown {
   if (!message || typeof message !== "object" || Array.isArray(message)) return message;
   const record = message as Record<string, unknown>;
-  if (record.method !== "turn/start") return message;
   const params = record.params;
   if (!params || typeof params !== "object" || Array.isArray(params)) return message;
+  if (record.method === "thread/start" || record.method === "thread/resume") {
+    return { ...record, params: { ...params, developerInstructions: "[developer instructions omitted]" } };
+  }
+  if (record.method === "thread/inject_items") {
+    return { ...record, params: { ...params, items: "[developer instruction update omitted]" } };
+  }
+  if (record.method !== "turn/start") return message;
   const input = (params as Record<string, unknown>).input;
   if (!Array.isArray(input)) return message;
   return {
@@ -481,16 +494,21 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       }
     };
     await refreshModels();
+    const authentication = new CodexDeviceAuthController({
+      cli: config.cli,
+      environment: childEnv,
+      onAuthenticated: refreshModels,
+    });
     const listeners = new Set<RuntimeEventListener>();
     interface Turn {
-      stop: () => void;
+      stop: () => Promise<boolean>;
       turnId: string;
       asks: Map<string, (behavior: "allow" | "deny" | "answer", message?: string, source?: "user" | "timeout" | "system") => void>;
     }
     const active = new Map<string, Turn>();
 
     const emit = (event: RuntimeEvent) => {
-      for (const l of [...listeners]) l(event);
+      for (const l of Array.from(listeners)) l(event);
     };
     const base = (threadId: string, turnId: string) => ({
       eventId: newEventId(),
@@ -526,7 +544,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         const env = childEnv();
         const appServerArgs = ["app-server", ...codexLocalProviderArgs(env, turn.model)];
         if (turn.integrations?.composio) {
-          mountMcpServer(appServerArgs, env, "danibot_connectors", turn.integrations.composio);
+          mountMcpServer(appServerArgs, env, "openmausbot_connectors", turn.integrations.composio);
         }
         if (turn.integrations?.agents) {
           mountMcpServer(appServerArgs, env, "agents", turn.integrations.agents);
@@ -560,7 +578,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         if (turn.integrations?.phone) {
           const bridge = turn.integrations.phone;
           Object.assign(env, bridge.env);
-          const prefix = "mcp_servers.danibot_phone";
+          const prefix = "mcp_servers.openmausbot_phone";
           appServerArgs.push(
             "-c", `${prefix}.command=${JSON.stringify(bridge.command)}`,
             "-c", `${prefix}.args=${JSON.stringify(bridge.args)}`,
@@ -576,8 +594,13 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         });
 
       let abandoned = false;
+      let codexThreadId: string | null = null;
+      let codexTurnId: string | null = null;
+      let startingNativeTurn = false;
+      const earlyNotifications: any[] = [];
       const state = {
         settled: false,
+        lastError: "",
         lastText: "",
         sawStreamDelta: false,
         // codex reports token usage as a running THREAD total; the harness
@@ -616,6 +639,20 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           rpcPending.set(id, {
             resolve: (v) => {
               clearTimeout(timer);
+              if (method === "turn/start") {
+                if (typeof v?.turn?.id !== "string" || !v.turn.id) {
+                  reject(new Error("Codex did not return a native turn id"));
+                  return;
+                }
+                // Bind synchronously: a single stdout chunk can contain the
+                // response, streamed events, completion and a late request.
+                codexTurnId = v.turn.id;
+                startingNativeTurn = false;
+                for (const notification of earlyNotifications.splice(0)) {
+                  if (state.settled) break;
+                  handleNotification(notification);
+                }
+              }
               resolve(v);
             },
             reject: (e) => {
@@ -626,20 +663,34 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           send({ jsonrpc: "2.0", id, method, params });
         });
 
-      const stop = () => {
+      let stopping: Promise<boolean> | undefined;
+      const terminate = () => stopping ??= killCliTree(child).then((stopped) => {
+        if (!stopped) stopping = undefined;
+        return stopped;
+      });
+      let completeStoppedTurn: (() => void) | undefined;
+      const stop = async () => {
         stopRequested = true;
-        killCliTree(child);
+        const stopped = await terminate();
+        if (stopped) completeStoppedTurn?.();
+        return stopped;
       };
 
-      const settle = (ok: boolean, stopReason: string | null) => {
+      const settle = async (ok: boolean, stopReason: string | null) => {
         if (state.settled) return;
         state.settled = true;
-        for (const finish of [...asks.values()]) finish("deny", "Dani Bot: the turn ended", "system");
+        for (const finish of Array.from(asks.values())) finish("deny", "Dani Bot: the turn ended", "system");
         for (const p of rpcPending.values()) p.reject(new Error("turn settled"));
         rpcPending.clear();
-        active.delete(threadId);
-        emit({ ...base(threadId, turnId), type: "turn.completed", ok, stopReason, cost: null, ...(state.usage ? { usage: state.usage } : {}) });
-        stop(); // the app-server never exits on its own
+        const complete = () => {
+          if (active.get(threadId)?.stop !== stop) return;
+          active.delete(threadId);
+          emit({ ...base(threadId, turnId), type: "turn.completed", ok, stopReason, cost: null, ...(state.usage ? { usage: state.usage } : {}) });
+        };
+        completeStoppedTurn = complete;
+        if (!(await stop())) {
+          emit({ ...base(threadId, turnId), type: "runtime.error", message: "codex did not shut down after termination was requested" });
+        }
       };
 
       // server→client approval request → canonical request.opened
@@ -763,6 +814,30 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
 
       const handleNotification = (msg: any) => {
         const p = msg.params ?? {};
+        // An app-server also emits notifications for native helper threads.
+        // Only this request's parent may write its transcript/usage or settle
+        // its run. Requests still use the approval broker above, including
+        // helper requests; ignoring child *notifications* must not grant tools.
+        const connectionError = msg.method === "error" &&
+          !("threadId" in p) && !("turnId" in p);
+        if (!connectionError) {
+          if (!codexThreadId || p.threadId !== codexThreadId) return;
+          if (!codexTurnId) {
+            // Some servers stream before acknowledging turn/start. Retain a
+            // bounded prefix, then filter against the authoritative response.
+            if (startingNativeTurn) {
+              if (earlyNotifications.length >= 1024) {
+                void settle(false, "too_many_events_before_turn_start");
+              } else {
+                earlyNotifications.push(msg);
+              }
+            }
+            return;
+          }
+          const eventTurnId = msg.method === "turn/started" || msg.method === "turn/completed"
+            ? p.turn?.id : p.turnId;
+          if (eventTurnId !== codexTurnId) return;
+        }
         switch (msg.method) {
           // token-level chat text; the item/completed frame follows with the
           // whole message, so its delta is only a fallback when none streamed
@@ -792,7 +867,16 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
                     : item.type === "webSearch"
                       ? "web_search"
                       : null;
-            if (title) emit({ ...base(threadId, turnId), type: "item.started", itemType: "tool", itemId: item.id, title });
+            if (title) {
+              emit({
+                ...base(threadId, turnId),
+                type: "item.started",
+                itemType: "tool",
+                itemId: item.id,
+                title,
+                summary: item.type === "commandExecution" ? commandSummary({ command: item.command }) : undefined,
+              });
+            }
             break;
           }
           case "item/completed": {
@@ -868,7 +952,15 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           }
           case "turn/completed": {
             const t = p.turn ?? {};
-            settle(t.status === "completed", t.status === "completed" ? null : (t.error?.message ?? t.status ?? "failed"));
+            const message = typeof t.error?.message === "string" ? t.error.message.slice(0, 400) : "";
+            if (t.status !== "completed" && message && message !== state.lastError) {
+              state.lastError = message;
+              emit({ ...base(threadId, turnId), type: "runtime.error", message,
+                ...(classifyError({ text: message }).reason === "auth" ? { setup: true } : {}),
+              });
+            }
+            void settle(t.status === "completed", t.status === "completed" ? null :
+              (classifyError({ text: message || state.lastError }).reason === "provider_safety" ? "provider_safety" : (message || t.status || "failed")));
             break;
           }
           case "error":
@@ -876,7 +968,10 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
             // {error:{message}} — surface either (agentcal armor)
             {
               const message = p.message ?? p.error?.message;
-              if (message) emit({ ...base(threadId, turnId), type: "runtime.error", message: String(message).slice(0, 400) });
+              if (message) {
+                state.lastError = String(message).slice(0, 400);
+                emit({ ...base(threadId, turnId), type: "runtime.error", message: state.lastError });
+              }
             }
             break;
         }
@@ -887,9 +982,10 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       // multibyte characters that straddle two reads and corrupts the text
       child.stdout.setEncoding("utf8");
       child.stdout.on("data", (chunk) => {
+        if (abandoned || state.settled) return;
         buf += chunk;
         let nl;
-        while ((nl = buf.indexOf("\n")) !== -1) {
+        while (!state.settled && (nl = buf.indexOf("\n")) !== -1) {
           const line = buf.slice(0, nl);
           buf = buf.slice(nl + 1);
           if (!line.trim()) continue;
@@ -924,17 +1020,23 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       child.on("error", (e) => {
         if (abandoned) return;
         emit({ ...base(threadId, turnId), type: "runtime.error", ...describeSpawnFailure(e, config.cli) });
-        settle(false, "spawn_error");
+        void settle(false, "spawn_error");
       });
       child.on("close", (code) => {
         if (abandoned) return;
+        if (state.settled) {
+          // Root exit alone cannot release a turn after an uncertain stop.
+          // Recheck its group; an explicit later Stop can also retry this.
+          void stop();
+          return;
+        }
         if (!state.settled) {
           emit({
             ...base(threadId, turnId),
             type: "runtime.error",
             message: `codex exited ${code} before turn/completed${stderr ? `: ${stderr.trim().slice(-300)}` : ""}`,
           });
-          settle(false, "exit_before_result");
+          void settle(false, "exit_before_result");
         }
       });
 
@@ -948,32 +1050,34 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       // nothing streamed yet, and never for auth/shape errors or interrupts
       try {
         await request("initialize", {
-          clientInfo: { name: "danibot", version: "1" },
+          clientInfo: { name: "openmausbot", version: "1" },
           // Named permission profiles are an experimental app-server field in
           // Codex 0.151. Negotiate them explicitly; older servers ignore this
           // capability and remain on the legacy Custom fallback below.
           capabilities: { experimentalApi: true },
         });
         send({ jsonrpc: "2.0", method: "initialized", params: {} });
+        // developerInstructions replaces, rather than appends to, native
+        // config. Read it for every approval mode so existing rules survive.
+        // request() already redacts config/read responses from native logs.
+        let effectiveConfig: unknown;
+        try {
+          const configured = await request("config/read", {
+            cwd: turn.cwd ?? homedir(),
+            includeLayers: false,
+          });
+          effectiveConfig = configured?.config;
+        } catch {
+          // Do not expose a possibly secret-bearing native config error or
+          // overwrite unknown instructions with an empty fallback.
+          throw new Error("Could not read Codex configuration; cannot safely update bot instructions. Retry after checking Codex.");
+        }
+        const developerInstructions = codexDeveloperInstructions(effectiveConfig, turn.system ?? "");
         let approvalParams: CodexApprovalParams;
         if (approvalMode === "custom") {
           // config/read returns the effective global + project config for this
           // cwd. Reasserting those values is essential: simply omitting them
           // on a resumed thread would keep the previous named mode sticky.
-          let effectiveConfig: unknown;
-          try {
-            const configured = await request("config/read", {
-              cwd: turn.cwd ?? homedir(),
-              includeLayers: false,
-            });
-            effectiveConfig = configured?.config;
-          } catch {
-            // Older app-servers and transient failures cannot prove the
-            // user's configured sandbox. Fall back to interactive read-only
-            // instead of inheriting stale Full or silently broadening a
-            // possibly read-only config to workspace write.
-            effectiveConfig = {};
-          }
           approvalParams = customApprovalParams(effectiveConfig);
         } else {
           approvalParams = namedApprovalParams(approvalMode);
@@ -983,13 +1087,16 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         // mode may synthesize approvals; Custom must preserve the sandbox
         // boundary from config.toml (for example never + read-only).
         autoAcceptPermissions = approvalMode === "full";
+        // Each turn launches a new app-server. Reassert current bot instructions
+        // on start AND resume so Codex owns their lifetime through compaction.
+        // Removed bot rules are cleared without dropping native configured rules.
         const cursor = typeof turn.resumeCursor === "string" ? turn.resumeCursor : null;
-        let codexThreadId: string | null = null;
         let startedModel: string | null = null;
         if (cursor) {
           try {
             const resumed = await request("thread/resume", {
               threadId: cursor,
+              developerInstructions,
               ...approvalParams.thread,
             });
             codexThreadId = resumed?.thread?.id ?? cursor;
@@ -999,22 +1106,21 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
               // profile selector. Retry the same resume safely rather than
               // losing the native thread or inheriting its previous mode.
               approvalParams = approvalParams.fallback;
-              try {
-                const resumed = await request("thread/resume", {
-                  threadId: cursor,
-                  ...approvalParams.thread,
-                });
-                codexThreadId = resumed?.thread?.id ?? cursor;
-              } catch {
-                /* thread gone or resume unsupported — start fresh below */
-              }
+              const resumed = await request("thread/resume", {
+                threadId: cursor,
+                developerInstructions,
+                ...approvalParams.thread,
+              });
+              codexThreadId = resumed?.thread?.id ?? cursor;
+            } else {
+              throw error;
             }
-            /* thread gone or resume unsupported — start fresh below */
           }
         }
         if (!codexThreadId) {
           const selection = decodeCodexSelection(turn.model);
           const startThread = () => request("thread/start", {
+              developerInstructions,
               cwd: turn.cwd ?? homedir(),
               model: selection.model,
               ...(selection.modelProvider ? { modelProvider: selection.modelProvider } : {}),
@@ -1032,13 +1138,17 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           codexThreadId = started?.thread?.id ?? null;
           startedModel = started?.model ?? null;
         }
+        if (!codexThreadId) throw new Error("Codex did not return a native thread id");
+        await syncCodexInstructions(threadId, codexThreadId, developerInstructions, Boolean(cursor), request);
         emit({ ...base(threadId, turnId), type: "session.started", sessionId: codexThreadId, model: startedModel ?? turn.model ?? null });
-        const promptText = turn.system ? `${turn.system}\n\n${turn.text}` : turn.text;
+        const promptText = turn.text;
         const turnInput = [
           ...(promptText ? [{ type: "text" as const, text: promptText }] : []),
           ...(turn.images ?? []).map((image) => ({ type: "localImage" as const, path: image.path })),
         ];
-        const startTurn = () => request("turn/start", {
+        const startTurn = () => {
+          startingNativeTurn = true;
+          return request("turn/start", {
             threadId: codexThreadId,
             input: turnInput,
             ...approvalParams.turn,
@@ -1053,6 +1163,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
             // thread rather than the current one.
             ...(turn.effort ? { effort: turn.effort } : {}),
           });
+        };
         try {
           await startTurn();
         } catch (error) {
@@ -1078,7 +1189,10 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           // This app-server never exits by itself. Retire the failed attempt
           // and silence its late handlers before the replacement launches.
           abandoned = true;
-          killCliTree(child);
+          if (!await terminate()) {
+            void settle(false, "shutdown_timeout");
+            return;
+          }
           await new Promise<void>((resolve) => {
             const timer = setTimeout(resolve, Math.max(1, Math.round(delayMs * retryScale)));
             timer.unref?.();
@@ -1086,7 +1200,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           if (!stopRequested) {
             void launchAttempt(attempt).catch(() => {});
           } else {
-            settle(false, "interrupted");
+            await settle(false, "interrupted");
           }
           return;
         }
@@ -1097,7 +1211,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
             message,
             ...(needsAuth ? { setup: true } : {}),
           });
-          settle(false, needsAuth ? "auth_required" : "rpc_error");
+          await settle(false, needsAuth ? "auth_required" : verdict.reason === "provider_safety" ? "provider_safety" : "rpc_error");
         }
       }
     };
@@ -1119,11 +1233,15 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         resolve(!err && /^logged in\b/im.test(`${stdout}\n${stderr ?? ""}`)),
       );
     });
+    // Display identity only, so Settings can say whose ChatGPT account the
+    // bots run on; the status command above stays the authority on sign-in.
+    const email = authenticated ? await codexAccountEmail(config.cli, env) : null;
     // childEnv drops OPENAI_API_KEY on purpose — turns run on the ChatGPT login
     return {
       state: "available",
       version,
       authenticated,
+      ...(email ? { account: { email } } : {}),
       update: codexAstraUpdate(version, models, config.cli),
       billing: "subscription",
     };
@@ -1138,6 +1256,10 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       return models;
     },
     refreshModels,
+    startAuthentication: () => authentication.start(),
+    getAuthentication: (flowId) => authentication.get(flowId),
+    cancelAuthentication: () => authentication.cancel(),
+    signOut: () => authentication.signOut(),
     snapshot,
     adapter: {
       provider: DRIVER_KIND,
@@ -1155,7 +1277,9 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         effortLevels: ["low", "medium", "high", "xhigh", "max"],
       },
       sendTurn,
-      interruptTurn: async (threadId) => active.get(threadId)?.stop(),
+      interruptTurn: async (threadId) => {
+        await active.get(threadId)?.stop();
+      },
       respondToRequest: async (threadId, requestId, decision) => {
         const turn = active.get(threadId);
         const finish = turn?.asks.get(requestId);
@@ -1165,7 +1289,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       },
       hasSession: (threadId) => active.has(threadId),
       stopAll: async () => {
-        for (const { stop } of active.values()) stop();
+        await Promise.all([...active.values()].map(({ stop }) => stop()));
       },
       onEvent: (listener) => {
         listeners.add(listener);
@@ -1173,7 +1297,8 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       },
     },
     dispose: async () => {
-      for (const { stop } of active.values()) stop();
+      await authentication.dispose();
+      await Promise.all([...active.values()].map(({ stop }) => stop()));
       listeners.clear();
     },
   };

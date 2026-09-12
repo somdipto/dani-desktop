@@ -59,7 +59,7 @@ export const BoxAgentDriver: ProviderDriver<BoxAgentConfig> = {
     const active = new Map<string, { cancel: () => void; turnId: string; boxId: string }>();
 
     const emit = (event: RuntimeEvent) => {
-      for (const l of [...listeners]) l(event);
+      for (const l of Array.from(listeners)) l(event);
     };
     const base = (threadId: string, turnId: string) => ({
       eventId: newEventId(),
@@ -86,7 +86,7 @@ export const BoxAgentDriver: ProviderDriver<BoxAgentConfig> = {
       const { threadId } = turn;
       const computer = turn.integrations?.computer;
       const boxId = computer && (!computer.kind || computer.kind === "box") ? computer.boxId : undefined;
-      if (!token) throw new Error('box not configured — add {"box":{"token":"…"}} to ~/.danibot/config.json');
+      if (!token) throw new Error('box not configured — add {"box":{"token":"…"}} to ~/.openmausbot/config.json');
       if (!boxId) {
         throw new Error("this bot has no computer yet — open the Computer panel and provision one");
       }
@@ -232,7 +232,7 @@ export const BoxAgentDriver: ProviderDriver<BoxAgentConfig> = {
 
     const snapshot = async (): Promise<ProviderSnapshot> => {
       if (!token) {
-        return { state: "unavailable", reason: 'no Box token — add {"box":{"token":"…"}} to ~/.danibot/config.json' };
+        return { state: "unavailable", reason: 'no Box token — add {"box":{"token":"…"}} to ~/.openmausbot/config.json' };
       }
       try {
         await api("/me");

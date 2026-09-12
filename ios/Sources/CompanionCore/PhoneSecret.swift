@@ -69,7 +69,7 @@ public struct PhoneSecretRequestContext: Equatable, Sendable {
 public enum PhoneSecretCrypto {
     public static let version = 1
     public static let maximumCredentialBytes = 4_096
-    public static let info = "OpenMausBot phone credential v1"
+    public static let info = "Dani Bot phone credential v1"
 
     /// Validate and return the canonical unpadded base64url P-256 point used
     /// in a QR. This function deliberately works below the HPKE availability

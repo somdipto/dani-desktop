@@ -3,7 +3,8 @@
 // answer rather than one per call site.
 export const APP_NAME = "Dani Bot";
 export const APP_REPOSITORY = "https://github.com/somdipto/dani-desktop";
-/** The docs tree is the help centre — one destination, not two competing ones. */
+/** The docs tree is the help centre, and it is where openmausbot.com sends
+ * people too — one destination, not two competing ones. */
 export const DOCS_URL = `${APP_REPOSITORY}/tree/main/docs`;
 export const HELP_CENTER_URL = DOCS_URL;
 export const APPROVAL_LEVELS_URL = `${APP_REPOSITORY}/blob/main/docs/approval-levels.md`;

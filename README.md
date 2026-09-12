@@ -1,4 +1,4 @@
-> ⚠️ **No affiliation with any cryptocurrency.** Dani Bot has no token. Any coin using the Dani Bot name is not created, endorsed, or affiliated with this project or its maintainer. I have received no tokens, payment, or allocation from anyone, and I will not be endorsing any token.
+> ⚠️ **No affiliation with any cryptocurrency.** Dani Bot has no token. Any coin using the Dani Bot, Maus, or SupaMaus name is not created, endorsed, or affiliated with this project or its maintainer. I have received no tokens, payment, or allocation from anyone, and I will not be endorsing any token.
 
 <div align="center">
 
@@ -6,7 +6,7 @@
 
 **Your own team of AI bots, in a chat app.**
 
-<sub>Bring-your-own-agent, local-first, on the models you already have.</sub>
+<sub>An open-source version of **Grok Bot** — bring-your-own-agent, local-first, on the models you already have.</sub>
 
 Every bot in the sidebar is a real agent — Claude or Codex running locally under the hood — with its own
 personality, its own model, its own cloud computer, and its own connected apps.
@@ -16,27 +16,34 @@ Talk to them like contacts. Watch them work. Approve what matters.
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![Electron](https://img.shields.io/badge/Electron-macOS%20%C2%B7%20Windows%20%C2%B7%20Ubuntu-2B2E3A?logo=electron&logoColor=9FEAF9)
 ![Agents](https://img.shields.io/badge/agents-Claude%20·%20Codex-d97757)
+[![Release](https://img.shields.io/github/v/release/somdipto/dani-desktop?label=release&color=1084fe&cacheSeconds=300)](https://github.com/somdipto/dani-desktop/releases/latest)
 ![PRs](https://img.shields.io/badge/PRs-welcome-38d591)
 
 <br>
 
-<a href="#">
-  <img src="https://img.shields.io/badge/Download%20for%20Mac%20(Apple%20silicon)-1084fe?style=for-the-badge&labelColor=070707" alt="Download for Mac with Apple silicon (.dmg)" height="40">
+<a href="https://github.com/somdipto/dani-desktop/releases/latest/download/DaniBot.dmg">
+  <img src="https://img.shields.io/github/v/release/somdipto/dani-desktop?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Mac%20%28Apple%20silicon%29&labelColor=070707&color=1084fe&cacheSeconds=300" alt="Download the latest Dani Bot for Mac with Apple silicon (.dmg)" height="40">
 </a>
 &nbsp;
-<a href="#">
-  <img src="https://img.shields.io/badge/Download%20for%20Mac%20(Intel)-2a9d8f?style=for-the-badge&labelColor=070707" alt="Download for Intel Macs (.dmg)" height="40">
+<a href="https://github.com/somdipto/dani-desktop/releases/latest/download/DaniBot-intel.dmg">
+  <img src="https://img.shields.io/github/v/release/somdipto/dani-desktop?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Mac%20%28Intel%29&labelColor=070707&color=2a9d8f&cacheSeconds=300" alt="Download the latest Dani Bot for Intel Macs (.dmg)" height="40">
 </a>
 &nbsp;
-<a href="#">
-  <img src="https://img.shields.io/badge/Download%20for%20Windows-4cc2ff?style=for-the-badge&labelColor=070707" alt="Download for Windows (.exe)" height="40">
+<a href="https://github.com/somdipto/dani-desktop/releases/latest/download/DaniBot-setup.exe">
+  <img src="https://img.shields.io/github/v/release/somdipto/dani-desktop?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Windows&labelColor=070707&color=4cc2ff&cacheSeconds=300" alt="Download the latest Dani Bot for Windows (.exe)" height="40">
 </a>
 &nbsp;
-<a href="#">
-  <img src="https://img.shields.io/badge/Download%20for%20Ubuntu-e95420?style=for-the-badge&labelColor=070707" alt="Download for Ubuntu (.deb)" height="40">
+<a href="https://github.com/somdipto/dani-desktop/releases/latest/download/DaniBot-amd64.deb">
+  <img src="https://img.shields.io/github/v/release/somdipto/dani-desktop?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Ubuntu&labelColor=070707&color=e95420&cacheSeconds=300" alt="Download the latest Dani Bot for Ubuntu (.deb)" height="40">
 </a>
 
-<sub>macOS: Apple silicon and Intel · Windows x64 · Ubuntu 24.04 x64 (.deb or AppImage beta)</sub>
+<sub>[latest release](https://github.com/somdipto/dani-desktop/releases/latest) &nbsp;·&nbsp; macOS: Apple silicon & Intel · signed & notarized .dmg &nbsp;·&nbsp; Windows: x64 installer &nbsp;·&nbsp; Ubuntu 24.04 x64: .deb or AppImage beta &nbsp;·&nbsp; [all releases](https://github.com/somdipto/dani-desktop/releases)</sub>
+
+<br>
+
+<a href="https://buy.polar.sh/polar_cl_bbnfWFUrWONIF4HnUpZf1p0if0eUYg3HeXct73b48Yg">
+  <img src="https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F%20%20Support%20Dani Bot-any%20amount%20%C2%B7%20or%20monthly-38d591?style=for-the-badge&labelColor=070707" alt="Support Dani Bot — one-time any amount or monthly, via Polar" height="40">
+</a>
 
 <br>
 <br>
@@ -49,16 +56,16 @@ Talk to them like contacts. Watch them work. Approve what matters.
 
 ## Why
 
-One assistant in one box is the wrong shape for agents. Dani Bot is a
-messaging app for agents — a roster of bots you chat with, each with its own personality,
-memory of its thread, model, computer, and apps — rebuilt open, local-first, and on the agents you
+One assistant in one box is the wrong shape for agents. Dani Bot is an open-source take on **Grok Bot** —
+it keeps the idea (AI as a *messaging app*: a roster of bots you chat with, each with its own personality,
+memory of its thread, model, computer, and apps) and rebuilds it open, local-first, and on the agents you
 already have:
 
 - **Bring your own agents.** Bots run on the `claude`, `codex`, and `grok` CLIs installed on your own machine
   — your existing logins and subscriptions, no new accounts, no proxy in the middle. Point any engine at a
   custom CLI binary (a versioned build or wrapper) in **Settings → Engines**.
 - **Local first.** One small harness server on `127.0.0.1` owns every agent process. Transcripts, keys, and
-  events live in `~/.danibot`, not a cloud.
+  events live in `~/.openmausbot`, not a cloud.
 - **Agents with hands.** Each bot can use a cloud Linux desktop, an isolated Local VM, or—where the platform
   safety boundary is currently certified—your own computer, plus 500+ apps through Composio. Host control is
   available on macOS and Ubuntu Xorg after explicit opt-in. Ubuntu Wayland host control remains disabled while
@@ -151,7 +158,9 @@ in **Teams → Import**.
 The format stays portable: Dani Bot reads the structured YAML frontmatter for a reliable one-click
 install, while Grok, Claude, ChatGPT, and people can follow the ordinary Markdown playbook. Connections
 remain off until you approve them, routines arrive paused, and packages never carry credentials,
-conversations, permissions, memory, or computer access.
+conversations, permissions, memory, or computer access. Browse the
+[open-source playbook repository](https://github.com/somdipto/dani-desktop) or read its
+[portable format](https://github.com/somdipto/dani-desktop/blob/main/FORMAT.md).
 
 ### 🎧 Bots that talk back
 
@@ -163,7 +172,7 @@ Bring your own ElevenLabs key — paste it once in App Settings, pick a voice, a
 Give a bot its own voice and a channel stops sounding like one person.
 
 **Also in the box:** streaming replies with tool-run activity chips · native macOS dictation from the
-composer mic (on-device Apple speech recognition — desktop app) · cursor mascots with role-aware
+composer mic (on-device Apple speech recognition — desktop app) · SupaMaus cursor mascots with role-aware
 expressions · screenshots of the bot's work folded into the transcript.
 
 ## How it works
@@ -214,14 +223,14 @@ See [MCP server setup and tool reference](docs/mcp-server.md).
 
 ## Quick start
 
-**Released builds:** the harness server is embedded, so no separate server setup is required. Installer links are not published here yet.
+**Released builds ([latest release](https://github.com/somdipto/dani-desktop/releases/latest)):** the harness server is embedded, so no separate server setup is required.
 
 | | Download | Install |
 |---|---|---|
-| **macOS** (Apple silicon) | [Download](#) | Drag it to Applications, open it. Signed & notarized. |
-| **macOS** (Intel) | [Download](#) | Same app, built for Intel Macs. Signed & notarized. |
-| **Windows** (x64) | [Download](#) | Run it — one-click, per-user, no admin rights. The installer isn't code-signed yet, so SmartScreen shows "unknown publisher": **More info → Run anyway**. |
-| **Ubuntu 24.04** (x64) | [Download .deb](#) · [Download AppImage](#) | Install the `.deb` with APT (recommended), or make the AppImage executable and run it. Beta; GNOME is the supported desktop. |
+| **macOS** (Apple silicon) | [Dani Bot.dmg](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot.dmg) | Drag it to Applications, open it. Signed & notarized. |
+| **macOS** (Intel) | [Dani Bot-intel.dmg](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot-intel.dmg) | Same app, built for Intel Macs. Signed & notarized. |
+| **Windows** (x64) | [Dani Bot-setup.exe](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot-setup.exe) | Run it — one-click, per-user, no admin rights. The installer isn't code-signed yet, so SmartScreen shows "unknown publisher": **More info → Run anyway**. |
+| **Ubuntu 24.04** (x64) | [Dani Bot-amd64.deb](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot-amd64.deb) · [Dani Bot.AppImage](https://github.com/somdipto/dani-desktop/releases/latest/download/Dani Bot.AppImage) | Install the `.deb` with APT (recommended), or make the AppImage executable and run it. Beta; GNOME is the supported desktop. |
 
 See the [Ubuntu Desktop guide](docs/linux-desktop.md) for installation, capabilities, and troubleshooting.
 Any desktop build can also pair as a client to another Windows, macOS, or Ubuntu host over Tailscale; see [desktop-to-desktop companion mode](docs/desktop-companion.md).
@@ -230,7 +239,7 @@ Any desktop build can also pair as a client to another Windows, macOS, or Ubuntu
 **From source:**
 
 ```sh
-git clone https://github.com/somdipto/dani-desktop && cd dani-desktop
+git clone https://github.com/somdipto/dani-desktop && cd Dani Bot
 pnpm install
 
 pnpm dev:server    # harness server → 127.0.0.1:8799
@@ -297,7 +306,7 @@ pnpm package:linux # Ubuntu x64 .deb + AppImage → release/
 
 ### Routines and webhook triggers
 
-Routines can run once, on selected weekdays, or every 5–1,440 minutes, using either a bot's configured
+Routines can run once, on selected weekdays, or every 5–1,440 minutes, using either a MAUS's configured
 model/computer or the Cloud VM runner. Interval schedules stay aligned to their chosen start time and skip
 an occurrence when the previous run is still active, so slow work cannot build an unbounded queue. A
 separate optional Advanced run limit can safely stop stuck work; no timeout is imposed unless one is chosen.
@@ -319,7 +328,8 @@ Early but real — the loop works end to end: message → agent → streamed rep
 computer use. macOS, Windows, and Ubuntu 24.04 x64 have released builds; Ubuntu remains a beta with the
 capability limits above. Rough edges to expect: hosted/mobile connectivity is still being built, and webhook
 triggers currently use the local receiver rather than an always-on hosted relay.
-Voice needs an ElevenLabs key for spoken replies. Calls use on-device Apple dictation on macOS, or a local Whisper sidecar elsewhere — see [`docs/voice-mode.md`](docs/voice-mode.md).
+Voice needs an ElevenLabs key, and calls are macOS-only for now (they ride the same on-device dictation as
+the composer mic) — see [`docs/voice-mode.md`](docs/voice-mode.md) for the design and the known gaps.
 
 Contributions welcome — the driver SPI in [`server/contracts.ts`](server/contracts.ts) is deliberately
 small; adding a provider is one file in [`server/drivers/`](server/drivers/) plus a one-line registration.
@@ -327,13 +337,63 @@ No code needed at all for your own engines: any ACP-speaking CLI or OpenAI-compa
 plugs in through config — see [`docs/custom-engines.md`](docs/custom-engines.md).
 Users can add their own MCP tool servers with zero code via [`docs/custom-mcp-servers.md`](docs/custom-mcp-servers.md).
 
+## Support the project
+
+Dani Bot is free and open source. If it does real work for you, you can
+[buy the project a coffee or become a monthly supporter](https://buy.polar.sh/polar_cl_bbnfWFUrWONIF4HnUpZf1p0if0eUYg3HeXct73b48Yg) —
+one-time any amount, or monthly. Payments are handled by [Polar](https://polar.sh/supamaus),
+which takes care of receipts and taxes; nothing about the app ever sits behind a paywall.
+
+## Run from a terminal or on a server
+
+With Node 24 or newer, install once and run:
+
+```sh
+npm install -g openmausbot
+openmausbot
+```
+
+Or use `npx danibot` without a global install. First launch guides you with
+arrow-key choices: choose AI access, sign in or paste a hidden API key, choose
+a model, and optionally connect a phone. Next time, the same command reuses your
+saved setup and opens the local workspace. Keep the terminal open; Ctrl-C stops
+the server, not your saved work. Use `--no-open` to skip opening the browser.
+
+Phone access is optional and defaults to skipping. Choose an explicitly
+approved managed public HTTPS endpoint protected by pairing, an existing
+Tailscale connection, or your own HTTPS reverse proxy. Use Safari or an installed
+iOS app on iPhone/iPad; Android uses the web browser for this CLI flow. A phone
+cannot use a localhost link. `--local` ignores saved remote access for one launch;
+`--no-pair` suppresses phone prompts and invitations but does not disable a saved
+remote connection.
+
+Run `openmausbot setup` to reconfigure without resetting bots or conversations;
+the saved model default applies only to new bots. Native setup confirms provider
+sign-in; API setup asks before a potentially billable test message. API keys are
+saved as plaintext, not encrypted, in private `config.json` (`0600` on Unix).
+See the [short setup guide](docs/cli-onboarding.md) for account differences,
+phone choices, credential storage, and cancellation.
+
+For a background service on a VPS or an always-on computer, use
+`npx danibot serve` with explicit remote options: `--tunnel` after
+`npx danibot login` for a managed public address, `--tailscale` for your
+tailnet, or the Docker stack for your own domain. These are separate from
+AI-provider sign-in. Devices pair once with a short code. The deployment guide is
+[docs/deploy-vps.md](docs/deploy-vps.md); the reference is
+[docs/self-hosting.md](docs/self-hosting.md).
+
 ## License
 
-[Apache License 2.0](LICENSE) © 2026 Dani and Dani Bot contributors.
+[Apache License 2.0](LICENSE) © 2026 Dani and Dani Bot contributors,
+except `enterprise/`, which is source-available under its
+[own license](enterprise/LICENSE); delete that folder and what remains is the
+open-source edition. Details, including how contributions are signed off, are
+in [LICENSING.md](LICENSING.md).
 
 Packaged Cua Driver components retain their upstream MIT, SIL OFL 1.1, MPL-2.0, and other dependency terms;
 the corresponding notices, license texts, source locations, and SBOM are in
 [`third_party/cua-driver/`](third_party/cua-driver/) and ship beside the native runtime.
 
-Dani Bot is an independent, open-source project. It is not affiliated with,
-endorsed by, or associated with xAI. "Grok" is a trademark of its respective owner.
+Dani Bot is an independent, open-source project inspired by Grok Bot. It is
+not affiliated with, endorsed by, or associated with xAI; "Grok" is a trademark
+of its respective owner.

@@ -376,7 +376,7 @@ final class PairingTests: XCTestCase {
         XCTAssertTrue(PairingRequestStub.captured().allSatisfy { $0.url?.path == "/api/health" })
     }
 
-    func testRejectsAServiceThatDoesNotIdentifyAsDaniBot() async throws {
+    func testRejectsAServiceThatDoesNotIdentifyAsDani Bot() async throws {
         PairingRequestStub.reset { _ in .response(200, Data(#"{"app":"something-else"}"#.utf8)) }
         let connection = Connection(name: "Mac", host: "192.168.1.42", port: 8810)
 
@@ -441,7 +441,7 @@ final class PairingTests: XCTestCase {
     }
 
     private static let credential = "omb_pair_" + String(repeating: "a", count: 43)
-    private static let health = Data(#"{"app":"danibot","pid":42,"static":true}"#.utf8)
+    private static let health = Data(#"{"app":"openmausbot","pid":42,"static":true}"#.utf8)
     private static let paired = Data(
         #"{"token":"omb_device","device":{"id":"d","name":"iPhone","createdAt":1,"lastSeenAt":1},"serverName":"Mac","hosts":["192.168.1.42"]}"#.utf8
     )

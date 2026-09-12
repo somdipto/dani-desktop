@@ -12,6 +12,7 @@ export interface PendingTeamImport {
   playbooks: number;
   routines: number;
   apps: Array<{ label: string; optional: boolean }>;
+  skills?: string[];
   conversations?: number;
   archivedBots?: number;
   warnings?: string[];
@@ -37,7 +38,7 @@ export function teamImportPreview(manifest: unknown): PendingTeamImport {
     };
   }
   if (root.format === "openmaus.package") return packagePreview(root, manifest);
-  if (root.format !== "openmaus.team") throw new Error("This is not a Dani Bot backup, BotMRR playbook or legacy team.");
+  if (root.format !== "openmaus.team") throw new Error("This is not an OpenMaus backup, BotMRR playbook or legacy team.");
   if (root.version !== 1 && root.version !== 2) throw new Error(`Team file version ${String(root.version)} is not supported.`);
   if (!root.team || typeof root.team !== "object" || Array.isArray(root.team)) {
     throw new Error("This team file is missing its team definition.");
@@ -120,6 +121,9 @@ function packagePreview(root: Record<string, unknown>, manifest: unknown): Pendi
           : [];
       })
     : [];
+  const skills = pkg.skills && typeof pkg.skills === "object" && !Array.isArray(pkg.skills)
+    ? (pkg.skills as Record<string, unknown>).entries
+    : undefined;
   return {
     manifest,
     kind: "package",
@@ -131,5 +135,10 @@ function packagePreview(root: Record<string, unknown>, manifest: unknown): Pendi
     playbooks: Array.isArray(pkg.playbooks) ? pkg.playbooks.length : 0,
     routines: Array.isArray(pkg.routines) ? pkg.routines.length : 0,
     apps,
+    skills: Array.isArray(skills) ? skills.flatMap((skill) => {
+      if (!skill || typeof skill !== "object" || Array.isArray(skill)) return [];
+      const { name } = skill as Record<string, unknown>;
+      return typeof name === "string" && name.trim() ? [name.trim()] : [];
+    }) : [],
   };
 }

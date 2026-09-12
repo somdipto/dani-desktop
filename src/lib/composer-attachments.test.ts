@@ -59,9 +59,9 @@ function image(path: string): ImageAttachment {
 
 describe("composeMessage with images", () => {
   it("emits an attached-image tag carrying the server path and display name", () => {
-    const prompt = composeMessage("what is this?", [image("/home/u/.danibot/attachments/abc.png")]);
+    const prompt = composeMessage("what is this?", [image("/home/u/.openmausbot/attachments/abc.png")]);
     expect(prompt).toBe(
-      'what is this?\n\n<attached-image path="/home/u/.danibot/attachments/abc.png" name="shot.png" />',
+      'what is this?\n\n<attached-image path="/home/u/.openmausbot/attachments/abc.png" name="shot.png" />',
     );
   });
 
@@ -126,16 +126,16 @@ describe("splitTranscriptAttachments", () => {
 
   it("uses the saved basename for old file tags without a name", () => {
     const { display, files } = splitTranscriptAttachments(
-      '<attached-file path="/home/me/.danibot/attachments/report.pdf" />',
+      '<attached-file path="/home/me/.openmausbot/attachments/report.pdf" />',
     );
     expect(display).toBe("");
     expect(files).toEqual([
-      { path: "/home/me/.danibot/attachments/report.pdf", name: "report.pdf" },
+      { path: "/home/me/.openmausbot/attachments/report.pdf", name: "report.pdf" },
     ]);
   });
 
   it("marks only private-store UUID attachment names as actionable", () => {
-    const privatePath = "/home/me/.danibot/attachments/123e4567-e89b-42d3-a456-426614174000.pdf";
+    const privatePath = "/home/me/.openmausbot/attachments/123e4567-e89b-42d3-a456-426614174000.pdf";
     expect(splitTranscriptAttachments(`<attached-file path="${privatePath}" name="Report.pdf" />`).files[0])
       .toMatchObject({ path: privatePath, name: "Report.pdf", private: true });
     expect(splitTranscriptAttachments('<attached-file path="/Users/me/Desktop/report.pdf" />').files[0]?.private)
@@ -460,6 +460,38 @@ describe("clipboardHasImages", () => {
 });
 
 describe("private document intake", () => {
+  it.each([
+    ["Voice note.opus", "", "audio/opus"],
+    ["Voice note.opus", "audio/ogg; codecs=opus", "audio/ogg"],
+    ["Recording.M4A", "application/octet-stream", "audio/mp4"],
+    ["recording.wav", "audio/x-wav", "audio/x-wav"],
+  ])("uploads %s as audio without a local path", async (name, type, mime) => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      path: "/private/attachments/recording.opus", name, bytes: 3,
+    }), { status: 201, headers: { "content-type": "application/json" } }));
+    try {
+      const file = new File([new Uint8Array([1, 2, 3])], name, { type });
+      await expect(fileAttachmentFromFile(file)).resolves.toMatchObject({
+        kind: "file", name, path: "/private/attachments/recording.opus", size: 3,
+      });
+      expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/files\?/),
+        expect.objectContaining({ method: "POST", body: file, headers: { "content-type": mime } }));
+    } finally {
+      fetch.mockRestore();
+    }
+  });
+
+  it("rejects oversized audio before uploading", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch");
+    try {
+      const file = new File([new Uint8Array(25 * 1024 * 1024 + 1)], "large.opus", { type: "audio/opus" });
+      await expect(fileAttachmentFromFile(file)).rejects.toMatchObject({ status: 413 });
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      fetch.mockRestore();
+    }
+  });
+
   it("recognises supported documents by declared mime or filename", () => {
     expect(documentMime({ name: "notes.bin", type: "text/markdown; charset=utf-8" })).toBe("text/markdown");
     expect(documentMime({ name: "REPORT.PDF", type: "" })).toBe("application/pdf");

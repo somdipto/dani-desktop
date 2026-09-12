@@ -142,7 +142,7 @@ export function resolveCloudflaredBinary({
 }
 
 export function resolveManagedCompanionGuardian({ appPath, exists = fs.existsSync } = {}) {
-  const entry = path.join(String(appPath ?? ""), "electron", "managed-companion-guardian.mjs");
+  const entry = path.join(String(appPath ?? ""), "electron", "managed-companion-guardian-main.mjs");
   return exists(entry) ? entry : null;
 }
 
@@ -294,7 +294,7 @@ async function verifyHostedEndpoint(
   const text = await response.text();
   if (Buffer.byteLength(text) > 4096) return false;
   try {
-    return JSON.parse(text)?.app === "danibot";
+    return JSON.parse(text)?.app === "openmausbot";
   } catch {
     return false;
   }

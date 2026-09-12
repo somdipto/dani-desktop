@@ -10,9 +10,9 @@ export function baseOptions(): BaseLayoutProps {
       transparentMode: 'none',
     },
     links: [
-      { text: 'Website', url: 'https://www.danibot.com', external: true },
+      { text: 'Website', url: 'https://www.openmausbot.com', external: true },
       { text: 'Changelog', url: '/docs/changelog' },
-      { type: 'button', text: 'Download', url: '#', external: false },
+      { type: 'button', text: 'Download', url: 'https://github.com/somdipto/dani-desktop/releases/latest', external: true },
     ],
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
   };

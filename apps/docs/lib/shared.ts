@@ -5,6 +5,6 @@ export const appName = 'Dani Bot Docs';
 
 export const gitConfig = {
   user: 'somdipto',
-  repo: 'dani-desktop',
+  repo: 'Dani Bot',
   branch: 'main',
 };

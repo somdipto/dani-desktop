@@ -3,9 +3,9 @@
 The Android counterpart to the iOS companion app: pair a phone with a computer
 running Dani Bot, then read and answer from the phone.
 
-- `applicationId` — `com.danibot.companion`
+- `applicationId` — `com.openmausbot.companion`
 - `minSdk` 26 (Android 8.0), `targetSdk` / `compileSdk` 37
-- Deep-link scheme — `danibot`
+- Deep-link scheme — `openmausbot`
 - Two modules: `:core` (protocol, ported from `ios/Sources/CompanionCore`) and
   `:app` (Compose UI, Android platform)
 
@@ -56,8 +56,8 @@ The signing key belongs to the maintainer and never enters this repository.
 Create a key once, outside any clone of this repository:
 
 ```sh
-keytool -genkeypair -v -keystore ~/danibot-release.jks \
-  -storetype PKCS12 -alias danibot -keyalg RSA -keysize 4096 -validity 10000
+keytool -genkeypair -v -keystore ~/openmausbot-release.jks \
+  -storetype PKCS12 -alias openmausbot -keyalg RSA -keysize 4096 -validity 10000
 ```
 
 Then, for each release:
@@ -66,7 +66,7 @@ Then, for each release:
 # whichever build-tools version is installed; any recent one works
 APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/* | tail -1)/apksigner"
 
-"$APKSIGNER" sign --ks ~/danibot-release.jks --ks-key-alias danibot \
+"$APKSIGNER" sign --ks ~/openmausbot-release.jks --ks-key-alias openmausbot \
   --out app-release.apk app-release-unsigned.apk
 
 "$APKSIGNER" verify --verbose --print-certs app-release.apk
@@ -88,19 +88,19 @@ silently inherit a stale `keystore.properties` from a cached workspace.
 `android/keystore.properties` (gitignored):
 
 ```properties
-storeFile=/absolute/path/to/danibot-release.jks
+storeFile=/absolute/path/to/openmausbot-release.jks
 storePassword=…
-keyAlias=danibot
+keyAlias=openmausbot
 keyPassword=…
 ```
 
 or the environment, for CI secrets:
 
 ```
-DANIBOT_KEYSTORE_FILE
-DANIBOT_KEYSTORE_PASSWORD
-DANIBOT_KEY_ALIAS
-DANIBOT_KEY_PASSWORD   # optional; PKCS12 reuses the store password
+OPENMAUSBOT_KEYSTORE_FILE
+OPENMAUSBOT_KEYSTORE_PASSWORD
+OPENMAUSBOT_KEY_ALIAS
+OPENMAUSBOT_KEY_PASSWORD   # optional; PKCS12 reuses the store password
 ```
 
 Supply all of it or none of it. A build handed only part of the material stops

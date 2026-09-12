@@ -30,33 +30,33 @@ describe("mentionedBots", () => {
   const peers = [
     { id: "1", name: "New Bot" },
     { id: "2", name: "New Bot 2" },
-    { id: "3", name: "Alex" },
+    { id: "3", name: "Milind" },
     { id: "4", name: "Ghost", hidden: true },
   ];
   it("matches a tag at a word start, case-insensitively", () => {
-    expect(mentionedBots("hey @alex, look", peers).map((b) => b.id)).toEqual(["3"]);
-    expect(mentionedBots("@Alex first thing", peers).map((b) => b.id)).toEqual(["3"]);
+    expect(mentionedBots("hey @milind, look", peers).map((b) => b.id)).toEqual(["3"]);
+    expect(mentionedBots("@Milind first thing", peers).map((b) => b.id)).toEqual(["3"]);
   });
   it("prefers the longest name so prefixes never half-match", () => {
     expect(mentionedBots("ask @New Bot 2 about it", peers).map((b) => b.id)).toEqual(["2"]);
   });
   it("dedupes repeats and collects multiple bots", () => {
-    expect(mentionedBots("@Alex and @New Bot and @Alex", peers).map((b) => b.id)).toEqual(["3", "1"]);
+    expect(mentionedBots("@Milind and @New Bot and @Milind", peers).map((b) => b.id)).toEqual(["3", "1"]);
   });
   it("ignores emails, hidden bots, and mid-word @", () => {
-    expect(mentionedBots("mail alex@alex.dev please", peers)).toEqual([]);
+    expect(mentionedBots("mail milind@milind.dev please", peers)).toEqual([]);
     expect(mentionedBots("@Ghost around?", peers)).toEqual([]);
   });
   it("requires a word boundary at the end of the name", () => {
     expect(mentionedBots("ask @New Bottle about it", peers)).toEqual([]);
-    expect(mentionedBots("@Alexo is someone else", peers)).toEqual([]);
+    expect(mentionedBots("@Milindo is someone else", peers)).toEqual([]);
   });
 });
 
 describe("roomResponders", () => {
   const members = [
     { id: "atlas", name: "Atlas" },
-    { id: "alex", name: "Alex" },
+    { id: "milind", name: "Milind" },
   ];
 
   it("routes an unmentioned message to the configured lead", () => {
@@ -64,7 +64,7 @@ describe("roomResponders", () => {
   });
 
   it("lets explicit mentions override the configured lead", () => {
-    expect(roomResponders("@Alex take this", members, { kind: "member", botId: "atlas" })).toEqual([members[1]]);
+    expect(roomResponders("@Milind take this", members, { kind: "member", botId: "atlas" })).toEqual([members[1]]);
   });
 
   it("supports everyone and mentions-only room policies", () => {
@@ -122,7 +122,7 @@ describe("comms e2e (fake ACP fleet)", () => {
     }
     const antigravityProfile = join(
       home,
-      ".danibot",
+      ".openmausbot",
       "providers",
       "antigravity",
       createHash("sha256").update("geminiAsker").digest("hex"),
@@ -130,9 +130,9 @@ describe("comms e2e (fake ACP fleet)", () => {
     );
     mkdirSync(antigravityProfile, { recursive: true });
     writeFileSync(join(antigravityProfile, "acp_token.json"), "{}\n");
-    mkdirSync(join(home, ".danibot"), { recursive: true });
+    mkdirSync(join(home, ".openmausbot"), { recursive: true });
     writeFileSync(
-      join(home, ".danibot", "config.json"),
+      join(home, ".openmausbot", "config.json"),
       JSON.stringify({
         instances: {
           // the ask-peer fleet: both bots run "ask-peer" so A can ask B
@@ -316,6 +316,10 @@ describe("comms e2e (fake ACP fleet)", () => {
       const inbound = helperBot.messages.find((m: any) => m.role === "user" && m.kind === "text");
       expect(inbound.text).toContain("[Message from @Asker");
       expect(inbound.text).toContain("ping from fake");
+      // the transport is on the line itself, not only in its wording: a
+      // later reader that never sees the note's opening still knows the
+      // words came from a bot, and which one
+      expect(inbound.peerAsk).toEqual({ botId: asker.id, name: "Asker" });
       const rnote = helperBot.messages.find((m: any) => m.kind === "activity" && m.tool?.name === "Message from @Asker");
       expect(rnote?.comm?.groupId).toBe(note.comm.groupId);
       expect(helperBot.busy).toBeFalsy();
@@ -546,6 +550,9 @@ describe("comms e2e (fake ACP fleet)", () => {
       expect(helperInbound.text).toContain("[Delegated by @Asker");
       expect(helperInbound.text).toContain("delegated task");
       expect(helperInbound.text).toContain("[Reason: followup]");
+      // the author rides on the line itself, not only in its prefix — a
+      // renderer must not show A's handoff as B's user speaking
+      expect(helperInbound.peerAsk).toEqual({ botId: asker.id, name: "Asker" });
       const helperReply = helperBot.messages.findLast(
         (m: any) => m.kind === "text" && m.role === "bot",
       );

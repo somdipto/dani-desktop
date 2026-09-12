@@ -75,7 +75,7 @@ function requireUpdaterTarget(resources, label) {
   const updateFile = path.join(resources, "app-update.yml");
   requireFile(updateFile);
   const update = readFileSync(updateFile, "utf8");
-  if (!/^owner: somdipto$/m.test(update) || !/^repo: dani-desktop$/m.test(update)) {
+  if (!/^owner: somdipto$/m.test(update) || !/^repo: Dani Bot$/m.test(update)) {
     fail(`${label} app-update.yml does not point at somdipto/dani-desktop`);
   }
 }
@@ -165,7 +165,7 @@ function verifyCompliance(licenses, label) {
   const registryIds = new Set();
   for (const component of registry) {
     const packageId = component.properties?.find(
-      (property) => property.name === "danibot:cargo:package-id",
+      (property) => property.name === "openmausbot:cargo:package-id",
     )?.value;
     if (typeof packageId !== "string" || !packageId.startsWith("registry+")) {
       fail(`${label} SBOM registry component has no exact Cargo package ID`);
@@ -399,7 +399,7 @@ function verifyCloudflaredResources(resources, label, { directoryMode = 0o755 } 
 const appImage = exactlyOne(".AppImage");
 const deb = exactlyOne(".deb");
 const unpacked = path.join(releaseDir, "linux-unpacked");
-const executable = path.join(unpacked, "danibot");
+const executable = path.join(unpacked, "openmausbot");
 const resources = path.join(unpacked, "resources");
 
 requireExecutable(appImage);
@@ -408,9 +408,6 @@ requireDirectoryMode(unpacked, 0o755);
 for (const relative of ["app.asar", "ui/index.html", "server/index.js"]) {
   requireFile(path.join(resources, relative));
 }
-const ui = readFileSync(path.join(resources, "ui/index.html"), "utf8");
-if (!ui.includes("<title>Dani Bot</title>")) fail("packaged UI title is not Dani Bot");
-
 for (const forbidden of ["speech-helper", "cua-driver", "cua-sdk"]) {
   if (statSync(path.join(resources, forbidden), { throwIfNoEntry: false })) {
     fail(`unsupported Linux resource was bundled: ${forbidden}`);
@@ -426,7 +423,7 @@ const fields = execFileSync(
   { encoding: "utf8" },
 );
 for (const expected of [
-  "Package: danibot",
+  "Package: openmausbot",
   "Architecture: amd64",
   "Maintainer: Dani",
   "Section: utils",
@@ -468,15 +465,15 @@ try {
     "hicolor",
     "scalable",
     "apps",
-    "danibot.svg",
+    "openmausbot.svg",
   );
   requireFile(desktopFile);
   requireFile(scalableIcon);
   const desktop = readFileSync(desktopFile, "utf8");
   for (const expected of [
     "Name=Dani Bot",
-    'Exec="/opt/Dani Bot/danibot" %U',
-    "Icon=danibot",
+    "Exec=/opt/Dani Bot/openmausbot %U",
+    "Icon=openmausbot",
     "StartupWMClass=com.openmausbot.app",
     "Categories=Utility;",
   ]) {

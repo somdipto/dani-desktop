@@ -53,6 +53,7 @@ import { supportsApprovalMode } from "../../../shared/approval-mode.ts";
 // packaged server dir entirely. See server/proxy-paths.ts.
 const COMPUTER_PROXY_PATH = SPAWNED_PROXIES.computer;
 import { appendNative } from "../native.ts";
+import { commandSummary } from "../../tool-summary.ts";
 import { SPAWNED_PROXIES } from "../../proxy-paths.ts";
 
 export interface AcpConfig {
@@ -93,6 +94,9 @@ export interface AcpSupport {
   /** Whether models behind this ACP harness can consume a referenced image.
    * Most coding agents can open local files; opt out for text-only agents. */
   images?: boolean;
+  /** Narrow compatibility exception for a CLI with verified native image
+   * transport but a defective initialize capability (never a path fallback). */
+  acceptsUnadvertisedImages?(initializeResult: unknown): boolean;
   /** Message shown when the CLI is present but not signed in. */
   loginNote: string;
   /** How a user installs this harness's CLI; surfaced by the setup UI. */
@@ -244,6 +248,29 @@ function decodeAcpConfig(defaultCli: string) {
  * ACP JSON-RPC-over-stdio driver. Harness differences (argv, auth, catalog)
  * live in `support`; this is the shared handshake and turn runtime.
  */
+/** What "the same operation" means for a remembered session allow: the
+ * tool call's shape with keys sorted, so two identical requests key alike
+ * however the agent ordered its JSON. null when nothing identifies it. */
+function sessionOperationKey(toolCall: any): string | null {
+  const rawInput = toolCall?.rawInput;
+  const command = typeof rawInput?.command === "string" ? rawInput.command : undefined;
+  const hasInput = rawInput && typeof rawInput === "object" && Object.keys(rawInput).length > 0;
+  if (!command && !hasInput) return null;
+  const stable = (value: unknown): unknown =>
+    Array.isArray(value)
+      ? value.map(stable)
+      : value && typeof value === "object"
+        ? Object.fromEntries(Object.keys(value as Record<string, unknown>).sort().map((key) => [key, stable((value as Record<string, unknown>)[key])]))
+        : value;
+  return JSON.stringify(stable({
+    kind: toolCall?.kind,
+    title: toolCall?.title,
+    command,
+    input: rawInput,
+    locations: toolCall?.locations,
+  }));
+}
+
 export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> {
   const DRIVER_KIND = support.driverKind;
   const SOURCE = support.nativeSource;
@@ -299,9 +326,16 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
         stop: () => void;
         interrupt: () => void;
         turnId: string;
-        asks: Map<string, (behavior: string, source?: "user" | "timeout" | "system", message?: string) => void>;
+        asks: Map<string, (behavior: string, source?: "user" | "timeout" | "system", message?: string, always?: boolean) => void>;
       }
       const active = new Map<string, Turn>();
+      // "Always allow this session", remembered by the driver when the agent
+      // offered no `allow_always` of its own: the exact operations (kind,
+      // title, command, input, locations) a person allowed for the session,
+      // per thread. A repeat is answered the way they did, once, for as long
+      // as the native session lasts. A generic title with no input identifies
+      // nothing and is never remembered.
+      const sessionAllows = new Map<string, Set<string>>();
 
       const emit = (event: RuntimeEvent) => {
         for (const listener of listeners) listener(event);
@@ -469,7 +503,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
         });
 
         const state = { settled: false, promptSent: false, text: "" };
-        const asks = new Map<string, (behavior: string, source?: "user" | "timeout" | "system", message?: string) => void>();
+        const asks = new Map<string, (behavior: string, source?: "user" | "timeout" | "system", message?: string, always?: boolean) => void>();
         let nextId = 1;
         let sessionId: string | null = null;
         let interruptTimer: ReturnType<typeof setTimeout> | null = null;
@@ -612,6 +646,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             options.find((o) => o.kind === `${want}_once` && typeof o.optionId === "string")?.optionId
               ?? options.find((o) => String(o.kind ?? "").startsWith(want) && typeof o.optionId === "string")?.optionId
               ?? null;
+          const optionAlways = options.find((o) => o.kind === "allow_always" && typeof o.optionId === "string")?.optionId ?? null;
           const cancelled = { outcome: { outcome: "cancelled" } };
           const missing = (want: string) =>
             emit({
@@ -632,6 +667,14 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             });
           }
           const kind = String(toolCall.kind ?? "");
+          // an earlier "Always allow this session" on this exact operation
+          const operationKey = isQuestion || controlsHost ? null : sessionOperationKey(toolCall);
+          if (operationKey && sessionAllows.get(threadId)?.has(operationKey)) {
+            const allow = optionFor("allow");
+            if (allow) {
+              return send({ jsonrpc: "2.0", id: msg.id, result: { outcome: { outcome: "selected", optionId: allow } } });
+            }
+          }
           const tool = kind === "execute" ? "shell" : kind === "edit" ? "edit" : kind || "tool";
           const summary = String(toolCall.rawInput?.command ?? toolCall.title ?? tool).slice(0, 200);
           const requestId = newId();
@@ -639,10 +682,12 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             behavior: string,
             source: "user" | "timeout" | "system" = "user",
             message?: string,
+            always?: boolean,
           ) => {
             if (!asks.delete(requestId)) return;
             clearTimeout(timer);
             const want = behavior === "allow" ? "allow" : "reject";
+            const forSession = want === "allow" && always === true && !isQuestion && !controlsHost;
             const named = isQuestion && behavior === "answer"
               ? options.filter((option) => option.optionId === message || option.name?.trim() === message)
               : [];
@@ -650,7 +695,16 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
               ? null
               : isQuestion
                 ? named.length === 1 && typeof named[0].optionId === "string" ? named[0].optionId : null
-                : optionFor(want);
+                : forSession
+                  ? optionAlways ?? optionFor("allow")
+                  : optionFor(want);
+            // the agent keeps its own allow_always; when it offered none, the
+            // driver keeps the operation for the session instead
+            if (forSession && !optionAlways && optionId && operationKey) {
+              const remembered = sessionAllows.get(threadId) ?? new Set<string>();
+              remembered.add(operationKey);
+              sessionAllows.set(threadId, remembered);
+            }
             if (behavior !== "cancel" && !optionId) missing(isQuestion ? "matching answer" : want);
             send({
               jsonrpc: "2.0",
@@ -683,6 +737,8 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
               ? options.flatMap((option) => typeof option.name === "string" && option.name.trim() ? [option.name.trim()] : [])
               : undefined,
             approvalScope: controlsHost ? "local-computer" : undefined,
+            // the driver can honor a session-wide allow either way
+            allowSession: !isQuestion && !controlsHost ? true : undefined,
           });
         };
 
@@ -727,6 +783,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
                 itemType: "tool",
                 itemId: u.toolCallId,
                 title: String(u.rawInput?.command ?? u.title ?? "tool").slice(0, 80),
+                summary: commandSummary(u.rawInput),
               });
               break;
             }
@@ -820,7 +877,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
               "initialize",
               {
                 protocolVersion: 1,
-                clientInfo: { name: "danibot", version: "0.0.0" },
+                clientInfo: { name: "openmausbot", version: "0.0.0" },
                 clientCapabilities: {
                   fs: {
                     readTextFile: support.clientFileSystem === true,
@@ -847,7 +904,8 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             }
 
             const images = turn.images ?? [];
-            const runtimeAcceptsImages = init?.agentCapabilities?.promptCapabilities?.image === true;
+            const runtimeAcceptsImages = init?.agentCapabilities?.promptCapabilities?.image === true ||
+              support.acceptsUnadvertisedImages?.(init) === true;
             if (images.length && support.images === true && !runtimeAcceptsImages) {
               throw new Error(
                 `${support.displayName} is configured for image attachments, but this installed runtime does not advertise ACP image input. Update the ${support.displayName} CLI or send the message without an image.`,
@@ -855,6 +913,8 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             }
 
             const cursor = typeof turn.resumeCursor === "string" ? turn.resumeCursor : null;
+            // a fresh native session forgets what the previous one allowed
+            if (!cursor) sessionAllows.delete(threadId);
             let sessionResult: any = null;
             if (cursor) {
               try {
@@ -1042,7 +1102,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             const turn = active.get(threadId);
             const finish = turn?.asks.get(requestId);
             if (!finish) return "unavailable"; // settled, timed out, or turn gone
-            finish(decision.behavior, "user", decision.message);
+            finish(decision.behavior, "user", decision.message, decision.always === true);
             return decision.behavior === "allow"
               ? "allowed-once"
               : decision.behavior === "answer"

@@ -79,7 +79,7 @@ class PairingLinkManifestTest {
     fun `the pairing deep link is handled only by the trampoline`() {
         assertTrue(
             activity(".PairingLinkActivity").hasPairingFilter(),
-            "PairingLinkActivity must own the danibot://pair filter",
+            "PairingLinkActivity must own the openmausbot://pair filter",
         )
         assertFalse(
             activity(".MainActivity").hasPairingFilter(),
@@ -188,9 +188,8 @@ class ShareReceiveManifestTest {
 class PairingLinkTest {
     @Test
     fun `only the pairing scheme and host are an invite`() {
-        assertTrue(PairingLink.isInvite("danibot", "pair"))
         assertTrue(PairingLink.isInvite("openmausbot", "pair"))
-        assertTrue(PairingLink.isInvite("OpenMausBot", "PAIR"))
+        assertTrue(PairingLink.isInvite("Dani Bot", "PAIR"))
         assertFalse(PairingLink.isInvite("https", "pair"))
         assertFalse(PairingLink.isInvite("openmausbot", "join"))
         assertFalse(PairingLink.isInvite(null, null))

@@ -69,7 +69,7 @@ async function main() {
   mkdirSync(applications);
 
   // The bug shape: a version in the filename, and a launcher pinned to it.
-  const launched = path.join(installDir, "DaniBot-0.0.1-x86_64.AppImage");
+  const launched = path.join(installDir, "Dani Bot-0.0.1-x86_64.AppImage");
   copyFileSync(packaged, launched);
   const desktopEntry = path.join(applications, "com.openmausbot.app.desktop");
   writeFileSync(
@@ -131,12 +131,14 @@ async function main() {
   console.log("[smoke-linux-update] downloading…");
   await updater.downloadUpdate(result.cancellationToken);
 
-  // Record the relaunch instead of starting a second app; the file placement
-  // is what this proves, and the target it would launch is part of that.
+  // Record the queued relaunch instead of starting a second app. The native
+  // relauncher would otherwise run it when this fixture exits.
   let relaunched = null;
-  updater.spawnLog = (target) => {
-    relaunched = target;
+  app.relaunch = (options) => {
+    relaunched = options.execPath;
+    return true;
   };
+  updater.spawnLog = () => { throw new Error("AppImage relaunch bypassed Electron's exit ordering"); };
   updater.quitAndInstall(true, true);
 
   const survivors = readdirSync(installDir);
