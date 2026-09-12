@@ -102,7 +102,7 @@ public enum PhoneSecretCrypto {
               isTargetID(context.target)
         else { throw PhoneSecretError.invalidRequest }
         return Data([
-            "openmausbot-phone-credential-v1",
+            "danibot-phone-credential-v1",
             keyId,
             context.deviceId,
             context.botId,

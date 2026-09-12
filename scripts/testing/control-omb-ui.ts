@@ -36,7 +36,7 @@ export const UI_TOOLS_DIR = join(ROOT, ".omb-scratch", "verify-tools");
 export const UI_MUTATING = new Set(["click", "type", "press", "flag", "eval"]);
 
 const ENTRIES = {
-  threads: { entry: "/scripts/testing/threads-preview.tsx", route: "/__threads.html", title: "Isolated OpenMaus Chat" },
+  threads: { entry: "/scripts/testing/threads-preview.tsx", route: "/__threads.html", title: "Isolated Dani Chat" },
 } as const satisfies Record<string, Parameters<typeof mountPreview>[1]>;
 const FAKE_MODES = ["happy", "exit-early", "hang", "malformed", "stream", "not-logged-in", "slow", "background-result"];
 const SEEDED_BOT = "Pepper";

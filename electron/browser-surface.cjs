@@ -484,7 +484,7 @@ function createBrowserSurfaceManager({
   let guestCounter = 0;
 
   const partitionForProfile = (botId, profile) => {
-    if (profile === GUEST_PROFILE) return `openmausbot-browser-guest-${botId}-${++guestCounter}`;
+    if (profile === GUEST_PROFILE) return `danibot-browser-guest-${botId}-${++guestCounter}`;
     return profile ? browserProfilePartition(profile) : ownPartitionFor(botId);
   };
   const profileIdOf = (profile) => {
@@ -1171,7 +1171,7 @@ function createBrowserSurfaceManager({
       if (!frameId) throw new Error("the browser page has no main frame");
       const { executionContextId } = await cdp(entry, "Page.createIsolatedWorld", {
         frameId,
-        worldName: "openmausbot-browser-snapshot",
+        worldName: "danibot-browser-snapshot",
         grantUniveralAccess: false,
       });
       if (!executionContextId) throw new Error("could not create the protected browser helper world");

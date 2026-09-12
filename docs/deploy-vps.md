@@ -70,7 +70,7 @@ root, sign in again as `maus`; those accounts have different homes and credentia
 
 ## Path A: a public address with one command
 
-No domain, no proxy, no open port. The server gets an address like `https://c-7f3a9c.openmausbot.com` through a Cloudflare tunnel; only traffic through the tunnel reaches it, and that traffic still has to pair.
+No domain, no proxy, no open port. The server gets an address like `https://c-7f3a9c.danibot.com` through a Cloudflare tunnel; only traffic through the tunnel reaches it, and that traffic still has to pair.
 
 ```sh
 npx danibot setup          # once: choose AI access, connect, and choose a model
@@ -82,9 +82,9 @@ npx danibot serve --tunnel # runs the server there and prints the pairing link w
 Use Codex's device-code option over SSH, or enter a hidden API key for a
 chat-only connection. More engines can be added later. See [CLI setup](cli-onboarding.md).
 
-`login` asks for your email, sends an 8-digit code, and prints the address it reserved for this machine. `serve --tunnel` downloads `cloudflared` on the first run (a pinned version with a verified digest, into `~/.openmausbot`), starts the server, connects the tunnel, and after a few seconds prints `tunnel: live at https://…`. Leave it running; see "Keep it running" for a service.
+`login` asks for your email, sends an 8-digit code, and prints the address it reserved for this machine. `serve --tunnel` downloads `cloudflared` on the first run (a pinned version with a verified digest, into `~/.danibot`), starts the server, connects the tunnel, and after a few seconds prints `tunnel: live at https://…`. Leave it running; see "Keep it running" for a service.
 
-The account credentials live in `~/.openmausbot/tunnel-account.json`, readable only by your user. `npx danibot logout` releases the address.
+The account credentials live in `~/.danibot/tunnel-account.json`, readable only by your user. `npx danibot logout` releases the address.
 
 Skip to "Install and sign the engines in".
 
@@ -142,13 +142,13 @@ the image. For paths A and C, install Linux system libraries once from the
 administrator shell:
 
 ```sh
-sudo -H npx --yes openmausbot browser install --with-deps
+sudo -H npx --yes danibot browser install --with-deps
 ```
 
 Then install the browser in the service account's home, from the `maus` shell:
 
 ```sh
-npx --yes openmausbot browser install
+npx --yes danibot browser install
 ```
 
 The administrator's browser download is in a different home; it does not install
@@ -178,7 +178,7 @@ engines you use. For path B, run the installed CLI inside the container, for
 example `docker compose exec omb claude`.
 
 Engine logins belong to the service user's home (for example `~/.codex` and
-`~/.claude`), separately from Dani Bot's `~/.openmausbot`. Keep that home when
+`~/.claude`), separately from Dani Bot's `~/.danibot`. Keep that home when
 restarting or upgrading. The systemd example below includes `~/.local/bin` in PATH.
 
 ## Pair your first device
@@ -192,7 +192,7 @@ npx danibot pair --label "Kitchen iPad"
 ```
 pairing code:  RR8Y-BLR6-H939
 expires:       10:59:45 AM (single use)
-open or scan:  https://c-7f3a9c.openmausbot.com/pair#code=RR8Y-BLR6-H939
+open or scan:  https://c-7f3a9c.danibot.com/pair#code=RR8Y-BLR6-H939
 ```
 
 - **A browser:** open the link. The code is filled in; press **Connect**. That browser is paired for 30 days, renewed on use as above.
@@ -218,14 +218,14 @@ install a chosen release first, from the `maus` shell. Replace `X.Y.Z` with the
 published version you want to run:
 
 ```sh
-npm install --global --prefix "$HOME/.local" openmausbot@X.Y.Z
+npm install --global --prefix "$HOME/.local" danibot@X.Y.Z
 ```
 
 Stop the foreground server with Ctrl-C before enabling the service. From the
-administrator shell, save this as `/etc/systemd/system/openmausbot.service`:
+administrator shell, save this as `/etc/systemd/system/danibot.service`:
 
 ```ini
-# /etc/systemd/system/openmausbot.service
+# /etc/systemd/system/danibot.service
 [Unit]
 Description=Dani Bot server
 After=network-online.target
@@ -235,7 +235,7 @@ User=maus
 WorkingDirectory=/home/maus
 Environment=HOME=/home/maus
 Environment=PATH=/home/maus/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/maus/.local/bin/openmausbot serve --tunnel --no-pair
+ExecStart=/home/maus/.local/bin/danibot serve --tunnel --no-pair
 Restart=always
 RestartSec=5
 
@@ -244,8 +244,8 @@ WantedBy=multi-user.target
 ```
 
 ```sh
-sudo systemctl daemon-reload && sudo systemctl enable --now openmausbot
-journalctl -u openmausbot -f            # the server's log, including "tunnel: live at …"
+sudo systemctl daemon-reload && sudo systemctl enable --now danibot
+journalctl -u danibot -f            # the server's log, including "tunnel: live at …"
 ```
 
 Use `--tailscale` instead of `--tunnel` for path C. `--no-pair` skips printing a code at every restart; mint one with `npx danibot pair` when you need it. Docker (path B) restarts on its own (`restart: unless-stopped`).
@@ -260,14 +260,14 @@ same release without an npm install prompt or an implicit upgrade.
   then run these commands from the administrator shell, replacing `X.Y.Z`:
 
   ```sh
-  sudo systemctl stop openmausbot
-  sudo -iu maus npm install --global --prefix /home/maus/.local openmausbot@X.Y.Z
-  sudo systemctl start openmausbot
+  sudo systemctl stop danibot
+  sudo -iu maus npm install --global --prefix /home/maus/.local danibot@X.Y.Z
+  sudo systemctl start danibot
   ```
 
   Check that installation succeeded before starting. A service restart by itself
   does not update the installed package. For foreground `npx` usage, specify the
-  desired release as `npx --yes openmausbot@X.Y.Z serve --tunnel`.
+  desired release as `npx --yes danibot@X.Y.Z serve --tunnel`.
 - **Path B:** `cd Dani Bot/deploy && docker compose pull omb && docker compose up -d`.
 
 Routines and queued work survive a restart; a turn running at that moment does not, so update between runs.
@@ -275,7 +275,7 @@ Routines and queued work survive a restart; a turn running at that moment does n
 ## Back up
 
 Stop the server before copying its SQLite database: Ctrl-C for a foreground
-process, or `sudo systemctl stop openmausbot` from the administrator shell for
+process, or `sudo systemctl stop danibot` from the administrator shell for
 the service above. Stop any engine processes and managed desktops still writing
 files you intend to back up.
 
@@ -284,8 +284,8 @@ credentials, and paired sessions). Run it from the service account's shell:
 
 ```sh
 umask 077
-backup_dir=$(mktemp -d "$PWD/openmausbot-backup.XXXXXX")
-tar czf "$backup_dir/openmausbot-data.tgz" -C "$HOME" .openmausbot
+backup_dir=$(mktemp -d "$PWD/danibot-backup.XXXXXX")
+tar czf "$backup_dir/danibot-data.tgz" -C "$HOME" .danibot
 ```
 
 A full backup also needs your engine credential/configuration paths, such as
@@ -300,15 +300,15 @@ volume name, so use your actual volume name if you changed the Compose project:
 
 ```sh
 docker compose stop omb
-backup_dir=$(mktemp -d "$PWD/openmausbot-backup.XXXXXX")
-docker run --rm -v deploy_data:/data:ro -v "$backup_dir":/b alpine sh -c 'umask 077; tar czf /b/openmausbot-data.tgz -C /data .'
+backup_dir=$(mktemp -d "$PWD/danibot-backup.XXXXXX")
+docker run --rm -v deploy_data:/data:ro -v "$backup_dir":/b alpine sh -c 'umask 077; tar czf /b/danibot-data.tgz -C /data .'
 ```
 
 Each command creates a fresh private folder in the current directory, so it
 cannot overwrite an older archive with more permissive access. Keep the
 archive inside that folder privately on another machine. Restore with the server stopped,
 using the same paths and original ownership. After backup or restore, start the
-service with `sudo systemctl start openmausbot`, or `docker compose start omb`.
+service with `sudo systemctl start danibot`, or `docker compose start omb`.
 
 ## The rules the setup relies on
 
@@ -318,7 +318,7 @@ Read this before putting anything else in front of the server.
 - A request that arrives through a proxy or the tunnel is treated as remote and needs a session, whatever headers it carries. A proxy of your own (nginx, Traefik, Cloudflare Tunnel) must forward the real `Host` and add `X-Forwarded-For` and `X-Forwarded-Proto`, must not buffer the event stream, and must **not** rewrite `Host` to `127.0.0.1`.
 - Pairing is the login. Want a second wall in front of it? Path B's `Caddyfile` has a commented `basic_auth` block for a shared password.
 - The session cookie is marked `Secure`; do not serve this over plain HTTP on the public internet.
-- The one thing a stranger can read is `/.well-known/openmausbot/environment` (the server's id, label, version, capabilities) and `/api/health` (only the app name). Everything else answers "pair this device".
+- The one thing a stranger can read is `/.well-known/danibot/environment` (the server's id, label, version, capabilities) and `/api/health` (only the app name). Everything else answers "pair this device".
 
 ## Troubleshooting
 
@@ -334,9 +334,9 @@ Read this before putting anything else in front of the server.
 
 **A bot says the engine is not signed in.** Sign that engine in again on the server.
 
-**What does the server think it is?** `https://<address>/.well-known/openmausbot/environment` is public and shows its id, label, version and capabilities; `npx danibot status` prints the same on the server.
+**What does the server think it is?** `https://<address>/.well-known/danibot/environment` is public and shows its id, label, version and capabilities; `npx danibot status` prints the same on the server.
 
-**Something else.** `journalctl -u openmausbot --since -10m` (or `docker compose logs omb --tail 100`) shows the server's startup lines. Paste them with your question in the community channel.
+**Something else.** `journalctl -u danibot --since -10m` (or `docker compose logs omb --tail 100`) shows the server's startup lines. Paste them with your question in the community channel.
 
 ### Ubuntu 24.04 browser sandbox
 
@@ -357,13 +357,13 @@ placeholder, not a fixed Chrome release. Copy the whole directory, including its
 libraries, to a new location that the service user cannot modify:
 
 ```sh
-sudo install -d -o root -g root -m 0755 /opt/openmausbot-browser
-sudo cp -R /home/maus/.agent-browser/browsers/chrome-VERSION /opt/openmausbot-browser/
-sudo chown -R root:root /opt/openmausbot-browser/chrome-VERSION
-sudo chmod -R go-w /opt/openmausbot-browser/chrome-VERSION
+sudo install -d -o root -g root -m 0755 /opt/danibot-browser
+sudo cp -R /home/maus/.agent-browser/browsers/chrome-VERSION /opt/danibot-browser/
+sudo chown -R root:root /opt/danibot-browser/chrome-VERSION
+sudo chmod -R go-w /opt/danibot-browser/chrome-VERSION
 ```
 
-Save this as the root-owned `/etc/apparmor.d/openmausbot-chrome`, replacing
+Save this as the root-owned `/etc/apparmor.d/danibot-chrome`, replacing
 `VERSION` with the same value. Keep the exact executable path: a wildcard under
 the writable service home would also allow replacement executables.
 
@@ -371,7 +371,7 @@ the writable service home would also allow replacement executables.
 abi <abi/4.0>,
 include <tunables/global>
 
-profile openmausbot-chrome /opt/openmausbot-browser/chrome-VERSION/chrome flags=(unconfined) {
+profile danibot-chrome /opt/danibot-browser/chrome-VERSION/chrome flags=(unconfined) {
   userns,
 }
 ```
@@ -379,15 +379,15 @@ profile openmausbot-chrome /opt/openmausbot-browser/chrome-VERSION/chrome flags=
 Load the profile:
 
 ```sh
-sudo apparmor_parser -r /etc/apparmor.d/openmausbot-chrome
+sudo apparmor_parser -r /etc/apparmor.d/danibot-chrome
 ```
 
 Add the following line under `[Service]` in the systemd unit above, again using
 the exact installed version, then run `sudo systemctl daemon-reload` and
-`sudo systemctl restart openmausbot`:
+`sudo systemctl restart danibot`:
 
 ```ini
-Environment=AGENT_BROWSER_EXECUTABLE_PATH=/opt/openmausbot-browser/chrome-VERSION/chrome
+Environment=AGENT_BROWSER_EXECUTABLE_PATH=/opt/danibot-browser/chrome-VERSION/chrome
 ```
 
 For a foreground server, export `AGENT_BROWSER_EXECUTABLE_PATH` to that same

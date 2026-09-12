@@ -12,7 +12,7 @@ export async function downloadAllBots(): Promise<{ name: string; members: number
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "openmaus";
+      .replace(/^-|-$/g, "") || "danibot";
   const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

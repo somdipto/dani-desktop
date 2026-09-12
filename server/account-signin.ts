@@ -1,12 +1,12 @@
 // Sign in with your email on a hosted server. The emailed code comes from the
 // Dani Bot control plane (the account service the desktop companion and
-// `openmausbot login` already use), and this server decides who is welcome
+// `danibot login` already use), and this server decides who is welcome
 // with an allow-list its owner controls. The result is an ordinary local
 // session, the same thing a pairing code produces, so every gate applies.
 //
 // Why through the control plane rather than a mail provider per server: a
 // self-hoster then needs no email credentials at all; the code arrives from
-// accounts.openmausbot.com. The exchange happens server-side, so a browser
+// accounts.danibot.com. The exchange happens server-side, so a browser
 // only ever talks to this server, and a server with an empty allow-list does
 // not expose the routes.
 import { resolveCompanionControlPlaneURL } from "../electron/companion-account-service.mjs";

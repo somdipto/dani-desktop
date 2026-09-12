@@ -76,10 +76,10 @@ beforeAll(async () => {
   stub = await startControlPlaneStub();
   home = mkdtempSync(join(tmpdir(), "omb-email-signin-"));
   const staticDir = join(home, "static");
-  mkdirSync(join(home, ".openmausbot"), { recursive: true });
+  mkdirSync(join(home, ".danibot"), { recursive: true });
   mkdirSync(join(staticDir, "assets"), { recursive: true });
   writeFileSync(join(staticDir, "index.html"), "<!doctype html><title>Served UI</title>");
-  writeFileSync(join(home, ".openmausbot", "config.json"), JSON.stringify({ instances: { fixture: { driver: "email-signin-test-shadow" } } }));
+  writeFileSync(join(home, ".danibot", "config.json"), JSON.stringify({ instances: { fixture: { driver: "email-signin-test-shadow" } } }));
   child = spawn(process.execPath, [join(SERVER_DIR, "index.ts")], {
     cwd: ROOT,
     env: {
@@ -121,7 +121,7 @@ afterAll(async () => {
 
 describe("sign in with your email on a hosted server", () => {
   it("advertises the option in the public descriptor", async () => {
-    const descriptor = await call("/.well-known/openmausbot/environment");
+    const descriptor = await call("/.well-known/danibot/environment");
     expect(descriptor.status).toBe(200);
     expect(descriptor.body.capabilities.emailSignIn).toBe(true);
   });

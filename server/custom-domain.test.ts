@@ -107,7 +107,7 @@ describe("domain verification", () => {
     expect(Number.isNaN(Date.parse(result.verifiedAt))).toBe(false);
     expect(lookup).toHaveBeenCalledExactlyOnceWith("bots.company.com");
     expect(request).toHaveBeenCalledTimes(2);
-    expect(request.mock.calls[0]![0].pathname).toBe("/.well-known/openmausbot/environment");
+    expect(request.mock.calls[0]![0].pathname).toBe("/.well-known/danibot/environment");
     const token = request.mock.calls[1]![0].pathname.slice(CUSTOM_DOMAIN_CHALLENGE_PATH.length);
     expect(token).toMatch(/^[a-f0-9]{64}$/);
     expect(verifier.challenge(token)).toBeNull();

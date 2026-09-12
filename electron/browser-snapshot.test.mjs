@@ -138,15 +138,15 @@ describe("browser snapshot", () => {
   });
 
   it("derives one durable partition per bot from safe characters only", () => {
-    expect(browserPartition("bot_1-A")).toBe("persist:openmausbot-browser-bot_1-A");
-    expect(browserPartition("../../evil")).toBe("persist:openmausbot-browser-evil");
+    expect(browserPartition("bot_1-A")).toBe("persist:danibot-browser-bot_1-A");
+    expect(browserPartition("../../evil")).toBe("persist:danibot-browser-evil");
     expect(() => browserPartition("")).toThrow();
     expect(() => browserPartition("../")).toThrow();
   });
 
   it("maps exact canonical and migrated profile partition ids without normalization", () => {
-    expect(browserProfilePartition("work-2")).toBe("persist:openmausbot-browser-profile-work-2");
-    expect(browserProfilePartition("Work-2")).toBe("persist:openmausbot-browser-profile-Work-2");
+    expect(browserProfilePartition("work-2")).toBe("persist:danibot-browser-profile-work-2");
+    expect(browserProfilePartition("Work-2")).toBe("persist:danibot-browser-profile-Work-2");
     for (const alias of ["work.2", "../work-2", "work-2!", "guest", ""]) {
       expect(() => browserProfilePartition(alias)).toThrow(/valid browser profile partition id/);
     }

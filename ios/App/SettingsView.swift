@@ -117,7 +117,7 @@ struct SettingsView: View {
                     }
                 }
             } footer: {
-                Text("Changes the language inside OpenMausMobile. Buttons drawn by iOS itself follow the phone's language, which you can set for this app in iOS Settings.")
+                Text("Changes the language inside DaniMobile. Buttons drawn by iOS itself follow the phone's language, which you can set for this app in iOS Settings.")
             }
 
             if session.connection != nil {
@@ -302,7 +302,7 @@ struct ConnectedComputersView: View {
                                 pendingRemoval = computer
                             }
                         }
-                        .accessibilityHint("Switches OpenMausMobile to this computer")
+                        .accessibilityHint("Switches DaniMobile to this computer")
                     }
                 }
             }

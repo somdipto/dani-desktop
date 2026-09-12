@@ -47,7 +47,7 @@ node enterprise/scripts/issue-license.mjs issue --customer "Acme" --features whi
 ```
 
 The signing key lives outside the repo (default
-`~/.config/openmausbot-enterprise/signing-key.json`). Rotate by generating a
+`~/.config/danibot-enterprise/signing-key.json`). Rotate by generating a
 new pair and appending its public key: keys signed by older pairs keep
 working until they expire.
 

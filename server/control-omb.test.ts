@@ -27,7 +27,7 @@ describe("control-omb command mapping", () => {
   });
 
   it("keeps every ui verb off discovery: the launch handle is required, whatever the environment says", async () => {
-    const env = { OPENMAUSBOT_URL: "http://127.0.0.1:19999", OMB_PORT: "19999" };
+    const env = { DANIBOT_URL: "http://127.0.0.1:19999", OMB_PORT: "19999" };
     const verbs = [...UI_MUTATING, "snapshot", "screenshot", "console", "wait-settle"];
     expect(UI_MUTATING).toEqual(new Set(["click", "type", "press", "flag", "eval"]));
     for (const verb of verbs) {
@@ -96,7 +96,7 @@ describe("control-omb command mapping", () => {
 
   it("composes doctor from the shared health and model tools", async () => {
     const callTool = vi.fn(async (name: string) => name === "get_system_health"
-      ? { status: "connected", app: "openmausbot" }
+      ? { status: "connected", app: "danibot" }
       : {
           instances: [
             { instanceId: "ready", snapshot: { state: "available" } },
@@ -137,7 +137,7 @@ describe("control-omb command mapping", () => {
 
   it("maps bounded reads and dry-run actions without reimplementing them", async () => {
     const callTool = vi.fn(async (name: string, args: Record<string, unknown>) => ({ name, args }));
-    const env = { OPENMAUSBOT_URL: "http://127.0.0.1:19999" };
+    const env = { DANIBOT_URL: "http://127.0.0.1:19999" };
     await expect(runControlOmb(["messages", "--channel", "room-1", "--limit", "20"], {
       callTool: callTool as any,
       env,
@@ -159,7 +159,7 @@ describe("control-omb command mapping", () => {
     // replay path, which is what compaction needs to be observable at all —
     // a cleanly resumed turn never compacts.
     const callTool = vi.fn(async (name: string, args: Record<string, unknown>) => ({ name, args }));
-    const env = { OPENMAUSBOT_URL: "http://127.0.0.1:19999" };
+    const env = { DANIBOT_URL: "http://127.0.0.1:19999" };
     await expect(runControlOmb(
       ["edit", "--bot", "bot-1", "--message", "msg-9", "--text", "say that again"],
       { callTool: callTool as any, env },
@@ -191,7 +191,7 @@ describe("control-omb command mapping", () => {
 
   it("requires every part of an edit before calling the shared tool", async () => {
     const callTool = vi.fn();
-    const env = { OPENMAUSBOT_URL: "http://127.0.0.1:19999" };
+    const env = { DANIBOT_URL: "http://127.0.0.1:19999" };
     for (const args of [
       ["edit", "--message", "m", "--text", "x"],
       ["edit", "--bot", "b", "--text", "x"],
@@ -213,7 +213,7 @@ describe("control-omb command mapping", () => {
 
   it("forwards pinned task IDs for sends, reads, waits, interrupts, and model changes", async () => {
     const callTool = vi.fn(async (name: string, args: Record<string, unknown>) => ({ name, args }));
-    const dependencies = { callTool: callTool as any, env: { OPENMAUSBOT_URL: "http://127.0.0.1:19999" } };
+    const dependencies = { callTool: callTool as any, env: { DANIBOT_URL: "http://127.0.0.1:19999" } };
     for (const [command, tool, extra] of [
       ["send", "send_bot_message", ["--text", "hello"]],
       ["messages", "get_bot_messages", []],
@@ -253,7 +253,7 @@ describe("control-omb isolated verification loop", () => {
       FAKE_CLAUDE_PROBE: "fixture-scripting-knob",
     };
     const session = await launchVerificationServer(parentEnv);
-    const env = { OPENMAUSBOT_URL: session.info.url };
+    const env = { DANIBOT_URL: session.info.url };
     try {
       const doctor = await runControlOmb(["doctor"], { env }) as any;
       expect(doctor.ok).toBe(true);
@@ -285,7 +285,7 @@ describe("control-omb isolated verification loop", () => {
       ...process.env,
       FAKE_CLAUDE_TOOL_CALLS: '[{"name":"Bash","input":{"command":"pnpm control:omb doctor"},"ok":true},{"name":"Bash","input":{"command":"false"},"ok":false}]',
     });
-    const env = { OPENMAUSBOT_URL: session.info.url };
+    const env = { DANIBOT_URL: session.info.url };
     try {
       const created = await runControlOmb(["new-bot", "--name", "Tool Script Probe"], { env }) as any;
       const botId = created.bot.id as string;

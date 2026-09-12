@@ -200,7 +200,7 @@ describe("hostCandidates", () => {
     // only while the sidecar runs.
     const hosts = hostCandidates(["100.121.5.6", "192.168.1.42", "10.0.0.7"], "macbook.tail1234.ts.net");
     expect(hosts.slice(0, 3)).toEqual(["macbook.tail1234.ts.net", "192.168.1.42", "10.0.0.7"]);
-    expect(hosts.at(-1)).toMatch(/^openmausbot-[0-9a-f]{8}\.local$/);
+    expect(hosts.at(-1)).toMatch(/^danibot-[0-9a-f]{8}\.local$/);
     expect(hosts).not.toContain("100.121.5.6");
   });
 
@@ -219,9 +219,9 @@ describe("hostCandidates", () => {
     expect(body.secretPublicKey).toBe("BIPBQ12_dWnF1DZLsTZO3Vg0NGjds5-jp9h3jhjr2To7bJelczS0LM82rfXV68PmSJhz2ePosj3fL974XckCpDU");
     // Whatever this machine's interfaces are, the mDNS fallback is always
     // present and always last.
-    expect(body.hosts.at(-1)).toMatch(/^openmausbot-[0-9a-f]{8}\.local$/);
+    expect(body.hosts.at(-1)).toMatch(/^danibot-[0-9a-f]{8}\.local$/);
     expect(body.endpoints.at(-1)).toMatchObject({ kind: "bonjour", priority: 300 });
-    expect(body.endpoints.at(-1).url).toMatch(/^http:\/\/openmausbot-[0-9a-f]{8}\.local:8810$/);
+    expect(body.endpoints.at(-1).url).toMatch(/^http:\/\/danibot-[0-9a-f]{8}\.local:8810$/);
   });
 
   it("reports only the device ids backed by live authenticated streams", async () => {
@@ -264,7 +264,7 @@ describe("hosted endpoint advertisement", () => {
     expect(published.body.endpoints[0]).toEqual({
       kind: "hosted",
       priority: 0,
-      url: "https://c-opaque.openmausbot.test",
+      url: "https://c-opaque.danibot.test",
     });
 
     expect(
@@ -291,7 +291,7 @@ describe("hosted endpoint advertisement", () => {
       { url: false },
       [],
       null,
-      "https://c-opaque.openmausbot.test",
+      "https://c-opaque.danibot.test",
     ]) {
       const result = await ask("PUT", "/hosted-endpoint", headers, JSON.stringify(body));
       expect(result).toEqual({ status: 400, body: { error: "invalid JSON body" } });

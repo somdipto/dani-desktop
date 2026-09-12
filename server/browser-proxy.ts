@@ -41,7 +41,7 @@ export async function browserProxyRequest(
   if (!Object.hasOwn(message, "id")) return undefined;
   if (message.method === "initialize") return {
     jsonrpc: "2.0", id,
-    result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "openmausbot-browser", version: "1" } },
+    result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "danibot-browser", version: "1" } },
   };
   if (message.method === "ping") return { jsonrpc: "2.0", id, result: {} };
   if (message.method !== "tools/list" && message.method !== "tools/call") return failure(id, message.method, "Method not found.", -32601);

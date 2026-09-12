@@ -64,7 +64,7 @@ const capability = async (
     "POST",
     "/api/testing/internal-capability",
     { botId, threadId, kind },
-    { "x-openmausbot-test-capability": TEST_CAPABILITY_KEY },
+    { "x-danibot-test-capability": TEST_CAPABILITY_KEY },
   );
   expect(minted.status).toBe(201);
   return { authorization: `Bearer ${minted.body.token}` };
@@ -104,7 +104,7 @@ beforeAll(async () => {
   chmodSync(FAKE_CLAUDE, 0o755);
   chmodSync(FAKE_ACP, 0o755);
   home = mkdtempSync(join(tmpdir(), "omb-notification-routing-"));
-  const data = join(home, ".openmausbot");
+  const data = join(home, ".danibot");
   mkdirSync(data, { recursive: true });
   dumpFile = join(home, "quick-dump.json");
   writeFileSync(join(data, "config.json"), JSON.stringify({

@@ -13,7 +13,7 @@
 //
 // Everything is disposable. A harness is started against a temporary HOME
 // with a fabricated profile and the repository's fake engine, so nothing here
-// reads or writes your real ~/.openmausbot. No real name, key or token can end up in a fixture. The
+// reads or writes your real ~/.danibot. No real name, key or token can end up in a fixture. The
 // pairing token is redacted on the way out regardless.
 //
 // One fixture is not captured: options-card.json needs a bot to actually ask
@@ -142,8 +142,8 @@ async function captureFrames(wanted, during) {
 async function main() {
   mkdirSync(OUT, { recursive: true });
   home = mkdtempSync(join(tmpdir(), "companion-fixtures-"));
-  mkdirSync(join(home, ".openmausbot"), { recursive: true });
-  writeFileSync(join(home, ".openmausbot", "config.json"), JSON.stringify({
+  mkdirSync(join(home, ".danibot"), { recursive: true });
+  writeFileSync(join(home, ".danibot", "config.json"), JSON.stringify({
     profile: PROFILE,
     instances: {
       claude: {

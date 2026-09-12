@@ -42,7 +42,7 @@ refreshes it.
 
 1. Every new release is published byte-for-byte to both repositories during
    the bridge period.
-2. `openmausbot-releases` must stay public. Do not delete its final bridge
+2. `danibot-releases` must stay public. Do not delete its final bridge
    release, feeds, or assets.
 3. README and docs downloads point at the canonical repo, while the legacy
    mirror exists only for installed updater clients and historical releases.
@@ -109,7 +109,7 @@ base64 -i AuthKey_XXXXXXXX.p8 | pbcopy   # → APPLE_API_KEY_P8_BASE64
 
 A fine-grained personal access token that lets the workflow write to the
 legacy updater mirror: **GitHub → Settings → Developer settings →
-Fine-grained tokens** → repository access: only `openmausbot-releases` →
+Fine-grained tokens** → repository access: only `danibot-releases` →
 permissions: **Contents: Read and write**. Set a long expiry and a calendar
 reminder. The canonical release uses the workflow's scoped `GITHUB_TOKEN` and
 does not need a PAT.

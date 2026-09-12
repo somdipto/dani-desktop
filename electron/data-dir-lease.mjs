@@ -4,12 +4,12 @@ import { existsSync, linkSync, mkdirSync, readFileSync, renameSync, unlinkSync, 
 import { hostname, uptime } from "node:os";
 import { join } from "node:path";
 
-const LEASE_NAME = "openmausbot-server.lease";
-const DELEGATED_CHILD_DIR = ".openmausbot-server-child";
+const LEASE_NAME = "danibot-server.lease";
+const DELEGATED_CHILD_DIR = ".danibot-server-child";
 // This is an internal, parent-to-utility-process capability. Callers must get
 // it from utilityServerLeaseEnvironment(); neither its name nor its token is part
 // of the public configuration surface.
-const CHILD_LEASE_ENV = "OPENMAUSBOT_INTERNAL_DATA_DIR_LEASE";
+const CHILD_LEASE_ENV = "DANIBOT_INTERNAL_DATA_DIR_LEASE";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAX_PID = 0x7fffffff;
 const MAX_BOOT_ID = 128;

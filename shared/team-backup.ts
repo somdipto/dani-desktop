@@ -55,7 +55,7 @@ const memory = z.object({
 });
 
 const backupSchema = z.object({
-  format: z.literal("openmaus.backup"),
+  format: z.literal("danibot.backup"),
   version: z.literal(1),
   name,
   exportedAt: timestamp,

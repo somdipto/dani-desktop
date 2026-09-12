@@ -89,7 +89,7 @@ export function parsePrepareCloudflaredArgs(args = []) {
     if (argument === "--current" && !options.current) {
       options.current = true;
     } else if (argument === "--root" && !options.root && typeof next === "string" && next !== "") {
-      // `openmausbot serve --tunnel` stages into its data dir, not a checkout.
+      // `danibot serve --tunnel` stages into its data dir, not a checkout.
       options.root = next;
       index += 1;
     } else {
@@ -258,7 +258,7 @@ async function stageTarget(root, target) {
     return;
   }
 
-  const scratch = mkdtempSync(join(tmpdir(), `openmaus-cloudflared-${target}-`));
+  const scratch = mkdtempSync(join(tmpdir(), `danibot-cloudflared-${target}-`));
   try {
     const payload = await releaseBytes(asset);
     verifySha256(payload, asset.sha256, asset.name);

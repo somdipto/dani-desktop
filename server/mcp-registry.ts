@@ -45,8 +45,8 @@ const RESERVED_MCP_NAMES = new Set([
   "browser",
   "phone",
   "dweb",
-  "openmausbot_connectors",
-  "openmausbot_phone",
+  "danibot_connectors",
+  "danibot_phone",
 ]);
 
 const storedEntrySchema = z.object({

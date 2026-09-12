@@ -1,8 +1,8 @@
-export const TRANSCRIPTION_STATUS_EVENT = "openmausbot:transcription-status";
+export const TRANSCRIPTION_STATUS_EVENT = "danibot:transcription-status";
 
 declare global {
   interface WindowEventMap {
-    "openmausbot:transcription-status": CustomEvent<{ configured: boolean }>;
+    "danibot:transcription-status": CustomEvent<{ configured: boolean }>;
   }
 }
 

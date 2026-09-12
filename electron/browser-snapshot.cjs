@@ -210,7 +210,7 @@ function browserNavigationAllowed(raw) {
 function browserUserAgent(userAgent) {
   return String(userAgent ?? "")
     .replace(/\s?Dani Bot\/\S+/g, "")
-    .replace(/\s?openmausbot\/\S+/g, "")
+    .replace(/\s?danibot\/\S+/g, "")
     .replace(/\s?DaniBot\/\S+/g, "")
     .replace(/\s?Dani Bot\/\S+/g, "")
     .replace(/\s?Electron\/\S+/g, "")
@@ -224,7 +224,7 @@ function browserUserAgent(userAgent) {
 function browserPartition(botId) {
   const safe = String(botId ?? "").replace(/[^A-Za-z0-9_-]/g, "");
   if (!safe) throw new Error("A bot id is required");
-  return `persist:openmausbot-browser-${safe}`;
+  return `persist:danibot-browser-${safe}`;
 }
 
 /** A named profile is a partition several bots may share — "Work", "Client
@@ -237,7 +237,7 @@ function browserProfilePartition(partitionId) {
   if (!/^[A-Za-z0-9_-]{1,40}$/.test(id) || id === "guest") {
     throw new Error("A valid browser profile partition id is required");
   }
-  return `persist:openmausbot-browser-profile-${id}`;
+  return `persist:danibot-browser-profile-${id}`;
 }
 
 const REF = /^b(\d{1,12})$/;

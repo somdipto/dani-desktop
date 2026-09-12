@@ -17,7 +17,7 @@ import UIKit
 /// Stream lifecycle, in Console.app and the Xcode console. A companion that
 /// is silently not connected looks exactly like one with nothing to say, so
 /// the transitions are worth being able to read.
-private let log = Logger(subsystem: "com.openmausbot.companion", category: "stream")
+private let log = Logger(subsystem: "com.danibot.companion", category: "stream")
 
 private final class CachedAttachmentDownload: NSObject {
     let value: DownloadedFile
@@ -214,7 +214,7 @@ final class Session: ObservableObject {
     /// only the first should ever send someone back to the pairing screen.
     private func restore() {
         restorePending = false
-        registry = OpenMausSharedConnectionStore.loadRegistry()
+        registry = DaniSharedConnectionStore.loadRegistry()
         connections = registry.connections
         // The Share extension can target any saved computer, not only the
         // one active at launch. Move every inactive pre-extension token into
@@ -355,7 +355,7 @@ final class Session: ObservableObject {
                 )
             }
         } saveConnection: {
-            OpenMausSharedConnectionStore.saveRegistry(updatedRegistry)
+            DaniSharedConnectionStore.saveRegistry(updatedRegistry)
         }
 
         stopActiveRuntime()
@@ -383,7 +383,7 @@ final class Session: ObservableObject {
         connect()
     }
 
-    /// `GET /.well-known/openmausbot/environment` on a server about to be
+    /// `GET /.well-known/danibot/environment` on a server about to be
     /// paired. Nothing there means this address is not a server; the message
     /// names the address, since that is what the person can fix. Any other
     /// answer — unreachable, a gateway error — is passed through as it is.
@@ -557,7 +557,7 @@ final class Session: ObservableObject {
     }
 
     private func persistRegistry() {
-        OpenMausSharedConnectionStore.saveRegistry(registry)
+        DaniSharedConnectionStore.saveRegistry(registry)
     }
 
     private func persistActiveConnection(_ updated: Connection) {

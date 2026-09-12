@@ -45,7 +45,7 @@ describe("desktop companion endpoint", () => {
     ]);
     expect(desktopCompanionRendererArguments("http://127.0.0.1:8798", access)).toEqual([
       "--omb-local-origin=http://127.0.0.1:8798",
-      "--openmausbot-remote-client",
+      "--danibot-remote-client",
     ]);
   });
 
@@ -56,30 +56,30 @@ describe("desktop companion endpoint", () => {
     expect(normalizeTailscaleCompanionEndpoint("http://HOST.example-tailnet.ts.net:9910/")).toBe(
       "http://host.example-tailnet.ts.net:9910",
     );
-    expect(normalizeDesktopCompanionEndpoint("https://c-opaque.openmausbot.com")).toBe(
-      "https://c-opaque.openmausbot.com",
+    expect(normalizeDesktopCompanionEndpoint("https://c-opaque.danibot.com")).toBe(
+      "https://c-opaque.danibot.com",
     );
-    expect(normalizeDesktopCompanionEndpoint("c-opaque.openmausbot.com")).toBe(
-      "https://c-opaque.openmausbot.com",
+    expect(normalizeDesktopCompanionEndpoint("c-opaque.danibot.com")).toBe(
+      "https://c-opaque.danibot.com",
     );
     for (const endpoint of [
       "https://unrelated.example.com",
-      "http://c-opaque.openmausbot.com",
+      "http://c-opaque.danibot.com",
       "http://10.0.0.4:8810",
       "http://host.local:8810",
       "https://10.0.0.4",
       "http://host.example-tailnet.ts.net/path",
-      "https://c-opaque.openmausbot.com/path",
+      "https://c-opaque.danibot.com/path",
       "http://user@host.example-tailnet.ts.net",
       "http://host.example-tailnet.ts.net.evil.test",
-      "https://c-opaque.openmausbot.com.evil.test",
+      "https://c-opaque.danibot.com.evil.test",
     ]) {
       expect(normalizeDesktopCompanionEndpoint(endpoint), endpoint).toBe("");
     }
   });
 
   it("validates, adds, and removes the encrypted credential document field", () => {
-    const hostedAccess = { ...access, endpoint: "https://c-opaque.openmausbot.com" };
+    const hostedAccess = { ...access, endpoint: "https://c-opaque.danibot.com" };
     expect(desktopCompanionAccess({ [DESKTOP_COMPANION_FIELD]: hostedAccess })).toEqual(
       hostedAccess,
     );
@@ -132,15 +132,15 @@ describe("desktop companion pairing", () => {
       }),
     );
     const paired = await pairDesktopCompanion({
-      endpoint: "https://c-opaque.openmausbot.com",
+      endpoint: "https://c-opaque.danibot.com",
       code: "654321",
       deviceName: "Desktop client",
       requestId: "request-https-01",
       fetchImpl,
     });
-    expect(paired).toEqual({ ...access, endpoint: "https://c-opaque.openmausbot.com" });
+    expect(paired).toEqual({ ...access, endpoint: "https://c-opaque.danibot.com" });
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://c-opaque.openmausbot.com/api/pair",
+      "https://c-opaque.danibot.com/api/pair",
       expect.objectContaining({ method: "POST" }),
     );
   });

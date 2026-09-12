@@ -24,7 +24,7 @@ const MAX_ERROR_BYTES = 64 * 1024;
 export function desktopCompanionRendererArguments(localOrigin, remoteAccess) {
   return [
     `--omb-local-origin=${localOrigin}`,
-    ...(remoteAccess ? ["--openmausbot-remote-client"] : []),
+    ...(remoteAccess ? ["--danibot-remote-client"] : []),
   ];
 }
 
@@ -67,7 +67,7 @@ export function normalizeDesktopCompanionEndpoint(value) {
   const hostname = parsed.hostname.toLowerCase();
   const tailscaleHttp = parsed.protocol === "http:" && hostname.endsWith(".ts.net");
   const managedHttps =
-    parsed.protocol === "https:" && hostname.endsWith(".openmausbot.com");
+    parsed.protocol === "https:" && hostname.endsWith(".danibot.com");
   if (
     (!tailscaleHttp && !managedHttps) ||
     parsed.username ||

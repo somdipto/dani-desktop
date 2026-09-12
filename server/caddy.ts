@@ -1,4 +1,4 @@
-// `openmausbot serve --domain maus.example.com`: HTTPS on your own domain
+// `danibot serve --domain maus.example.com`: HTTPS on your own domain
 // with nothing to configure. The server downloads a pinned Caddy once into
 // the data dir (the same way it fetches cloudflared and the browser engine),
 // writes the Caddyfile the Docker stack ships, and runs Caddy as its child:
@@ -91,7 +91,7 @@ export async function ensureCaddy(options: {
   }
   const digest = createHash("sha512").update(body).digest("hex");
   if (digest !== asset.sha512) throw new Error("the Caddy download failed its SHA-512 check; nothing was installed");
-  const scratch = mkdtempSync(join(tmpdir(), "openmaus-caddy-"));
+  const scratch = mkdtempSync(join(tmpdir(), "danibot-caddy-"));
   try {
     const archive = join(scratch, asset.name);
     writeFileSync(archive, body, { mode: 0o600 });
@@ -111,7 +111,7 @@ export async function ensureCaddy(options: {
  * state live under the data dir so they survive restarts and upgrades. */
 export function caddyfileFor(input: { domain: string; appPort: number; webhookPort: number }): string {
   return [
-    "# Written by openmausbot serve --domain. Edit the command, not this file.",
+    "# Written by danibot serve --domain. Edit the command, not this file.",
     "{",
     "\tadmin off",
     "\tlog {",

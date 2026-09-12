@@ -56,7 +56,7 @@ const fixture = (displayName: string, dump?: string) => ({
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-peer-allowlist-"));
-  const data = join(home, ".openmausbot");
+  const data = join(home, ".danibot");
   const staticDir = join(home, "static");
   mkdirSync(data, { recursive: true });
   mkdirSync(staticDir, { recursive: true });
@@ -159,7 +159,7 @@ const mintCapability = async (botId: string, threadId: string): Promise<string> 
     "POST",
     "/api/testing/internal-capability",
     { botId, threadId, kind: "agents" },
-    { "x-openmausbot-test-capability": TEST_CAPABILITY_KEY },
+    { "x-danibot-test-capability": TEST_CAPABILITY_KEY },
   );
   expect(minted.status).toBe(201);
   return String(minted.body.token);

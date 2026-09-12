@@ -130,7 +130,7 @@ describe("package export", () => {
     expect(exported.package.routines?.[1]?.timeoutMinutes).toBe(20);
 
     expect(exported).toMatchObject({
-      format: "openmaus.package",
+      format: "danibot.package",
       package: {
         chiefOfStaff: "lead",
         requirements: { apps: [{ slug: "github" }] },

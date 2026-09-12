@@ -406,10 +406,10 @@ export class WebhookManager {
     }
   }
 
-  test(id: string, payload: JsonValue = { event: "openmaus.test", message: "Test webhook delivery" }): WebhookReceiveResult | null {
+  test(id: string, payload: JsonValue = { event: "danibot.test", message: "Test webhook delivery" }): WebhookReceiveResult | null {
     const trigger = this.webhooks.find((candidate) => candidate.id === id);
     if (!trigger) return null;
-    const eventName = trigger.eventTypes?.[0] ?? "openmaus.test";
+    const eventName = trigger.eventTypes?.[0] ?? "danibot.test";
     return this.dispatch(trigger, {
       payload,
       contentType: "application/json",

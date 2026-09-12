@@ -7,7 +7,7 @@ import type { MausColor } from "./store.ts";
 import type { TeamManifestMember } from "./team-manifest.ts";
 import { BOT_PROFILE_LIMITS } from "../shared/bot-profile.ts";
 
-export const BOT_PACKAGE_FORMAT = "openmaus.package" as const;
+export const BOT_PACKAGE_FORMAT = "danibot.package" as const;
 export const BOT_PACKAGE_VERSION = 1 as const;
 export const BOTMRR_MARKDOWN_VERSION = 1 as const;
 export const BOT_PACKAGE_SKILLS_VERSION = 1 as const;
@@ -112,7 +112,7 @@ const packageRoutineScheduleSchema = z.discriminatedUnion("type", [
 });
 
 const packageSchema = z.object({
-  format: z.literal(BOT_PACKAGE_FORMAT, { error: "This is not an OpenMaus package" }),
+  format: z.literal(BOT_PACKAGE_FORMAT, { error: "This is not an Dani package" }),
   version: z.literal(BOT_PACKAGE_VERSION, { error: "Package version is not supported" }),
   package: z.object({
     id: requiredText(80).regex(/^[a-z0-9][a-z0-9-]*$/, { message: "must be a lowercase slug" }),

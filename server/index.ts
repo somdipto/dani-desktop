@@ -84,7 +84,7 @@ import {
 import * as composio from "./composio.ts";
 import { chiefOfStaffSystemPrompt } from "./chief-of-staff.ts";
 import { peerAllowed, peerName, peerRosterSystemPrompt, reachablePeers, roomPeerRosterSystemPrompt, roomRosterLine } from "./peer-roster.ts";
-import { openMausStatusSystemPrompt } from "./openmaus-status-capsule.ts";
+import { openMausStatusSystemPrompt } from "./dani-status-capsule.ts";
 import {
   containerComputerAction,
   containerComputerExists,
@@ -442,7 +442,7 @@ if (existsSync(join(DATA_DIR, ".backups"))) {
 }
 const workspaceMaintenance = new WorkspaceBackupMaintenance();
 // Only after ensureDirs(): it performs the one-time rename of the legacy data
-// dir, which must not find a freshly created ~/.openmausbot already there.
+// dir, which must not find a freshly created ~/.danibot already there.
 // Remote clients (server/request-auth.ts, server/sessions.ts): a stable identity
 // for this server, the paired sessions, and the cookie the served UI uses.
 const ENVIRONMENT_ID = loadEnvironmentId(DATA_DIR);
@@ -515,11 +515,11 @@ type UtilityParentPort = {
 // supplies parentPort; plain Node intentionally leaves it absent.
 const utilityParentPort = (process as NodeJS.Process & { parentPort?: UtilityParentPort }).parentPort;
 type DesktopPrivateMessage = BrowserCleanupWireRequest | {
-  type: "openmausbot:browser-control";
+  type: "danibot:browser-control";
   botId: string;
   held: true;
 } | {
-  type: "openmausbot:phone-secret-save";
+  type: "danibot:phone-secret-save";
   requestId: string;
   target: string;
   value: string;
@@ -553,7 +553,7 @@ function postDesktopPrivateMessage(message: DesktopPrivateMessage): boolean {
 function applyDesktopMutationTokenMessage(raw: unknown): boolean {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
   const message = raw as Record<string, unknown>;
-  if (message.type !== "openmausbot:desktop-mutation-token") return false;
+  if (message.type !== "danibot:desktop-mutation-token") return false;
   if (typeof message.token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(message.token)) {
     throw new Error("invalid desktop mutation capability");
   }
@@ -572,7 +572,7 @@ const browserCleanup: BrowserCleanupCoordinator = new BrowserCleanupCoordinator(
     const status = browserEngineStatus();
     // Guest sessions are throwaway and never saved, so only the bot's own
     // session and shared profile sessions have state to clear.
-    const sessions = request.type === "openmausbot:browser-bot-deleted" && request.botId
+    const sessions = request.type === "danibot:browser-bot-deleted" && request.botId
       ? [browserSessionId(request.botId, "")]
       : request.partitionId
         ? [browserSessionId("", request.partitionId)]
@@ -590,7 +590,7 @@ const browserCleanup: BrowserCleanupCoordinator = new BrowserCleanupCoordinator(
       console.warn("browser cleanup: could not clear saved session state", error);
       return false;
     }).then((ok) => {
-      browserCleanup.receive({ type: "openmausbot:browser-lifecycle-result", requestId: request.requestId, ok });
+      browserCleanup.receive({ type: "danibot:browser-lifecycle-result", requestId: request.requestId, ok });
     }).catch((error) => {
       console.warn("browser cleanup: could not acknowledge cleanup", error);
     });
@@ -1112,7 +1112,7 @@ const computerControl = new ComputerControl((botId, snapshot) => {
   // server record, while only the trusted Browser panel may clear Electron's
   // local gate after its server-first release succeeds.
   if (snapshot.held && /^[A-Za-z0-9_-]{1,120}$/.test(botId)) {
-    postDesktopPrivateMessage({ type: "openmausbot:browser-control", botId, held: true });
+    postDesktopPrivateMessage({ type: "danibot:browser-control", botId, held: true });
   }
   broadcast({ kind: "computer-control", botId, held: snapshot.held, helpReason: snapshot.helpReason });
 });
@@ -4024,7 +4024,7 @@ function wakeUndispatchedDelegation(receipt: DelegationReceipt, routineRunId?: s
 // real provider instance id. A unique suffix also closes the setup race: if
 // another result arrives while that replay is launching, the newer marker is
 // left intact for one more replay instead of being accidentally consumed.
-const EXTERNAL_CONTEXT_MARKER_PREFIX = "__openmaus_external_context__:";
+const EXTERNAL_CONTEXT_MARKER_PREFIX = "__danibot_external_context__:";
 
 function isExternalContextMarker(value: string | undefined): boolean {
   return Boolean(value?.startsWith(EXTERNAL_CONTEXT_MARKER_PREFIX));
@@ -4914,7 +4914,7 @@ async function startTurn(
         throw Object.assign(new Error("another thread is working in this project folder — wait for it to finish or choose a separate folder"), { status: 409, code: "workspace_busy" });
       }
       // Checkpoint explicit project folders, where a bot can overwrite the
-      // user's work. Its private OpenMaus workspace is app-owned and changes
+      // user's work. Its private Dani workspace is app-owned and changes
       // on nearly every ordinary chat; snapshotting it would add hidden disk
       // and process overhead without a user project to restore.
       const checkpointCwd = cwd && cwd !== privateWorkspace ? cwd : undefined;
@@ -5972,10 +5972,10 @@ try {
     claimRequest: () => workspaceMaintenance.request(),
   });
   const advertised = WEBHOOK_PUBLIC_URL ? ` (advertised as ${webhookIngress.baseUrl})` : "";
-  console.log(`openmausbot webhook receiver on http://${webhookIngress.host}:${webhookIngress.port}${advertised}`);
+  console.log(`danibot webhook receiver on http://${webhookIngress.host}:${webhookIngress.port}${advertised}`);
 } catch (error) {
   webhookIngressError = error instanceof Error ? error.message : String(error);
-  console.error(`openmausbot webhook receiver unavailable: ${webhookIngressError}`);
+  console.error(`danibot webhook receiver unavailable: ${webhookIngressError}`);
 }
 
 const webhookIngressStatus = () => ({
@@ -8682,10 +8682,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // code into a session. Everything else needs the loopback owner or a
     // paired session with the right scope.
     if (method === "GET" && !path.startsWith("/api/") && !path.startsWith("/.well-known/") && serveStatic(res, path)) return;
-    if (method === "GET" && path === "/.well-known/openmausbot/environment") {
+    if (method === "GET" && path === "/.well-known/danibot/environment") {
       return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: emailSignIn.enabled() }));
     }
-    const domainCheck = /^\/\.well-known\/openmausbot\/domain-check\/([a-f0-9]{64})$/.exec(path);
+    const domainCheck = /^\/\.well-known\/danibot\/domain-check\/([a-f0-9]{64})$/.exec(path);
     if (method === "GET" && domainCheck) {
       res.setHeader("cache-control", "no-store");
       const challenge = customDomainVerifier.challenge(domainCheck[1]);
@@ -8778,7 +8778,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // A stranger learns only the app name; pid (the desktop boot probe keys
     // on it) and the static flag stay behind the gate below.
     if (method === "GET" && path === "/api/health" && !gate.auth) {
-      return json(res, 200, { app: "openmausbot" });
+      return json(res, 200, { app: "danibot" });
     }
     // The brand is public too: the sign-in page must carry the deployment's
     // name and icon before anyone has a session, and it holds nothing secret.
@@ -8901,9 +8901,9 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // set it.
     if (method === "POST" && path === "/api/testing/internal-capability") {
       const expected = process.env.OMB_TEST_INTERNAL_CAPABILITY_KEY ?? "";
-      const actual = Array.isArray(req.headers["x-openmausbot-test-capability"])
+      const actual = Array.isArray(req.headers["x-danibot-test-capability"])
         ? ""
-        : String(req.headers["x-openmausbot-test-capability"] ?? "");
+        : String(req.headers["x-danibot-test-capability"] ?? "");
       const expectedBytes = Buffer.from(expected);
       const actualBytes = Buffer.from(actual);
       if (
@@ -10603,7 +10603,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // it never grants authority or replaces the existing request gate.
     const requirePinnedClientThread = (botId: string, threadId: unknown): void => {
       if (threadId === undefined &&
-        (auth.kind === "session" || req.headers["x-openmausbot-companion"] === "1") &&
+        (auth.kind === "session" || req.headers["x-danibot-companion"] === "1") &&
         store.tasks(botId).length > 1) {
         throw Object.assign(new Error("This bot has multiple threads. Update this client and choose a thread before sending this action."), { status: 409 });
       }
@@ -11013,7 +11013,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           ? body.name.trim()
           : profileName
             ? `${profileName}'s Team`
-            : "My OpenMaus Team";
+            : "My Dani Team";
       const memberIds = store.bots.filter((bot) => !bot.hidden).map((bot) => bot.id);
       if ((body.format === "backup" ? store.bots.length : memberIds.length) === 0) return json(res, 400, { error: "Create a bot before exporting your team" });
       try {
@@ -11141,7 +11141,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         }
       }
       const body = await readBody(req, MAX_TEAM_BACKUP_BYTES);
-      if (body?.format === "openmaus.backup") {
+      if (body?.format === "danibot.backup") {
         if (importMode !== "add") return json(res, 400, { error: "Import backups alongside your existing bots; project mode is only for templates" });
         try {
           const imported = importTeamBackup(store, routines!, body, await defaultSelection());
@@ -13700,7 +13700,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // child proves it is OURS by echoing its pid (a stray dev server has
     // the same API shape but a different pid)
     if (method === "GET" && path === "/api/health") {
-      return json(res, 200, { app: "openmausbot", pid: process.pid, static: Boolean(STATIC_DIR) });
+      return json(res, 200, { app: "danibot", pid: process.pid, static: Boolean(STATIC_DIR) });
     }
     // The bots' browser engine: install it on this machine (agent-browser +
     // a Chrome for Testing, a one-time download), or ask how that is going.
@@ -13731,7 +13731,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (fleetRoute) {
       if (!entitled("admin")) return json(res, 403, { error: "Workspaces need an enterprise licence with the admin feature." });
       const socket = fleetSocketPath();
-      if (!fleetAvailable(socket)) return json(res, 404, { error: "No fleet agent on this server. Run `openmausbot fleet init --domain … --operator <this user>` as root." });
+      if (!fleetAvailable(socket)) return json(res, 404, { error: "No fleet agent on this server. Run `danibot fleet init --domain … --operator <this user>` as root." });
       const [, resource, slug, sub] = fleetRoute;
       let forward: { method: string; path: string; body?: unknown } | null = null;
       if (method === "GET" && !resource) forward = { method: "GET", path: "/workspaces" };
@@ -14703,10 +14703,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // Electron server has the private key needed to open the envelope.
     m = path.match(/^\/api\/bots\/([\w-]+)\/secret-cards\/([\w-]+)\/provide$/);
     if (m && method === "POST") {
-      if (req.headers["x-openmausbot-companion"] !== "1") {
+      if (req.headers["x-danibot-companion"] !== "1") {
         return json(res, 403, { error: "Secure phone entry must come from a paired phone" });
       }
-      const rawDeviceId = req.headers["x-openmausbot-companion-device"];
+      const rawDeviceId = req.headers["x-danibot-companion-device"];
       const authenticatedDeviceId = Array.isArray(rawDeviceId) ? "" : String(rawDeviceId ?? "");
       if (!/^[\w-]{1,128}$/.test(authenticatedDeviceId)) {
         return json(res, 401, { error: "This paired phone could not be verified" });
@@ -15063,7 +15063,7 @@ restoreSteeredMessages();
 restoreChannelMessages();
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`openmausbot server on http://127.0.0.1:${PORT}`);
+  console.log(`danibot server on http://127.0.0.1:${PORT}`);
   followupsReady = true;
   drainQueuedSends();
   drainQueuedChannelSends();
@@ -15084,7 +15084,7 @@ server.listen(PORT, "127.0.0.1", () => {
   }
 });
 
-// A second listener for `openmausbot serve --tunnel` (server/tunnel.ts): the
+// A second listener for `danibot serve --tunnel` (server/tunnel.ts): the
 // connector gateway on this machine forwards public traffic to this IPC path.
 // Nothing changes about the loopback bind above. Requests arriving here have
 // no peer address, which request-auth treats as "through a proxy": a session
@@ -15095,7 +15095,7 @@ if (TUNNEL_SOCKET) {
   if (process.platform !== "win32") rmSync(TUNNEL_SOCKET, { force: true });
   tunnelListener = createServer(handleRequest);
   tunnelListener.listen(TUNNEL_SOCKET, () => {
-    console.log(`openmausbot tunnel listener on ${TUNNEL_SOCKET}`);
+    console.log(`danibot tunnel listener on ${TUNNEL_SOCKET}`);
   });
 }
 

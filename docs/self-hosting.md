@@ -52,7 +52,7 @@ Codex also offers device-code login for SSH. API-key connections currently
 support chat, not agent tools or computer use. The [setup guide](cli-onboarding.md)
 explains the choices, key storage, and how to run setup again safely.
 
-It then starts the server and keeps your data in `~/.openmausbot`. If you
+It then starts the server and keeps your data in `~/.danibot`. If you
 choose phone access, it prints a pairing link and QR code only after checking
 the HTTPS connection. Choosing **Skip for now** keeps the workspace local-only
 and creates no pairing invitation. Use `npx danibot setup` to configure without starting, or
@@ -63,7 +63,7 @@ The npm package does not include engine CLIs (`claude`, `codex`, …); setup
 can offer to install and sign in supported engines on this machine.
 Run setup, engine authentication, and the server as the same unprivileged
 operating-system user. Engine credentials live in that user's CLI-specific
-directories, not all under `.openmausbot`.
+directories, not all under `.danibot`.
 
 For a Linux service, the [VPS guide](deploy-vps.md#before-you-start) shows the
 account setup, engine installation, and browser dependency installation.
@@ -83,7 +83,7 @@ is present. Three ways to make the server reachable from elsewhere:
   npx danibot serve --tunnel
   ```
 
-  `login` reserves an address like `https://c-….openmausbot.com` for this
+  `login` reserves an address like `https://c-….danibot.com` for this
   machine; `serve --tunnel` connects it through a Cloudflare tunnel (the same
   one the desktop app uses for its companion) and prints the pairing link at
   that address. The first run downloads `cloudflared` (pinned version and
@@ -91,7 +91,7 @@ is present. Three ways to make the server reachable from elsewhere:
   server, and it still has to pair: the tunnel lands on a separate listener
   the server treats as "through a proxy", never as the owner. `npx danibot
   logout` releases the address. The account credentials live in
-  `~/.openmausbot/tunnel-account.json` (mode 0600).
+  `~/.danibot/tunnel-account.json` (mode 0600).
   Starting it from a fleet or a container, where nobody can type an emailed
   code? Set `OMB_INSTALLATION_CREDENTIAL` to the installation credential the
   fleet issued and skip `login`: the address and connector token are fetched
@@ -115,7 +115,7 @@ is present. Three ways to make the server reachable from elsewhere:
 
 Later: `npx danibot pair --label "Kitchen iPad"` for another device
 (`--client` for one that may chat but not change settings), and
-`npx danibot sessions` to see or revoke them. `openmausbot serve` is a
+`npx danibot sessions` to see or revoke them. `danibot serve` is a
 plain foreground process. For unattended use, follow the
 [systemd example](deploy-vps.md#keep-it-running), which installs a chosen
 release and runs its binary directly. Restarting that service does not
@@ -256,7 +256,7 @@ git clone https://github.com/somdipto/dani-desktop && cd Dani Bot
 pnpm install
 
 # choose where data lives and start the server
-OMB_DATA_DIR="$HOME/.openmausbot" OMB_PORT=8799 \
+OMB_DATA_DIR="$HOME/.danibot" OMB_PORT=8799 \
   node --experimental-strip-types server/index.ts
 ```
 
@@ -267,12 +267,12 @@ npx danibot service install --domain maus.example.com   # or --tunnel, --tailsca
 ```
 
 It renders a systemd unit (Linux) or a launchd agent (macOS) that runs the
-same `openmausbot serve …` with your options, restarts it if it stops, and,
+same `danibot serve …` with your options, restarts it if it stops, and,
 for `--domain`, grants the unit the capability to bind ports 80 and 443
 without root. The file is written next to your data and the two commands
 that install and start it are printed (they need `sudo` on Linux).
-`openmausbot service uninstall` prints the reverse. Install the package
-permanently first (`npm install -g openmausbot`): a service must not point
+`danibot service uninstall` prints the reverse. Install the package
+permanently first (`npm install -g danibot`): a service must not point
 at an `npx` cache that npm may prune.
 
 Engine CLIs read their logins from the service user's home: sign them in
@@ -311,8 +311,8 @@ that makes one read-only request to the provider from the server.
 
 ## Many client workspaces on one server
 
-`openmausbot fleet` runs one workspace per client on a single Linux server,
-each as its own OS user, its own `openmausbot@<name>` service on its own
+`danibot fleet` runs one workspace per client on a single Linux server,
+each as its own OS user, its own `danibot@<name>` service on its own
 loopback ports, its own data folder, brand, sign-in list and provider key,
 reached at `<name>.<your domain>` through the system Caddy. Bots of one
 workspace cannot read another's files or reach its API: the data lives in a
@@ -324,7 +324,7 @@ Once, as root, with the package installed permanently and a wildcard DNS
 record (`*.example.com`) pointing at the server:
 
 ```sh
-openmausbot fleet init --domain example.com
+danibot fleet init --domain example.com
 ```
 
 That writes the template unit, the fence and its unit, the workspace folders,
@@ -332,14 +332,14 @@ and adds `import /etc/caddy/omb.d/*.caddy` to `/etc/caddy/Caddyfile`. Then per
 client:
 
 ```sh
-openmausbot fleet create acme --admin owner@acme.test --member @acme.test \
+danibot fleet create acme --admin owner@acme.test --member @acme.test \
   --brand /root/acme-brand.json --anthropic-key-file /root/acme-anthropic.key \
   --cap 50 --memory 1G
-openmausbot fleet users acme add bob@acme.test --chat-only
-openmausbot fleet list
-openmausbot fleet suspend acme      # 503 page, service stopped; resume undoes it
-openmausbot fleet upgrade           # new release, then every running workspace restarted in turn
-openmausbot fleet delete acme --yes # add --keep-data to keep the home folder
+danibot fleet users acme add bob@acme.test --chat-only
+danibot fleet list
+danibot fleet suspend acme      # 503 page, service stopped; resume undoes it
+danibot fleet upgrade           # new release, then every running workspace restarted in turn
+danibot fleet delete acme --yes # add --keep-data to keep the home folder
 ```
 
 Give `init` `--operator USER` (the Unix user your own workspace runs as; the
@@ -348,7 +348,7 @@ root service on a Unix socket only that user may open. Your workspace then
 shows **Settings → Workspaces** (with the enterprise `admin` feature): create
 a workspace, add or remove who may sign in, suspend, resume, delete, upgrade
 all, and see each one's spend this month. Every action goes through the
-agent's audit log at `/var/log/openmausbot/fleet.jsonl`.
+agent's audit log at `/var/log/danibot/fleet.jsonl`.
 
 `https://acme.example.com` is up when `create` returns; the first admin signs
 in with an emailed code. `OMB_LICENSE_KEY` in the environment (or
@@ -426,7 +426,7 @@ and take a 5-minute ticket from `POST /api/auth/stream-ticket` for the
 event stream, because `EventSource` cannot set headers:
 `GET /api/events?ticket=…`.
 
-`GET /.well-known/openmausbot/environment` is public and tells a client what
+`GET /.well-known/danibot/environment` is public and tells a client what
 it is talking to: a stable `environmentId`, the label, the version and
 capabilities. Saved connections check the id so a reused address that now
 points at a different server is refused loudly.
@@ -462,19 +462,19 @@ npx danibot access list
 ```
 
 An entry is an address or `@domain` (everyone at that domain). Admins get
-the same access as a pairing code from `openmausbot serve`; members get the
-chat-only scope, the same as `openmausbot pair --client`. The same lists live
+the same access as a pairing code from `danibot serve`; members get the
+chat-only scope, the same as `danibot pair --client`. The same lists live
 in `config.json` under `signIn.admins` and `signIn.members` and can be changed
 through the settings API without a restart; the environment variables win
 when set, which is how a container or a service unit is bootstrapped.
 
-The code itself comes from `accounts.openmausbot.com`, the Dani Bot
+The code itself comes from `accounts.danibot.com`, the Dani Bot
 account service, so your server needs no email credentials. Your server asks
 it to send the code, checks the answer, and then issues its own session
 cookie: the browser only ever talks to your server, and who is welcome is
 decided only by your allow-list. Wrong codes count against the same lockout
 as pairing codes. Sessions from a sign-in show the email in
-`openmausbot sessions` and can be revoked the same way.
+`danibot sessions` and can be revoked the same way.
 
 ### Inviting people
 
@@ -517,12 +517,12 @@ creates a one-time code with a QR right in the browser, and lists every
 paired device with a sign-out button. Nobody needs the command line.
 
 The iOS app pairs with a server the same way a laptop does: scan the QR
-code that `openmausbot serve` (or `openmausbot pair`) prints, paste the
+code that `danibot serve` (or `danibot pair`) prints, paste the
 whole `https://host/pair#code=…` link into the address field on the pairing
 screen, or type the address and then the code. The phone gets a session of
-its own, listed and revocable with `openmausbot sessions`. What it may do is
-the code's scope: a code from `openmausbot pair` carries `admin` and the app
-shows everything; a code from `openmausbot pair --client` (also what the
+its own, listed and revocable with `danibot sessions`. What it may do is
+the code's scope: a code from `danibot pair` carries `admin` and the app
+shows everything; a code from `danibot pair --client` (also what the
 guided phone setup mints) can chat, approve and read, and the app hides
 creating bots and sections, changing models, generating avatars, connecting
 apps and cloud desktops — those stay with the owner. A server reinstalled at
@@ -577,12 +577,12 @@ plain settings in `config.json` (`budgets`, `billing`) and through
 
 For the npm service, [install the chosen new version](deploy-vps.md#update)
 as the service user while the server is stopped, then start it again.
-For a foreground invocation, `npx --yes openmausbot@X.Y.Z serve --tunnel`
+For a foreground invocation, `npx --yes danibot@X.Y.Z serve --tunnel`
 selects a particular published release; replace `X.Y.Z` with that version.
 
 ```sh
 docker compose -f deploy/docker-compose.yml pull omb && docker compose -f deploy/docker-compose.yml up -d   # Docker
-git pull && pnpm install && sudo systemctl restart openmausbot          # from source
+git pull && pnpm install && sudo systemctl restart danibot          # from source
 ```
 
 Routines and queued work survive restarts; in-flight turns do not, so

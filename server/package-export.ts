@@ -145,7 +145,7 @@ export function createBotPackageExport(input: {
     }];
   });
 
-  const id = portableKey(input.name, "openmaus-package", new Set());
+  const id = portableKey(input.name, "danibot-package", new Set());
   const agents: BotPackageDefinition["agents"] = bots.map((bot) => {
     const appearance: BotPackageDefinition["agents"][number]["appearance"] = { color: bot.color };
     if (bot.mascotExpression) appearance.mascotExpression = bot.mascotExpression;
@@ -190,7 +190,7 @@ export function createBotPackageExport(input: {
     };
   }
   return parseBotPackage({
-    format: "openmaus.package",
+    format: "danibot.package",
     version: 1,
     package: definition,
   });

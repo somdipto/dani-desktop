@@ -71,7 +71,7 @@ async function main() {
   // The bug shape: a version in the filename, and a launcher pinned to it.
   const launched = path.join(installDir, "Dani Bot-0.0.1-x86_64.AppImage");
   copyFileSync(packaged, launched);
-  const desktopEntry = path.join(applications, "com.openmausbot.app.desktop");
+  const desktopEntry = path.join(applications, "com.danibot.app.desktop");
   writeFileSync(
     desktopEntry,
     `[Desktop Entry]\nName=Dani Bot\nExec=${launched} %U\nType=Application\n`,

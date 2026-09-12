@@ -213,7 +213,7 @@ async function readNodes(serial: string) {
   const streamedStart = streamed.indexOf("<?xml");
   if (streamedStart >= 0) return parseUiNodes(streamed.slice(streamedStart));
 
-  const remotePath = "/data/local/tmp/openmaus-window.xml";
+  const remotePath = "/data/local/tmp/danibot-window.xml";
   await onDevice(serial, ["shell", "uiautomator", "dump", remotePath]);
   const saved = (await onDevice(serial, ["shell", "cat", remotePath])).toString("utf8");
   void onDevice(serial, ["shell", "rm", "-f", remotePath]).catch(() => undefined);
@@ -331,7 +331,7 @@ async function handle(message: Json) {
   const id = message.id;
   const method = message.method;
   const params = (message.params ?? {}) as Json;
-  if (method === "initialize") return ok(id, { protocolVersion: String(params.protocolVersion ?? "2024-11-05"), capabilities: { tools: {} }, serverInfo: { name: "openmausbot-phone", version: "1" } });
+  if (method === "initialize") return ok(id, { protocolVersion: String(params.protocolVersion ?? "2024-11-05"), capabilities: { tools: {} }, serverInfo: { name: "danibot-phone", version: "1" } });
   if (method === "notifications/initialized" || method === "notifications/cancelled") return;
   if (method === "ping") return ok(id, {});
   if (method === "tools/list") return ok(id, { tools: TOOLS });

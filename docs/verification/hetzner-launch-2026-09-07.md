@@ -8,7 +8,7 @@ were copied to it. The user completed the email login and Codex device login.
 Application ports remained loopback-only; a firewall allowed SSH only from the
 operator's current IP. The public UI used the managed HTTPS tunnel (Path A).
 
-Baseline: published `openmausbot@0.1.60`, main `3ec6dbcd`. Runtime fixes were
+Baseline: published `danibot@0.1.60`, main `3ec6dbcd`. Runtime fixes were
 built into local candidate packages and installed on the same disposable host.
 Passing candidate results below do **not** mean those fixes are in the published
 0.1.60 package. This was not a Docker, Tailscale, ARM64, or desktop-installer run.
@@ -32,8 +32,8 @@ Passing candidate results below do **not** mean those fixes are in the published
 Concrete service output after reboot:
 
 ```text
-systemctl is-enabled openmausbot.service: enabled
-systemctl is-active openmausbot.service: active
+systemctl is-enabled danibot.service: enabled
+systemctl is-active danibot.service: active
 NRestarts=0
 codex login status: Logged in using ChatGPT
 kernel.apparmor_restrict_unprivileged_userns = 1

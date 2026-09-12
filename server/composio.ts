@@ -166,7 +166,7 @@ export function applyManagedBrokerMessage(message: unknown): boolean {
   const parsed = managedBrokerMessageSchema.safeParse(message);
   if (
     !parsed.success ||
-    parsed.data.type !== "openmausbot:managed-composio" ||
+    parsed.data.type !== "danibot:managed-composio" ||
     !Object.hasOwn(parsed.data, "access")
   ) {
     return false;
@@ -447,7 +447,7 @@ export async function prepareProjectSession(
     ) {
       return {
         apiKey: trimmed,
-        userId: existing.config?.user_id ?? current.userId ?? `openmausbot_${randomUUID()}`,
+        userId: existing.config?.user_id ?? current.userId ?? `danibot_${randomUUID()}`,
         sessionId: existing.session_id,
       };
     }
@@ -457,7 +457,7 @@ export async function prepareProjectSession(
     priorUserId = existing?.config?.user_id ?? priorUserId;
   }
 
-  const userId = priorUserId ?? `openmausbot_${randomUUID()}`;
+  const userId = priorUserId ?? `danibot_${randomUUID()}`;
   const sessionRequest: SessionCreateRequest = {
     user_id: userId,
     manage_connections: {

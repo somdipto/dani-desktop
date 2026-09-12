@@ -1157,7 +1157,7 @@ public struct ServerSession: Codable, Hashable, Sendable {
     public var isAdmin: Bool { scopes.contains("admin") }
 }
 
-/// `GET /.well-known/openmausbot/environment`, served without a session.
+/// `GET /.well-known/danibot/environment`, served without a session.
 public struct ServerEnvironment: Codable, Hashable, Sendable {
     public var environmentId: String
     public var label: String

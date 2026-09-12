@@ -46,11 +46,11 @@ describe("fleet naming", () => {
 
 describe("rendered files", () => {
   it("renders one template unit for every workspace, hardened and parameterised by slug", () => {
-    const unit = templateUnit({ node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", layout });
+    const unit = templateUnit({ node: "/usr/bin/node", script: "/usr/lib/node_modules/danibot/cli.js", layout });
     expect(unit).toContain("User=omb-%i");
-    expect(unit).toContain("EnvironmentFile=/etc/openmausbot/instances/%i.env");
-    expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js serve --port ${OMB_PORT} --data-dir ${OMB_DATA_DIR} --public-url ${OMB_PUBLIC_URL} --label %i --no-pair");
-    for (const line of ["PrivateTmp=yes", "NoNewPrivileges=yes", "ProtectSystem=strict", "ReadWritePaths=/var/lib/openmausbot/%i"]) expect(unit).toContain(line);
+    expect(unit).toContain("EnvironmentFile=/etc/danibot/instances/%i.env");
+    expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/danibot/cli.js serve --port ${OMB_PORT} --data-dir ${OMB_DATA_DIR} --public-url ${OMB_PUBLIC_URL} --label %i --no-pair");
+    for (const line of ["PrivateTmp=yes", "NoNewPrivileges=yes", "ProtectSystem=strict", "ReadWritePaths=/var/lib/danibot/%i"]) expect(unit).toContain(line);
     expect(templateUnit({ node: "/usr/bin/node", script: "/src/server/cli.ts", layout })).toContain("--experimental-strip-types /src/server/cli.ts");
   });
 
@@ -59,7 +59,7 @@ describe("rendered files", () => {
       { slug: "globex", host: "globex.x", port: 8820, webhookPort: 8821, status: "running", createdAt: "" },
       { slug: "acme", host: "acme.x", port: 8810, webhookPort: 8811, status: "running", createdAt: "" },
     ]);
-    expect(rules).toContain("add table inet openmausbot\nflush table inet openmausbot");
+    expect(rules).toContain("add table inet danibot\nflush table inet danibot");
     expect(rules.indexOf("omb-acme")).toBeLessThan(rules.indexOf("omb-globex"));
     expect(rules).toContain("oif lo tcp dport { 8810, 8811 } meta skuid != { omb-acme, caddy, root } reject");
     expect(fenceRules([])).not.toContain("reject");
@@ -76,8 +76,8 @@ describe("rendered files", () => {
 
   it("writes the environment, the first config and the sign-in edits the server reads live", () => {
     const workspace: FleetWorkspace = { slug: "acme", host: "acme.agentada.cc", port: 8810, webhookPort: 8811, status: "running", createdAt: "" };
-    expect(instanceEnv({ workspace, dataDir: "/var/lib/openmausbot/acme/.openmausbot", licenseKey: "omb1.k" })).toBe(
-      "OMB_DATA_DIR=/var/lib/openmausbot/acme/.openmausbot\nOMB_PORT=8810\nOMB_WEBHOOK_PORT=8811\nOMB_PUBLIC_URL=https://acme.agentada.cc\nOMB_LICENSE_KEY=omb1.k\n",
+    expect(instanceEnv({ workspace, dataDir: "/var/lib/danibot/acme/.danibot", licenseKey: "omb1.k" })).toBe(
+      "OMB_DATA_DIR=/var/lib/danibot/acme/.danibot\nOMB_PORT=8810\nOMB_WEBHOOK_PORT=8811\nOMB_PUBLIC_URL=https://acme.agentada.cc\nOMB_LICENSE_KEY=omb1.k\n",
     );
     expect(JSON.parse(initialConfig({ admins: ["ada@example.test"], members: ["@acme.test"], anthropicKey: "sk-ant-x", monthlyCapUsd: 50 }))).toEqual({
       signIn: { admins: ["ada@example.test"], members: ["@acme.test"] }, anthropic: { key: "sk-ant-x" }, budgets: { monthlyUsd: 50 },
@@ -94,19 +94,19 @@ describe("rendered files", () => {
 
 describe("plans", () => {
   it("initialises the server once: folders, registry, templates, fence, the Caddy import, and reloads", () => {
-    const { steps, registry } = initPlan({ domain: "AgentAda.cc", node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", layout });
+    const { steps, registry } = initPlan({ domain: "AgentAda.cc", node: "/usr/bin/node", script: "/usr/lib/node_modules/danibot/cli.js", layout });
     expect(registry).toEqual({ version: 1, domain: "agentada.cc", nextPort: 8810, workspaces: {} });
-    expect(writesOf(steps)).toEqual(["/etc/openmausbot/fleet.json", "/etc/systemd/system/openmausbot@.service", "/etc/openmausbot/fence.nft", "/etc/systemd/system/openmausbot-fence.service"]);
+    expect(writesOf(steps)).toEqual(["/etc/danibot/fleet.json", "/etc/systemd/system/danibot@.service", "/etc/danibot/fence.nft", "/etc/systemd/system/danibot-fence.service"]);
     expect(steps.find((step) => step.kind === "append-once")).toEqual({ kind: "append-once", path: "/etc/caddy/Caddyfile", line: "import /etc/caddy/omb.d/*.caddy" });
-    expect(argvOf(steps)).toEqual(["systemctl daemon-reload", "systemctl enable --now openmausbot-fence.service", "systemctl reload caddy"]);
+    expect(argvOf(steps)).toEqual(["systemctl daemon-reload", "systemctl enable --now danibot-fence.service", "systemctl reload caddy"]);
     expect(() => initPlan({ domain: "not a domain", node: "n", script: "s", layout })).toThrow("domain name");
     // with an operator, the agent unit is written and started, and the registry remembers who
-    const withAgent = initPlan({ domain: "agentada.cc", node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", operator: "maus", layout });
+    const withAgent = initPlan({ domain: "agentada.cc", node: "/usr/bin/node", script: "/usr/lib/node_modules/danibot/cli.js", operator: "maus", layout });
     expect(withAgent.registry.operator).toBe("maus");
-    const agent = withAgent.steps.find((step) => step.kind === "write" && step.path === "/etc/systemd/system/openmausbot-fleet.service");
-    expect(agent).toMatchObject({ content: expect.stringContaining("fleet agent --socket /run/openmausbot/fleet.sock --group maus") });
-    expect(agent).toMatchObject({ content: expect.stringContaining("RuntimeDirectory=openmausbot") });
-    expect(argvOf(withAgent.steps)).toContain("systemctl enable --now openmausbot-fleet.service");
+    const agent = withAgent.steps.find((step) => step.kind === "write" && step.path === "/etc/systemd/system/danibot-fleet.service");
+    expect(agent).toMatchObject({ content: expect.stringContaining("fleet agent --socket /run/danibot/fleet.sock --group maus") });
+    expect(agent).toMatchObject({ content: expect.stringContaining("RuntimeDirectory=danibot") });
+    expect(argvOf(withAgent.steps)).toContain("systemctl enable --now danibot-fleet.service");
     expect(() => initPlan({ domain: "agentada.cc", node: "n", script: "s", operator: "Not A User", layout })).toThrow("Unix user");
   });
 
@@ -116,15 +116,15 @@ describe("plans", () => {
     expect(plan.workspace).toEqual({ slug: "acme", host: "acme.agentada.cc", port: 8810, webhookPort: 8811, status: "running", createdAt: now.toISOString() });
     expect(plan.registry.nextPort).toBe(8820);
     expect(argvOf(plan.steps)).toEqual([
-      "useradd --system --create-home --home-dir /var/lib/openmausbot/acme --shell /usr/sbin/nologin --user-group omb-acme",
-      "nft -f /etc/openmausbot/fence.nft",
+      "useradd --system --create-home --home-dir /var/lib/danibot/acme --shell /usr/sbin/nologin --user-group omb-acme",
+      "nft -f /etc/danibot/fence.nft",
       "systemctl daemon-reload",
-      "systemctl enable --now openmausbot@acme.service",
+      "systemctl enable --now danibot@acme.service",
       "systemctl reload caddy",
     ]);
-    const config = plan.steps.find((step) => step.kind === "write" && step.path.endsWith("/acme/.openmausbot/config.json"));
+    const config = plan.steps.find((step) => step.kind === "write" && step.path.endsWith("/acme/.danibot/config.json"));
     expect(config).toMatchObject({ mode: 0o600, owner: "omb-acme" });
-    const env = plan.steps.find((step) => step.kind === "write" && step.path === "/etc/openmausbot/instances/acme.env");
+    const env = plan.steps.find((step) => step.kind === "write" && step.path === "/etc/danibot/instances/acme.env");
     expect(env).toMatchObject({ mode: 0o600 });
     // root keeps the environment file: it carries the licence key
     expect(env).not.toHaveProperty("owner");
@@ -143,34 +143,34 @@ describe("plans", () => {
     const created = createPlan({ registry: emptyRegistry("agentada.cc"), slug: "acme", seed: { admins: ["a@b.test"], members: [] }, now, layout });
     const suspended = suspendPlan({ registry: created.registry, slug: "acme", layout });
     expect(suspended.registry.workspaces.acme?.status).toBe("suspended");
-    expect(argvOf(suspended.steps)).toEqual(["systemctl disable --now openmausbot@acme.service", "systemctl reload caddy"]);
+    expect(argvOf(suspended.steps)).toEqual(["systemctl disable --now danibot@acme.service", "systemctl reload caddy"]);
     expect(suspended.steps.find((step) => step.kind === "write" && step.path.endsWith("acme.caddy"))).toMatchObject({ content: expect.stringContaining("503") });
     const resumed = resumePlan({ registry: suspended.registry, slug: "acme", layout });
     expect(resumed.registry.workspaces.acme?.status).toBe("running");
-    expect(argvOf(resumed.steps)).toEqual(["systemctl enable --now openmausbot@acme.service", "systemctl reload caddy"]);
+    expect(argvOf(resumed.steps)).toEqual(["systemctl enable --now danibot@acme.service", "systemctl reload caddy"]);
     const kept = deletePlan({ registry: resumed.registry, slug: "acme", keepData: true, layout });
     expect(kept.registry.workspaces).toEqual({});
     expect(argvOf(kept.steps)).toContain("userdel omb-acme");
     expect(argvOf(deletePlan({ registry: resumed.registry, slug: "acme", keepData: false, layout }).steps)).toContain("userdel --remove omb-acme");
     expect(() => deletePlan({ registry: kept.registry, slug: "acme", keepData: true, layout })).toThrow('no workspace "acme"');
     const two = createPlan({ registry: created.registry, slug: "globex", seed: { admins: ["g@x.test"], members: [] }, now, layout }).registry;
-    expect(argvOf(upgradePlan({ registry: suspendPlan({ registry: two, slug: "globex", layout }).registry }))).toEqual(["npm install -g openmausbot@latest", "systemctl restart openmausbot@acme.service"]);
+    expect(argvOf(upgradePlan({ registry: suspendPlan({ registry: two, slug: "globex", layout }).registry }))).toEqual(["npm install -g danibot@latest", "systemctl restart danibot@acme.service"]);
   });
 
   it("describes a plan as lines a root shell can run, quoting only what needs it", () => {
     const lines = describeSteps([
-      { kind: "mkdir", path: "/var/lib/openmausbot/acme/.openmausbot", mode: 0o700, owner: "omb-acme" },
-      { kind: "write", path: "/etc/openmausbot/instances/acme.env", content: "OMB_PORT=8810\n", mode: 0o600 },
+      { kind: "mkdir", path: "/var/lib/danibot/acme/.danibot", mode: 0o700, owner: "omb-acme" },
+      { kind: "write", path: "/etc/danibot/instances/acme.env", content: "OMB_PORT=8810\n", mode: 0o600 },
       { kind: "run", argv: ["useradd", "--comment", "Acme Inc", "omb-acme"], why: "the account" },
       { kind: "append-once", path: "/etc/caddy/Caddyfile", line: "import /etc/caddy/omb.d/*.caddy" },
       { kind: "note", text: "done" },
     ]);
     expect(lines).toEqual([
-      "install -d -m 700 -o omb-acme -g omb-acme /var/lib/openmausbot/acme/.openmausbot",
-      "cat > /etc/openmausbot/instances/acme.env <<'OMB_EOF'",
+      "install -d -m 700 -o omb-acme -g omb-acme /var/lib/danibot/acme/.danibot",
+      "cat > /etc/danibot/instances/acme.env <<'OMB_EOF'",
       "OMB_PORT=8810",
       "OMB_EOF",
-      "chmod 600 /etc/openmausbot/instances/acme.env",
+      "chmod 600 /etc/danibot/instances/acme.env",
       "useradd --comment 'Acme Inc' omb-acme   # the account",
       "grep -qxF 'import /etc/caddy/omb.d/*.caddy' /etc/caddy/Caddyfile || printf '\\n%s\\n' 'import /etc/caddy/omb.d/*.caddy' >> /etc/caddy/Caddyfile",
       "# done",

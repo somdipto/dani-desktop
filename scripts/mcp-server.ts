@@ -15,7 +15,7 @@ export function validateBaseUrl(url: string): string {
     throw new Error("Dani Bot URL must use http:// or https://");
   }
   if (parsed.username || parsed.password) {
-    throw new Error("Dani Bot URL must not contain credentials; use OPENMAUSBOT_TOKEN instead");
+    throw new Error("Dani Bot URL must not contain credentials; use DANIBOT_TOKEN instead");
   }
   if ((parsed.pathname !== "/" && parsed.pathname !== "") || parsed.search || parsed.hash) {
     throw new Error("Dani Bot URL must be an origin without a path, query, or fragment");
@@ -30,7 +30,7 @@ export function validateBaseUrl(url: string): string {
   return parsed.origin;
 }
 
-const configuredUrl = process.env.OPENMAUSBOT_URL ||
+const configuredUrl = process.env.DANIBOT_URL ||
   (process.env.OMB_PORT ? `http://127.0.0.1:${process.env.OMB_PORT}` : undefined);
 
 export const OMB_BASE_URL = validateBaseUrl(configuredUrl || "http://127.0.0.1:8799");
@@ -40,18 +40,18 @@ const DISCOVERY_URLS = configuredUrl
 let discoveredBaseUrl: string | undefined;
 
 export function log(msg: string) {
-  process.stderr.write(`[openmausbot-mcp] ${msg}\n`);
+  process.stderr.write(`[danibot-mcp] ${msg}\n`);
 }
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 function requestTimeoutMs(): number {
-  const raw = Number(process.env.OPENMAUSBOT_MCP_TIMEOUT_MS);
+  const raw = Number(process.env.DANIBOT_MCP_TIMEOUT_MS);
   return Number.isFinite(raw) && raw >= 1_000 && raw <= 120_000 ? Math.floor(raw) : DEFAULT_REQUEST_TIMEOUT_MS;
 }
 
 function requestHeaders(options: RequestInit): NonNullable<RequestInit["headers"]> {
-  const token = process.env.OPENMAUSBOT_TOKEN?.trim();
+  const token = process.env.DANIBOT_TOKEN?.trim();
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
@@ -68,10 +68,10 @@ async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
   });
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    if (response.status === 403 && !process.env.OPENMAUSBOT_TOKEN?.trim()) {
+    if (response.status === 403 && !process.env.DANIBOT_TOKEN?.trim()) {
       throw new Error(
         "Dani Bot refused this write because the installed desktop app requires a paired session token. " +
-        "Set OPENMAUSBOT_TOKEN as described in docs/mcp-server.md.",
+        "Set DANIBOT_TOKEN as described in docs/mcp-server.md.",
       );
     }
     throw new Error(`Dani Bot API error (${response.status}): ${text || response.statusText}`);
@@ -91,7 +91,7 @@ export async function probeBaseUrls(candidates: string[]): Promise<string> {
       const health = await fetchJson(`${candidate}/api/health`, {
         signal: AbortSignal.timeout(Math.min(requestTimeoutMs(), 2_000)),
       });
-      if (health?.app !== "openmausbot") {
+      if (health?.app !== "danibot") {
         failures.push(`${candidate} answered, but it was not Dani Bot`);
         continue;
       }
@@ -105,8 +105,8 @@ export async function probeBaseUrls(candidates: string[]): Promise<string> {
 
 export async function resolveBaseUrl(): Promise<string> {
   if (discoveredBaseUrl) return discoveredBaseUrl;
-  if (process.env.OPENMAUSBOT_TOKEN?.trim() && !configuredUrl) {
-    throw new Error("Set OPENMAUSBOT_URL or OMB_PORT when using OPENMAUSBOT_TOKEN so credentials are never sent during port discovery");
+  if (process.env.DANIBOT_TOKEN?.trim() && !configuredUrl) {
+    throw new Error("Set DANIBOT_URL or OMB_PORT when using DANIBOT_TOKEN so credentials are never sent during port discovery");
   }
   discoveredBaseUrl = await probeBaseUrls(DISCOVERY_URLS);
   return discoveredBaseUrl;
@@ -788,11 +788,11 @@ export async function handleToolCall(
   switch (name) {
     case "get_system_health": {
       const res = await fetcher("/api/health");
-      if (res?.app !== "openmausbot") throw new Error("The configured endpoint is not an Dani Bot server");
+      if (res?.app !== "danibot") throw new Error("The configured endpoint is not an Dani Bot server");
       return {
         status: "connected",
         endpoint: discoveredBaseUrl ?? OMB_BASE_URL,
-        app: "openmausbot",
+        app: "danibot",
         packaged: Boolean(res.static),
       };
     }
@@ -1313,7 +1313,7 @@ export async function processMcpMessage(
           tools: {},
         },
         serverInfo: {
-          name: "openmausbot-mcp",
+          name: "danibot-mcp",
           version: "1.1.0",
         },
         instructions: "Use bounded read tools before mutating the Dani Bot team. Approval grants, deletion, and computer lifecycle are intentionally unavailable.",

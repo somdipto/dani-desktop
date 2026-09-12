@@ -22,7 +22,7 @@ export interface BoxCreateRequest {
   idempotencyKey: string;
   createdAt: number;
   boxId?: string;
-  /** The provider Box has its deterministic OpenMaus name. Until this is
+  /** The provider Box has its deterministic Dani name. Until this is
    * true, deleting the bot would make an ambiguous or unnamed Box orphaned. */
   resolved?: true;
 }

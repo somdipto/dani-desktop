@@ -1,4 +1,4 @@
-Welcome to OpenMausMobile 1.0.
+Welcome to DaniMobile 1.0.
 
 • Pair securely with your Dani Bot computer
 • Fill a requested API key from Apple Passwords or another AutoFill provider and send it encrypted over Secure phone access or Tailscale

@@ -165,7 +165,7 @@ function verifyCompliance(licenses, label) {
   const registryIds = new Set();
   for (const component of registry) {
     const packageId = component.properties?.find(
-      (property) => property.name === "openmausbot:cargo:package-id",
+      (property) => property.name === "danibot:cargo:package-id",
     )?.value;
     if (typeof packageId !== "string" || !packageId.startsWith("registry+")) {
       fail(`${label} SBOM registry component has no exact Cargo package ID`);
@@ -399,7 +399,7 @@ function verifyCloudflaredResources(resources, label, { directoryMode = 0o755 } 
 const appImage = exactlyOne(".AppImage");
 const deb = exactlyOne(".deb");
 const unpacked = path.join(releaseDir, "linux-unpacked");
-const executable = path.join(unpacked, "openmausbot");
+const executable = path.join(unpacked, "danibot");
 const resources = path.join(unpacked, "resources");
 
 requireExecutable(appImage);
@@ -423,7 +423,7 @@ const fields = execFileSync(
   { encoding: "utf8" },
 );
 for (const expected of [
-  "Package: openmausbot",
+  "Package: danibot",
   "Architecture: amd64",
   "Maintainer: Dani",
   "Section: utils",
@@ -455,7 +455,7 @@ try {
     "usr",
     "share",
     "applications",
-    "com.openmausbot.app.desktop",
+    "com.danibot.app.desktop",
   );
   const scalableIcon = path.join(
     extracted,
@@ -465,16 +465,16 @@ try {
     "hicolor",
     "scalable",
     "apps",
-    "openmausbot.svg",
+    "danibot.svg",
   );
   requireFile(desktopFile);
   requireFile(scalableIcon);
   const desktop = readFileSync(desktopFile, "utf8");
   for (const expected of [
     "Name=Dani Bot",
-    "Exec=/opt/Dani Bot/openmausbot %U",
-    "Icon=openmausbot",
-    "StartupWMClass=com.openmausbot.app",
+    "Exec=/opt/Dani Bot/danibot %U",
+    "Icon=danibot",
+    "StartupWMClass=com.danibot.app",
     "Categories=Utility;",
   ]) {
     if (!desktop.includes(expected)) fail(`desktop entry is missing ${JSON.stringify(expected)}`);

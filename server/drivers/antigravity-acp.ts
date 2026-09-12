@@ -48,7 +48,7 @@ const REMOVED_ENVIRONMENT_KEYS = new Set([
   "ELECTRON_RUN_AS_NODE",
 ]);
 
-const BROWSER_MARKER = "__OPENMAUS_ANTIGRAVITY_AUTH_URL__";
+const BROWSER_MARKER = "__DANI_ANTIGRAVITY_AUTH_URL__";
 const browserHelperSource =
   `process.stderr.on("error",()=>process.exit(0)).write(` +
   `"${BROWSER_MARKER}"+JSON.stringify(process.argv[1])+"\\n",` +
@@ -316,7 +316,7 @@ export class AntigravityAcpClient {
   async initialize(timeoutMs = STARTUP_TIMEOUT_MS): Promise<any> {
     const initialized = await this.request("initialize", {
       protocolVersion: 1,
-      clientInfo: { name: "openmausbot", version: "0.0.0" },
+      clientInfo: { name: "danibot", version: "0.0.0" },
       clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
     }, timeoutMs);
     this.initializationComplete = true;
@@ -529,7 +529,7 @@ export function isValidAntigravityInitializeResult(
  * @returns A promise that resolves when verification succeeds, or rejects if initialization fails.
  */
 export async function validateAntigravityRuntime(runtime: AntigravityRuntime, expectedVersion: string): Promise<void> {
-  const profileDirectory = await mkdtemp(join(tmpdir(), "openmaus-antigravity-verify-"));
+  const profileDirectory = await mkdtemp(join(tmpdir(), "danibot-antigravity-verify-"));
   let client: AntigravityAcpClient | undefined;
   let failed = false;
   let failure: unknown;

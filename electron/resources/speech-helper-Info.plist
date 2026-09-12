@@ -7,7 +7,7 @@
     <key>CFBundleExecutable</key>
     <string>speech-helper</string>
     <key>CFBundleIdentifier</key>
-    <string>com.openmausbot.app.speech-helper</string>
+    <string>com.danibot.app.speech-helper</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>

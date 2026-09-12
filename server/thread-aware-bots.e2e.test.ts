@@ -94,7 +94,7 @@ const mintedToken = async (botId: string, threadId: string, depth = 0): Promise<
     "POST",
     "/api/testing/internal-capability",
     { botId, threadId, kind: "agents", depth },
-    { "x-openmausbot-test-capability": TEST_CAPABILITY_KEY },
+    { "x-danibot-test-capability": TEST_CAPABILITY_KEY },
   );
   expect(minted.status).toBe(201);
   return { authorization: `Bearer ${minted.body.token}` };
@@ -122,7 +122,7 @@ beforeAll(async () => {
   chmodSync(FAKE_ACP, 0o755);
   home = mkdtempSync(join(tmpdir(), "omb-thread-aware-"));
   gates = join(home, "gates");
-  const data = join(home, ".openmausbot");
+  const data = join(home, ".danibot");
   mkdirSync(data, { recursive: true });
   mkdirSync(gates, { recursive: true });
   // Every turn holds until its gate exists, and dumps its argv/env/prompt

@@ -63,7 +63,7 @@ describe("phone origin validation", () => {
     "https://[::ffff:0.0.0.0]", "https://user:password@maus.example", "https://maus.example/pair",
     "https://maus.example/?token=secret", "https://maus.example/#code=ABCD-EFGH-JKLM",
     "https://maus.example/?", "https://maus.example/#", "https://maus.\nexample",
-    "https://maus.example\\private", "openmausbot://pair?token=secret",
+    "https://maus.example\\private", "danibot://pair?token=secret",
   ])("rejects a local, credential-bearing or non-origin input: %s", (input) => {
     expect(normalizePhoneOrigin(input)).toBeNull();
   });

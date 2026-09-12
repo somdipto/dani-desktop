@@ -45,7 +45,7 @@ async function binaryVersion(candidate) {
 }
 
 async function officialBinary() {
-  const cache = join(root, "node_modules", ".cache", "openmausbot", `cua-driver-${release.version}`);
+  const cache = join(root, "node_modules", ".cache", "danibot", `cua-driver-${release.version}`);
   const cachedBinary = join(cache, "cua-driver");
   if ((await binaryVersion(cachedBinary)) === expectedVersion) return cachedBinary;
 
@@ -157,7 +157,7 @@ await build({
       'export { requestMacOSPermissions, hasRequiredMacOSPermissions } from "@trycua/cua-driver/electron";',
     ].join("\n"),
     resolveDir: root,
-    sourcefile: "openmausbot-cua-entry.mjs",
+    sourcefile: "danibot-cua-entry.mjs",
     loader: "js",
   },
   bundle: true,
@@ -165,7 +165,7 @@ await build({
   target: "node20",
   format: "esm",
   banner: {
-    js: 'import { createRequire as __openmausbotCreateRequire } from "node:module"; const require = __openmausbotCreateRequire(import.meta.url);',
+    js: 'import { createRequire as __danibotCreateRequire } from "node:module"; const require = __danibotCreateRequire(import.meta.url);',
   },
   outfile: bundle,
   logLevel: "silent",
@@ -180,7 +180,7 @@ await writeFile(
   bundle,
   bundledSource.replace(
     resolverPattern,
-    `${resolvers[0]}\n      if (process.env.OPENMAUSBOT_CUA_SDK_LIBRARY) return resolveOverride(opts.crateName, process.env.OPENMAUSBOT_CUA_SDK_LIBRARY);`,
+    `${resolvers[0]}\n      if (process.env.DANIBOT_CUA_SDK_LIBRARY) return resolveOverride(opts.crateName, process.env.DANIBOT_CUA_SDK_LIBRARY);`,
   ),
 );
 

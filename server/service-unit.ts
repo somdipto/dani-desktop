@@ -1,6 +1,6 @@
-// `openmausbot service install`: keep the server running across reboots.
+// `danibot service install`: keep the server running across reboots.
 // Renders a systemd unit (Linux) or a launchd agent (macOS) that runs the
-// same `openmausbot serve …` the operator just used, and either installs it
+// same `danibot serve …` the operator just used, and either installs it
 // (when allowed to) or writes it next to the data and prints the two
 // commands that install it. Pure rendering lives here so it is testable;
 // the CLI decides where the file goes.
@@ -26,8 +26,8 @@ export interface ServiceSpec {
   label?: string;
 }
 
-export const SYSTEMD_UNIT_NAME = "openmausbot.service";
-export const LAUNCHD_LABEL = "com.openmausbot.serve";
+export const SYSTEMD_UNIT_NAME = "danibot.service";
+export const LAUNCHD_LABEL = "com.danibot.serve";
 
 function quoteSystemd(value: string): string {
   // systemd's ExecStart splits on whitespace and understands double quotes.
@@ -44,7 +44,7 @@ export function serviceCommand(spec: Pick<ServiceSpec, "node" | "script" | "serv
 
 export function systemdUnit(spec: ServiceSpec): string {
   const lines = [
-    "# Written by `openmausbot service install`. Re-run it to change the options.",
+    "# Written by `danibot service install`. Re-run it to change the options.",
     "[Unit]",
     `Description=Dani Bot${spec.label ? ` (${spec.label})` : ""}`,
     "After=network-online.target",
@@ -117,7 +117,7 @@ export function launchdPlist(spec: ServiceSpec): string {
 export function unstableInstallWarning(script: string): string | null {
   const normalized = script.replace(/\\/g, "/");
   if (/\/_npx\//.test(normalized) || /\/\.npm\/_npx\//.test(normalized)) {
-    return `this command runs from an npx cache (${dirname(script)}), which npm may delete at any time. Install it permanently first (npm install -g openmausbot) and run \`openmausbot service install\` from that install.`;
+    return `this command runs from an npx cache (${dirname(script)}), which npm may delete at any time. Install it permanently first (npm install -g danibot) and run \`danibot service install\` from that install.`;
   }
   return null;
 }
@@ -149,6 +149,6 @@ export function currentUser(): string {
   try {
     return userInfo().username;
   } catch {
-    return process.env.USER || process.env.USERNAME || "openmausbot";
+    return process.env.USER || process.env.USERNAME || "danibot";
   }
 }

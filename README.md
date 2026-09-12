@@ -65,7 +65,7 @@ already have:
   — your existing logins and subscriptions, no new accounts, no proxy in the middle. Point any engine at a
   custom CLI binary (a versioned build or wrapper) in **Settings → Engines**.
 - **Local first.** One small harness server on `127.0.0.1` owns every agent process. Transcripts, keys, and
-  events live in `~/.openmausbot`, not a cloud.
+  events live in `~/.danibot`, not a cloud.
 - **Agents with hands.** Each bot can use a cloud Linux desktop, an isolated Local VM, or—where the platform
   safety boundary is currently certified—your own computer, plus 500+ apps through Composio. Host control is
   available on macOS and Ubuntu Xorg after explicit opt-in. Ubuntu Wayland host control remains disabled while
@@ -349,8 +349,8 @@ which takes care of receipts and taxes; nothing about the app ever sits behind a
 With Node 24 or newer, install once and run:
 
 ```sh
-npm install -g openmausbot
-openmausbot
+npm install -g danibot
+danibot
 ```
 
 Or use `npx danibot` without a global install. First launch guides you with
@@ -367,7 +367,7 @@ cannot use a localhost link. `--local` ignores saved remote access for one launc
 `--no-pair` suppresses phone prompts and invitations but does not disable a saved
 remote connection.
 
-Run `openmausbot setup` to reconfigure without resetting bots or conversations;
+Run `danibot setup` to reconfigure without resetting bots or conversations;
 the saved model default applies only to new bots. Native setup confirms provider
 sign-in; API setup asks before a potentially billable test message. API keys are
 saved as plaintext, not encrypted, in private `config.json` (`0600` on Unix).

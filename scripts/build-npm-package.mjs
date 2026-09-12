@@ -44,7 +44,7 @@ writeFileSync(
   join(out, "package.json"),
   JSON.stringify(
     {
-      name: "openmausbot",
+      name: "danibot",
       version: app.version,
       description: "Run the Dani Bot server anywhere and pair your devices to it",
       license: "Apache-2.0",
@@ -54,7 +54,7 @@ writeFileSync(
       engines: { node: ">=24" },
       repository: { type: "git", url: "https://github.com/somdipto/dani-desktop.git" },
       homepage: "https://github.com/somdipto/dani-desktop#readme",
-      keywords: ["openmausbot", "agents", "self-hosted", "server"],
+      keywords: ["danibot", "agents", "self-hosted", "server"],
     },
     null,
     2,
@@ -68,12 +68,12 @@ writeFileSync(
 Your own team of AI bots, with guided terminal setup. Requires Node 24+.
 
 \`\`\`sh
-npm install -g openmausbot
-openmausbot
+npm install -g danibot
+danibot
 \`\`\`
 
 Or run \`npx danibot\` without a global install. Use the same command next
-time; \`openmausbot start\` is an alias for the bare command.
+time; \`danibot start\` is an alias for the bare command.
 
 First launch: use arrow keys and Enter (numbered choices in plain terminals) to choose
 ChatGPT/Codex, Claude Code, or an API service; sign in or paste a hidden API
@@ -105,13 +105,13 @@ browser opening uses only the local address; it is skipped for SSH and
 headless sessions, and can be disabled with \`--no-open\`.
 
 \`\`\`sh
-openmausbot setup          # reconfigure AI and optional phone access; not a reset
-openmausbot --no-open      # do not open a browser
-openmausbot --local        # ignore saved remote access for this launch
-openmausbot --no-pair      # suppress phone prompts and invitations
-openmausbot pair           # another phone while the HTTPS workspace is running
-openmausbot sessions       # list devices; sessions revoke ID signs one out
-openmausbot serve          # no onboarding prompts; explicit remote flags for services
+danibot setup          # reconfigure AI and optional phone access; not a reset
+danibot --no-open      # do not open a browser
+danibot --local        # ignore saved remote access for this launch
+danibot --no-pair      # suppress phone prompts and invitations
+danibot pair           # another phone while the HTTPS workspace is running
+danibot sessions       # list devices; sessions revoke ID signs one out
+danibot serve          # no onboarding prompts; explicit remote flags for services
 \`\`\`
 
 Stop an existing server before reconfiguring or changing access mode.
@@ -131,7 +131,7 @@ with owner-only permissions (0600 on Unix). Keep these files private.
 Ctrl-C before saving AI setup leaves its pending OMB changes unapplied.
 During the later phone step, it keeps the AI setup already saved and exits
 without starting a server. Completed installs and sign-ins remain; run
-\`openmausbot setup\` to continue without deleting your data.
+\`danibot setup\` to continue without deleting your data.
 
 For a service, use \`serve --tunnel\` after \`login\` for managed HTTPS,
 \`serve --tailscale\` for your tailnet, or your own reverse proxy. The

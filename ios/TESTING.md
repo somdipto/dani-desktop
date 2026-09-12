@@ -98,7 +98,7 @@ Verify from a second terminal that the socket is real and refuses strangers:
 ```sh
 curl -s http://192.168.x.x:8810/api/bots            # expect 401 + "pair this device…"
 curl -s http://127.0.0.1:8811/state | jq            # addresses, pairing, devices, discovery
-dns-sd -B _openmausbot._tcp                         # macOS: should list the service
+dns-sd -B _danibot._tcp                         # macOS: should list the service
 ```
 
 ### If discovery says it is not advertising
@@ -120,15 +120,15 @@ This is the likeliest snag on macOS, and it is not a bug in the phone.
 
 ```sh
 brew install xcodegen
-cd ios && xcodegen generate && open OpenMausCompanion.xcodeproj
+cd ios && xcodegen generate && open DaniCompanion.xcodeproj
 ```
 
 Build for the simulator first — it is a faster loop for compile errors.
 The same gate can run without opening Xcode:
 
 ```sh
-xcodebuild -project OpenMausCompanion.xcodeproj \
-  -scheme OpenMausCompanion \
+xcodebuild -project DaniCompanion.xcodeproj \
+  -scheme DaniCompanion \
   -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   CODE_SIGNING_ALLOWED=NO build
@@ -141,7 +141,7 @@ device token with "A required entitlement isn't present", right after the
 code is accepted:
 
 ```sh
-xcodebuild -project OpenMausCompanion.xcodeproj -scheme OpenMausCompanion \
+xcodebuild -project DaniCompanion.xcodeproj -scheme DaniCompanion \
   -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   DEVELOPMENT_TEAM=<your team id> CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual build
 ```
@@ -177,7 +177,7 @@ paid account is required to run on your own phone.
 On the phone, in order:
 
 1. **Pair.** In Dani Bot → Settings → Phone, choose **Pair a phone**.
-   Scan the QR code with the phone's Camera, open OpenMausMobile,
+   Scan the QR code with the phone's Camera, open DaniMobile,
    confirm that the computer and six-digit code are filled in, then tap
    **Connect**. The computer should also appear by name for the manual path:
    tap it and type the same code.
@@ -307,7 +307,7 @@ usually the whole diagnosis:
 
 - **Desktop/server log:** the sidecar and harness record the stream opening and
   closing. No opening entry means the request never arrived.
-- **Xcode console**, subsystem `com.openmausbot.companion`: `opening stream`,
+- **Xcode console**, subsystem `com.danibot.companion`: `opening stream`,
   then `stream live, resumed=…`, then `hydrated N bots`. Whichever of those is
   missing is where it stopped.
 

@@ -17,11 +17,11 @@ import {
 } from "./package-install-command.mjs";
 
 test("the Ubuntu command resolves dependencies", () => {
-  const command = packageInstallCommand("deb", "/home/u/.cache/openmausbot-updater/pending/x.deb");
+  const command = packageInstallCommand("deb", "/home/u/.cache/danibot-updater/pending/x.deb");
 
   assert.equal(
     command,
-    "sudo apt-get install -y '/home/u/.cache/openmausbot-updater/pending/x.deb'",
+    "sudo apt-get install -y '/home/u/.cache/danibot-updater/pending/x.deb'",
   );
   // `dpkg -i` is what electron-updater ran, and it installs nothing when a
   // release adds a dependency. Ubuntu also satisfies ours through virtual
@@ -94,7 +94,7 @@ test("the quoted path survives a shell round-trip", { skip: posixShell }, () => 
 });
 
 test("the whole command parses into the arguments apt-get would receive", { skip: posixShell }, () => {
-  const file = "/home/o'brien/.cache/openmausbot-updater/pending/Dani Bot-0.1.44-amd64.deb";
+  const file = "/home/o'brien/.cache/danibot-updater/pending/Dani Bot-0.1.44-amd64.deb";
   const command = packageInstallCommand("deb", file);
 
   // Replace the privileged verb with a printer, then confirm the shell hands

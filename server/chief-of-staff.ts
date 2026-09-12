@@ -18,7 +18,7 @@ export function chiefOfStaffSystemPrompt(
   chiefId: string,
   bots: ChiefTeamMember[],
   canDelegate: boolean,
-  trustedOpenMausStatus = "",
+  trustedDaniStatus = "",
 ): string {
   const chief = bots.find((bot) => bot.id === chiefId);
   const chiefSection = sectionKey(chief?.section);
@@ -56,6 +56,6 @@ export function chiefOfStaffSystemPrompt(
     delegation,
     `Current ${sectionName} section team:`,
     roster,
-    trustedOpenMausStatus,
+    trustedDaniStatus,
   ].filter(Boolean).join("\n");
 }

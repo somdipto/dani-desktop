@@ -31,12 +31,12 @@ that WSL can access through `/mnt/c`, `/mnt/d`, etc. From the repository root:
 .\deploy\podman\maus.ps1 ps
 ```
 
-Setup creates/starts a WSL2 machine named `openmausbot` (4 CPUs, 10 GiB RAM,
+Setup creates/starts a WSL2 machine named `danibot` (4 CPUs, 10 GiB RAM,
 60 GiB requested disk), installs `podman-compose` inside it if missing, enables
 the user socket, and generates `.env`. WSL resource limits still apply.
 It preserves an existing `.env`. Use `OMB_PODMAN_MACHINE` to select a different
 machine. The wrapper refuses a stopped machine for normal Compose commands;
-after a reboot, use `podman machine start openmausbot` before `up -d`.
+after a reboot, use `podman machine start danibot` before `up -d`.
 
 Compose runs **inside** the machine, so the socket and bind paths have the same
 meaning for the server and the engine. `OMB_PODMAN_ENV_FILE` selects an alternate

@@ -29,8 +29,8 @@ const TAG_BYTES = 16;
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const EXCLUDED = new Set([
   ".backups", "tools", "cache", ".cache", "tmp", ".tmp", "dist-native", "tunnel-runtime",
-  ".openmausbot-server-child", "environment-id", "sessions.json", "tunnel-account.json",
-  "openmausbot-server.lease", "box-create-requests.lock", "messages.db-wal", "messages.db-shm",
+  ".danibot-server-child", "environment-id", "sessions.json", "tunnel-account.json",
+  "danibot-server.lease", "box-create-requests.lock", "messages.db-wal", "messages.db-shm",
 ]);
 const EXCLUSION_NOTES = [
   "Device pairing, server identity, live leases and runtime files (existing destination identities are preserved).",
@@ -68,7 +68,7 @@ export interface WorkspaceRestoreResult {
 export type LastWorkspaceRestore = WorkspaceRestoreResult & { restored: true; id: string };
 
 function excluded(name: string): boolean {
-  return EXCLUDED.has(name) || excludedWorkspaceAuthPath(name) || name.startsWith("openmausbot-server.lease.") || name.startsWith("box-create-requests.lock.") || /^perm-[A-Za-z0-9_-]+\.sock$/.test(name);
+  return EXCLUDED.has(name) || excludedWorkspaceAuthPath(name) || name.startsWith("danibot-server.lease.") || name.startsWith("box-create-requests.lock.") || /^perm-[A-Za-z0-9_-]+\.sock$/.test(name);
 }
 function forbiddenArchivePath(path: string): boolean {
   const folded = path.toLowerCase();
@@ -336,7 +336,7 @@ export async function createWorkspaceBackup(dataDir: string, options: CreateWork
     walk(root);
     if (skippedLinks) warnings.push(`${skippedLinks} managed skill discovery link(s) were omitted and are recreated by the app.`);
     const summary: WorkspaceBackupSummary = {
-      format: "openmaus.workspace-backup", version: 1, id: job.id, createdAt: new Date().toISOString(),
+      format: "danibot.workspace-backup", version: 1, id: job.id, createdAt: new Date().toISOString(),
       appVersion: options.appVersion ?? "unknown", files: entries.filter((entry) => entry.type === "file").length,
       directories: entries.filter((entry) => entry.type === "directory").length, bytes,
       bots: countJsonArray(join(snapshot, "data", "bots.json")), groups: countJsonArray(join(snapshot, "data", "groups.json")),
@@ -368,7 +368,7 @@ export async function createWorkspaceBackup(dataDir: string, options: CreateWork
 }
 
 function validateManifest(value: unknown): Manifest {
-  if (!record(value) || !record(value.summary) || value.summary.format !== "openmaus.workspace-backup" || value.summary.version !== 1 ||
+  if (!record(value) || !record(value.summary) || value.summary.format !== "danibot.workspace-backup" || value.summary.version !== 1 ||
     typeof value.summary.id !== "string" || !ID.test(value.summary.id) || typeof value.summary.createdAt !== "string" ||
     !Number.isFinite(Date.parse(value.summary.createdAt)) || typeof value.summary.appVersion !== "string" ||
     typeof value.sourceDataDir !== "string" || !(posix.isAbsolute(value.sourceDataDir) || win32.isAbsolute(value.sourceDataDir)) ||

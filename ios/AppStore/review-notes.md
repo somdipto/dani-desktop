@@ -1,6 +1,6 @@
 # App Review notes
 
-OpenMausMobile is a companion for the Dani Bot desktop application. The
+DaniMobile is a companion for the Dani Bot desktop application. The
 primary same-network flow does not require an account. The desktop also offers
 an optional passwordless email sign-in that provisions a private HTTPS address
 for reaching that same computer from another network; the iOS app itself does

@@ -45,7 +45,7 @@ function redactConfiguredValues(value: string, env: Record<string, string>): str
 }
 
 /** Start one stdio server long enough to prove the MCP handshake and list its
- * tools. It is always reaped, never inherits OpenMaus credentials, and never
+ * tools. It is always reaped, never inherits Dani credentials, and never
  * returns child stderr or environment values to the renderer. */
 export function probeMcpServer(
   server: StoredMcpServer,

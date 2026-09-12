@@ -422,11 +422,11 @@ export async function listManagedBoxes(
     if (!owner) continue;
     const boxId = typeof candidate.id === "string" ? candidate.id : "";
     if (!BOX_ID.test(boxId)) {
-      return invalidInventory("ascii.dev returned an invalid id for an OpenMaus-managed cloud computer — refresh or repair it in ascii.dev");
+      return invalidInventory("ascii.dev returned an invalid id for an Dani Bot-managed cloud computer — refresh or repair it in ascii.dev");
     }
     const existing = ownedBoxByBot.get(owner.botId);
     if (existing && existing !== boxId) {
-      return invalidInventory("ascii.dev returned conflicting cloud computers for one OpenMaus bot — repair them in ascii.dev before continuing");
+      return invalidInventory("ascii.dev returned conflicting cloud computers for one Dani bot — repair them in ascii.dev before continuing");
     }
     ownedBoxByBot.set(owner.botId, boxId);
   }
@@ -458,10 +458,10 @@ export async function listManagedBoxes(
     // deterministic name), silently skipping a malformed/duplicated identity
     // could let bot deletion mistake provider corruption for absence.
     if (!BOX_ID.test(boxId)) {
-      return invalidInventory("ascii.dev returned an invalid id for an OpenMaus-managed cloud computer — refresh or repair it in ascii.dev");
+      return invalidInventory("ascii.dev returned an invalid id for an Dani Bot-managed cloud computer — refresh or repair it in ascii.dev");
     }
     if ((boxIdCounts.get(boxId) ?? 0) !== 1 || seenBoxIds.has(boxId)) {
-      return invalidInventory("ascii.dev returned a conflicting id for an OpenMaus-managed cloud computer — refresh or repair it in ascii.dev");
+      return invalidInventory("ascii.dev returned a conflicting id for an Dani Bot-managed cloud computer — refresh or repair it in ascii.dev");
     }
     if (legacyOwner && owner && options.adoptLegacy !== false) {
       try {
@@ -541,7 +541,7 @@ async function revalidateManagedBox(
   if (!inventory.available) throw inventoryFailure(inventory);
   const instance = inventory.instances.find((candidate) => candidate.boxId === boxId);
   if (!instance) {
-    throw Object.assign(new Error("that OpenMaus-managed cloud computer no longer exists"), { status: 404 });
+    throw Object.assign(new Error("that Dani Bot-managed cloud computer no longer exists"), { status: 404 });
   }
   return instance;
 }
@@ -849,7 +849,7 @@ export async function boxStatus(cfg: AppConfig, botId: string) {
 export async function provisionBox(cfg: AppConfig, botId: string, botName: string) {
   cfg = snapshotBoxConfig(cfg);
   if (!boxConfigured(cfg)) {
-    throw new Error('box provider not enabled — add {"box":{"token":"…"}} to ~/.openmausbot/config.json');
+    throw new Error('box provider not enabled — add {"box":{"token":"…"}} to ~/.danibot/config.json');
   }
   const vmName = await boxNameFor(botId);
   let box = await findBox(cfg, botId);

@@ -54,7 +54,7 @@ an update notice with the exact command. `claude update` clears it.
 
 ## Advanced: edit the file
 
-The same registry lives in `~/.openmausbot/config.json`:
+The same registry lives in `~/.danibot/config.json`:
 
 ```json
 {

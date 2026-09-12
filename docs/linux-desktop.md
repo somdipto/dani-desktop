@@ -73,7 +73,7 @@ sudo apt install ./Dani Bot-amd64.deb
 Then open **Dani Bot** from the GNOME application launcher. To remove it:
 
 ```sh
-sudo apt remove openmausbot
+sudo apt remove danibot
 ```
 
 The portable AppImage does not install system files:
@@ -98,8 +98,8 @@ user namespaces, its bundled browser can still report `No usable sandbox`. Insta
 do not add `--no-sandbox`, disable AppArmor globally, or allowlist arbitrary executables under your home
 directory. See [Chromium's explanation of the Ubuntu restriction](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md).
 
-Application data remains local in `~/.openmausbot`. Electron browser data and window state use the normal XDG
-configuration directory (`~/.config/openmausbot` unless the environment overrides it).
+Application data remains local in `~/.danibot`. Electron browser data and window state use the normal XDG
+configuration directory (`~/.config/danibot` unless the environment overrides it).
 
 ## Develop the desktop shell
 
@@ -115,7 +115,7 @@ For a package-shaped build without creating `.deb` or AppImage artifacts:
 
 ```sh
 pnpm package:linux:dir
-./release/linux-unpacked/openmausbot
+./release/linux-unpacked/danibot
 ```
 
 ## Agent CLI discovery
@@ -225,7 +225,7 @@ pnpm smoke:linux-package
 The verifier checks `.deb` metadata, desktop identity, the exact dormant Cua resource tree and provenance,
 SquashFS/DEB directory modes, runtime path policy, and matching binary hashes across all artifacts. The local smoke
 launches the unpacked app and AppImage without `--no-sandbox`; CI first reproduces a `0.1.7` in-place DEB upgrade and
-then runs the same smoke against `/opt/Dani Bot/openmausbot`. These lanes prove the embedded server and UI are
+then runs the same smoke against `/opt/Dani Bot/danibot`. These lanes prove the embedded server and UI are
 usable while an optional Composio broker stalls, verify that an old local-control opt-in is cleared, and assert that
 no Cua executable starts on Xorg or simulated Wayland. Low-level runtime tests retain the future private-daemon
 contract without activating it in a packaged app. Only a real-seat acceptance matrix can authorize re-enablement.

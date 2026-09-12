@@ -4,7 +4,7 @@ description: Run the harness and desktop app on infrastructure you control.
 icon: Server
 ---
 
-Dani Bot is local-first by default: the harness listens on loopback, agent CLIs run on your machine, and application state lives under `~/.openmausbot`.
+Dani Bot is local-first by default: the harness listens on loopback, agent CLIs run on your machine, and application state lives under `~/.danibot`.
 
 ## Typical self-hosted setup
 
@@ -16,7 +16,7 @@ Dani Bot is local-first by default: the harness listens on loopback, agent CLIs 
 
 For a Linux service, the VPS guide covers [account setup](/docs/self-hosting/deploy-vps#before-you-start), [browser installation](/docs/self-hosting/deploy-vps#give-the-bots-a-browser-optional), and [unattended startup](/docs/self-hosting/deploy-vps#keep-it-running). Installing browser libraries as administrator still requires installing the browser in the service user's home. The service runs an installed, chosen release; upgrading it is an explicit step.
 
-Stop the server before a filesystem backup. Application state under `.openmausbot` is only part of a complete backup: preserve the service user's engine credentials, browser state, and external workspaces too. See [Data and backups](/docs/self-hosting/data-and-backups).
+Stop the server before a filesystem backup. Application state under `.danibot` is only part of a complete backup: preserve the service user's engine credentials, browser state, and external workspaces too. See [Data and backups](/docs/self-hosting/data-and-backups).
 
 ## What is still third party
 

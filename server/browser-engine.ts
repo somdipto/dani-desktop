@@ -403,7 +403,7 @@ export function agentBrowserFrame(input: {
   env: Record<string, string>;
   timeoutMs?: number;
 }): Promise<{ png: string; format: string }> {
-  const file = join(tmpdir(), `openmausbot-browser-${randomUUID()}.png`);
+  const file = join(tmpdir(), `danibot-browser-${randomUUID()}.png`);
   return new Promise((settle, fail) => {
     const child = spawn(input.binaryPath, ["screenshot", file], {
         env: browserRuntimeEnv(input.env),

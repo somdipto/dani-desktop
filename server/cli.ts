@@ -239,7 +239,7 @@ access  who may sign in with an emailed code at /pair: an address or
 service keep the server running across reboots: writes a systemd unit
         (Linux) or a launchd agent (macOS) for the same serve options and
         prints the commands that install it. Install the package
-        permanently first (npm install -g openmausbot).
+        permanently first (npm install -g danibot).
 browser install: the bots' browser engine (agent-browser, pinned) into the
         data dir, and Chrome for Testing into the user's browser cache.
         --with-deps also installs
@@ -319,7 +319,7 @@ async function api(port: number, path: string, init: { method?: string; body?: s
 async function serverUp(port: number, pid?: number): Promise<boolean> {
   try {
     const { status, body } = await api(port, "/api/health");
-    return status === 200 && body?.app === "openmausbot" && (pid === undefined || body.pid === pid);
+    return status === 200 && body?.app === "danibot" && (pid === undefined || body.pid === pid);
   } catch {
     return false;
   }
@@ -330,9 +330,9 @@ async function serverUp(port: number, pid?: number): Promise<boolean> {
 export async function isWorkspaceRunning(options: CliOptions): Promise<boolean> {
   try {
     const { status, body } = await api(options.port, "/api/health");
-    if (status !== 200 || body?.app !== "openmausbot") return false;
+    if (status !== 200 || body?.app !== "danibot") return false;
     const expected = readFileSync(join(options.dataDir, "environment-id"), "utf8").trim();
-    const descriptor = await api(options.port, "/.well-known/openmausbot/environment");
+    const descriptor = await api(options.port, "/.well-known/danibot/environment");
     return /^[0-9a-f-]{36}$/i.test(expected) && descriptor.status === 200 && descriptor.body?.environmentId === expected;
   } catch { return false; }
 }
@@ -356,8 +356,8 @@ export async function openDashboard(port: number, env = process.env): Promise<bo
 export async function verifyPhoneEndpoint(port: number, origin: string): Promise<boolean> {
   if (!normalizePhoneOrigin(origin)) return false;
   try {
-    const local = await api(port, "/.well-known/openmausbot/environment");
-    const remote = await fetch(`${origin}/.well-known/openmausbot/environment`, { signal: AbortSignal.timeout(5000), redirect: "error" });
+    const local = await api(port, "/.well-known/danibot/environment");
+    const remote = await fetch(`${origin}/.well-known/danibot/environment`, { signal: AbortSignal.timeout(5000), redirect: "error" });
     if (local.status !== 200 || !remote.ok) return false;
     const descriptor = await remote.json() as { environmentId?: unknown };
     return typeof local.body?.environmentId === "string" && local.body.environmentId.length > 0
@@ -369,7 +369,7 @@ export function applyStartupPreferences(options: CliOptions, saved: AppConfig["c
   if (options.local) return { ...options, tunnel: false, tailscale: false, publicUrl: undefined, phone: undefined };
   if (!saved || options.tunnel || options.tailscale || options.publicUrl) return options;
   if (saved.access === "public-url" && (!saved.publicUrl || !normalizePhoneOrigin(saved.publicUrl))) {
-    throw new Error("The saved phone address is not a valid HTTPS origin. Run openmausbot setup to correct it, or openmausbot --local to start only on this computer.");
+    throw new Error("The saved phone address is not a valid HTTPS origin. Run danibot setup to correct it, or danibot --local to start only on this computer.");
   }
   return {
     ...options,
@@ -394,7 +394,7 @@ async function showPhonePairing(options: CliOptions, origin: string | undefined,
   const ready = !!origin && await verifyPhoneEndpoint(options.port, origin);
   if (!ready) {
     log("Phone access is not reachable yet. Your local workspace is ready; no phone pairing code was created.");
-    log("Check the HTTPS connection, then run openmausbot pair again with the same --data-dir and --port.");
+    log("Check the HTTPS connection, then run danibot pair again with the same --data-dir and --port.");
     return false;
   }
   for (const line of phonePairingInstructions(options.phone ?? "ios", { origin: origin!, ready })) log(line);
@@ -438,7 +438,7 @@ async function mintPairing(port: number, options: { label?: string; client?: boo
 // ── commands ───────────────────────────────────────────────────────────
 export async function runPair(options: CliOptions): Promise<number> {
   if (!(await serverUp(options.port))) {
-    console.error(`no Dani Bot server on http://127.0.0.1:${options.port}; start one with \`openmausbot serve\` or set OMB_PORT`);
+    console.error(`no Dani Bot server on http://127.0.0.1:${options.port}; start one with \`danibot serve\` or set OMB_PORT`);
     return 1;
   }
   if (process.stdin.isTTY && process.stdout.isTTY && !options.label && !options.client) {
@@ -459,7 +459,7 @@ export async function runPair(options: CliOptions): Promise<number> {
     }
     if (!origin || !normalizePhoneOrigin(origin)) {
       console.log("Your workspace is running only on this computer. A phone cannot use its localhost address.");
-      console.log("Stop the server, run openmausbot setup and choose phone access, then start openmausbot again.");
+      console.log("Stop the server, run danibot setup and choose phone access, then start danibot again.");
       return 1;
     }
     const ui = defaultSetupIo();
@@ -500,7 +500,7 @@ export async function runSessions(options: CliOptions): Promise<number> {
     return 0;
   }
   if (!sessions.length) {
-    console.log("no paired devices yet: run `openmausbot pair`");
+    console.log("no paired devices yet: run `danibot pair`");
     return 0;
   }
   console.log(formatSessions(sessions));
@@ -516,13 +516,13 @@ export function formatSessions(sessions: Array<{ id: string; label: string; scop
   const head = ["id", "device", "scope", "last seen", "expires"];
   const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)));
   const line = (r: string[]) => r.map((c, i) => c.padEnd(widths[i])).join("  ");
-  return [line(head), ...rows.map(line), "", "revoke one with: openmausbot sessions revoke <id>"].join("\n");
+  return [line(head), ...rows.map(line), "", "revoke one with: danibot sessions revoke <id>"].join("\n");
 }
 
 export async function runStatus(options: CliOptions, io: CliIo = defaultIo()): Promise<number> {
   let code = 0;
   try {
-    const res = await fetch(`http://127.0.0.1:${options.port}/.well-known/openmausbot/environment`);
+    const res = await fetch(`http://127.0.0.1:${options.port}/.well-known/danibot/environment`);
     const body: any = await res.json();
     io.log(options.json ? JSON.stringify(body, null, 2) : `${body.label} · Dani Bot ${body.version} on ${body.platform} · id ${body.environmentId}`);
   } catch {
@@ -566,7 +566,7 @@ export async function runAccess(options: CliOptions, io: CliIo = defaultIo()): P
   };
   if (options.accessAction === "list") {
     if (!admins.length && !members.length) {
-      io.log("nobody can sign in with an email yet; pairing codes only. Add someone with: openmausbot access add you@example.com");
+      io.log("nobody can sign in with an email yet; pairing codes only. Add someone with: danibot access add you@example.com");
       return 0;
     }
     for (const entry of admins) io.log(`${entry.padEnd(40)} full access`);
@@ -586,7 +586,7 @@ export async function runAccess(options: CliOptions, io: CliIo = defaultIo()): P
       return 1;
     }
     write({ admins: without(admins), members: without(members) });
-    io.log(`${entry} can no longer sign in (existing sessions stay until they expire or are revoked with \`openmausbot sessions revoke\`)`);
+    io.log(`${entry} can no longer sign in (existing sessions stay until they expire or are revoked with \`danibot sessions revoke\`)`);
     return 0;
   }
   write(options.chatOnly ? { admins: without(admins), members: [...without(members), entry] } : { admins: [...without(admins), entry], members: without(members) });
@@ -610,7 +610,7 @@ export async function runLogin(options: CliOptions, io: CliIo = defaultIo()): Pr
   if (existing.address) io.log(`already signed in as ${existing.email ?? "?"} (${existing.address}); signing in again refreshes it`);
   const email = (options.email ?? (await io.ask("Email for your Dani Bot account: "))).trim();
   if (!email) {
-    io.error("an email address is needed: openmausbot login --email you@example.com");
+    io.error("an email address is needed: danibot login --email you@example.com");
     return 1;
   }
   try {
@@ -689,11 +689,11 @@ export async function runBrowser(options: CliOptions, io: CliIo = defaultIo()): 
     await ensureChrome(binary, { withDeps: options.withDeps === true, log: io.log });
   } catch (error) {
     io.error(`Chrome is not ready: ${message(error)}`);
-    if (process.platform === "linux" && !options.withDeps) io.error("on Linux, install Chrome's system libraries with `sudo openmausbot browser install --with-deps`, then retry `openmausbot browser install` as the user running serve");
+    if (process.platform === "linux" && !options.withDeps) io.error("on Linux, install Chrome's system libraries with `sudo danibot browser install --with-deps`, then retry `danibot browser install` as the user running serve");
     return 1;
   }
   io.log("browser installed for this user and data directory; run serve as the same user, then enable it under Settings → Experimental and per bot");
-  if (process.platform === "linux" && options.withDeps) io.log("if serve runs as another user, run `openmausbot browser install` from that user's login shell too");
+  if (process.platform === "linux" && options.withDeps) io.log("if serve runs as another user, run `danibot browser install` from that user's login shell too");
   return 0;
 }
 
@@ -737,7 +737,7 @@ async function planTunnel(options: CliOptions, log: (line: string) => void): Pro
     const account = createTunnelAccount({ dataDir: options.dataDir, version: serverVersion() });
     if (account.credentials.status === "unavailable") return { error: `${account.credentials.file} exists but could not be read; fix or remove it` };
     if (!describeTunnelAccount(account.credentials.read()).email) {
-      return { error: "no account on this machine yet: run `openmausbot login` first, then `openmausbot serve --tunnel`" };
+      return { error: "no account on this machine yet: run `danibot login` first, then `danibot serve --tunnel`" };
     }
     // A fresh connector token when the control plane answers; the saved one otherwise.
     try {
@@ -747,7 +747,7 @@ async function planTunnel(options: CliOptions, log: (line: string) => void): Pro
       log(`tunnel: control plane not reachable right now (${message(error)}); using the saved address`);
     }
     access = tunnelAccess(account.credentials.read());
-    if (!access) return { error: "this machine has no public address; run `openmausbot login` again" };
+    if (!access) return { error: "this machine has no public address; run `danibot login` again" };
   }
   let binary: string;
   try {
@@ -763,7 +763,7 @@ async function planTunnel(options: CliOptions, log: (line: string) => void): Pro
 export async function runServe(options: CliOptions, log: (line: string) => void = console.log): Promise<number> {
   const { browserEngineStatus, describeBrowserEngine } = await import("./browser-engine.ts");
   if (await serverUp(options.port)) {
-    console.error(`something already answers on http://127.0.0.1:${options.port}; use \`openmausbot pair\` against it, or --port for a second server`);
+    console.error(`something already answers on http://127.0.0.1:${options.port}; use \`danibot pair\` against it, or --port for a second server`);
     return 1;
   }
   let publicUrl = options.publicUrl;
@@ -953,7 +953,7 @@ export async function runServe(options: CliOptions, log: (line: string) => void 
       log("another device later:  danibot pair --label \"Kitchen iPad\"");
     }
     log(options.guided ? "\nKeep this terminal open while using your bots. Ctrl+C stops the server, not your saved work." : "stop with Ctrl+C");
-    if (options.guided) log("Next time: openmausbot · Change AI or phone setup: openmausbot setup · Pair another phone: openmausbot pair");
+    if (options.guided) log("Next time: danibot · Change AI or phone setup: danibot setup · Pair another phone: danibot pair");
     return await childExit;
   } finally {
     await stop();
@@ -995,7 +995,7 @@ export async function runOnboardingCommand(
         return 1;
       }
       if (!(await runSetup({ dataDir: options.dataDir, port: options.port }))) {
-        io.log("Setup cancelled. Run openmausbot when you're ready.");
+        io.log("Setup cancelled. Run danibot when you're ready.");
         return 130;
       }
     }
@@ -1016,7 +1016,7 @@ export async function runOnboardingCommand(
       saveCliStartup(options.dataDir, startupPreferences(launch));
     }
     if (options.command === "setup") {
-      io.log("\nAll set. Start with: openmausbot (or npx danibot without a global install).");
+      io.log("\nAll set. Start with: danibot (or npx danibot without a global install).");
       if (options.dataDir !== join(homedir(), ".danibot") || options.port !== 8799) {
         io.log(`Use the same --data-dir (${options.dataDir}) and --port (${options.port}) options when starting.`);
       }
@@ -1026,7 +1026,7 @@ export async function runOnboardingCommand(
     return startServer({ ...launch, guided: interactive });
   } catch (error) {
     if (!(error instanceof SetupCancelled)) throw error;
-    io.log("\nSetup stopped. Any AI setup already saved is kept; no server was started. Run openmausbot setup to continue.");
+    io.log("\nSetup stopped. Any AI setup already saved is kept; no server was started. Run danibot setup to continue.");
     return 130;
   }
 }

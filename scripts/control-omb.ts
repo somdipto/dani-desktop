@@ -64,7 +64,7 @@ read-only:
   wait --bot ID [--task ID] [--timeout 30] [--url URL]
   wait --channel ID [--task ID] [--timeout 30] [--url URL]
 
-mutating (an explicit --url or OPENMAUSBOT_URL/OMB_PORT is required):
+mutating (an explicit --url or DANIBOT_URL/OMB_PORT is required):
   new-bot --name NAME [--url URL]
   new-channel --name NAME --members ID,ID [--url URL]
   send --bot ID --text TEXT [--task ID] [--dry-run] [--url URL]
@@ -123,7 +123,7 @@ function positiveInteger(value: unknown, name: string, fallback: number, maximum
 function configuredUrl(raw: unknown, env: NodeJS.ProcessEnv, requiredForMutation: boolean): string | undefined {
   const explicit = typeof raw === "string" && raw.trim()
     ? raw.trim()
-    : env.OPENMAUSBOT_URL?.trim() || (env.OMB_PORT ? `http://127.0.0.1:${env.OMB_PORT}` : "");
+    : env.DANIBOT_URL?.trim() || (env.OMB_PORT ? `http://127.0.0.1:${env.OMB_PORT}` : "");
   if (!explicit) {
     if (requiredForMutation) {
       throw new ControlOmbError(
@@ -182,7 +182,7 @@ export async function runControlOmb(
     const health = rawHealth as { status: string; endpoint?: string; app: string; packaged: boolean };
     const instances = (models as { instances?: Array<{ instanceId?: string; snapshot?: { state?: string } }> }).instances ?? [];
     return {
-      ok: health.app === "openmausbot"
+      ok: health.app === "danibot"
         && instances.some((instance) => instance.snapshot?.state === "available"),
       health: endpoint ? { ...health, endpoint } : health,
       availableEngines: instances
@@ -347,11 +347,11 @@ export async function launchVerificationServer(
   const url = `http://127.0.0.1:${port}`;
   // Native browser daemons use UNIX sockets; a macOS temp home can exceed
   // their path limit. This is still an owned, randomly named fixture only.
-  const dataDir = mkdtempSync(join(browser && process.platform !== "win32" ? "/tmp" : tmpdir(), "openmausbot-verify-data-"));
+  const dataDir = mkdtempSync(join(browser && process.platform !== "win32" ? "/tmp" : tmpdir(), "danibot-verify-data-"));
   const fixtureTemp = join(dataDir, "tmp");
   const fixtureDumpPath = join(dataDir, "fake-claude-dump.json");
   mkdirSync(fixtureTemp, { recursive: true });
-  const evidenceDir = join(tmpdir(), "openmausbot-verification-evidence");
+  const evidenceDir = join(tmpdir(), "danibot-verification-evidence");
   mkdirSync(evidenceDir, { recursive: true });
   const logPath = join(evidenceDir, `server-${Date.now()}-${process.pid}.log`);
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
@@ -437,7 +437,7 @@ export async function launchVerificationServer(
           signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
         });
         const body = response.ok ? await response.json() as { app?: string } : null;
-        if (body?.app === "openmausbot") break;
+        if (body?.app === "danibot") break;
       } catch {
         // The server is still starting.
       }

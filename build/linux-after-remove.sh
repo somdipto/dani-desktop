@@ -8,8 +8,8 @@ case "${1:-}" in
   *) exit 0 ;;
 esac
 
-if [ -n "${OPENMAUSBOT_POSTINSTALL_TEST_ROOT:-}" ]; then
-  TEST_ROOT="$(realpath -e -- "$OPENMAUSBOT_POSTINSTALL_TEST_ROOT")"
+if [ -n "${DANIBOT_POSTINSTALL_TEST_ROOT:-}" ]; then
+  TEST_ROOT="$(realpath -e -- "$DANIBOT_POSTINSTALL_TEST_ROOT")"
   case "$TEST_ROOT" in
     /tmp/*) ;;
     *) echo "Dani Bot test install root must stay under /tmp" >&2; exit 1 ;;
@@ -31,13 +31,13 @@ fi
 # remove an unrelated file that now happens to use the same command name.
 if [ "$TEST_MODE" -eq 0 ]; then
   if command -v update-alternatives >/dev/null 2>&1; then
-    update-alternatives --remove openmausbot /opt/Dani Bot/openmausbot
-  elif [ -L /usr/bin/openmausbot ] && [ "$(readlink /usr/bin/openmausbot)" = /opt/Dani Bot/openmausbot ]; then
-    rm -- /usr/bin/openmausbot
+    update-alternatives --remove danibot /opt/Dani Bot/danibot
+  elif [ -L /usr/bin/danibot ] && [ "$(readlink /usr/bin/danibot)" = /opt/Dani Bot/danibot ]; then
+    rm -- /usr/bin/danibot
   fi
 fi
 
-profile=$APPARMOR_DIR/openmausbot-browser
+profile=$APPARMOR_DIR/danibot-browser
 if [ ! -e "$profile" ] && [ ! -L "$profile" ]; then exit 0; fi
 if [ -L "$APPARMOR_DIR" ] || [ -L "$profile" ] || [ ! -f "$profile" ]; then
   echo "Dani Bot AppArmor profile is unsafe; refusing to remove it: $profile" >&2
@@ -47,7 +47,7 @@ if [ "$TEST_MODE" -eq 0 ] && [ -x /usr/bin/ischroot ] && /usr/bin/ischroot; then
   : # Removing from an image must not change the host's loaded profiles.
 elif [ -x "$APPARMOR_STATUS" ] && ! "$APPARMOR_STATUS" --enabled >/dev/null 2>&1; then
   : # No live policy exists when AppArmor is disabled; remove the staged file.
-elif [ -r "$APPARMOR_PROFILES" ] && ! grep -q '^openmausbot-browser ' "$APPARMOR_PROFILES"; then
+elif [ -r "$APPARMOR_PROFILES" ] && ! grep -q '^danibot-browser ' "$APPARMOR_PROFILES"; then
   : # Already unloaded; purge must also work after an earlier removal.
 elif [ -x "$APPARMOR_PARSER" ]; then
   # A profile may already be unloaded (for example during purge after remove).
