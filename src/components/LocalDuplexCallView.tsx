@@ -37,6 +37,9 @@ export function LocalDuplexCallView({ bot }: { bot: Bot }) {
   /** Messages that existed before the call, which must not be spoken. */
   const known = useRef(new Set(messages.map((message) => message.id)));
   const busyWas = useRef(Boolean(bot.busy));
+  /** The transcript as of the latest render, read when a spoken turn is sent. */
+  const latestMessages = useRef(messages);
+  latestMessages.current = messages;
 
   const hangup = useCallback(() => endCall(bot.id), [bot.id]);
 
@@ -48,6 +51,10 @@ export function LocalDuplexCallView({ bot }: { bot: Bot }) {
       // optimistic transcript in step; the bridge's transport is what actually
       // reaches the bot, on the same route typing uses.
       send: (text) => {
+        // Only a reply to this utterance may be spoken. Anything the bot said
+        // between turns (a proactive note, a late message from an interrupted
+        // turn) is already on screen and must not be read out as the answer.
+        for (const message of latestMessages.current) known.current.add(message.id);
         dispatch({ type: "send", botId: bot.id, text, threadId: bot.threadId });
       },
       stop: () => transport.interrupt({ callId: bot.threadId, generation: 0 }),
