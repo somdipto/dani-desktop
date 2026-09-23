@@ -3,6 +3,15 @@ import { DuplexVoiceController, reconnectWithBackoff } from "./duplex-voice";
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+/** Poll until `done`, or fail loudly at the deadline rather than assert early. */
+const until = async (done: () => boolean, timeoutMs = 2_000): Promise<void> => {
+  const deadline = Date.now() + timeoutMs;
+  while (!done()) {
+    if (Date.now() >= deadline) throw new Error("timed out waiting for the duplex turn to finish");
+    await flush();
+  }
+};
+
 describe("Duplex voice", () => {
   it("streams a turn with playback backpressure", async () => {
     let transcript: (t: string, f: boolean) => void = () => {};
@@ -15,7 +24,13 @@ describe("Duplex voice", () => {
     );
     await c.start({} as MediaStream);
     transcript("hi", true);
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait for the turn to finish, not for a fixed number of milliseconds.
+    // A flat 10ms sleep failed roughly a third of the time on an idle machine,
+    // because the assertion needs two chained macrotasks and 10ms is not a
+    // promise that they have run. The ordering it checks was always correct;
+    // the budget was the bug, and a test that fails at random teaches people to
+    // ignore it — which is the worst thing a voice test can do.
+    await until(() => order.length === 4);
     expect(order).toEqual(["start:one", "end:one", "start:two", "end:two"]);
     expect(c.state).toBe("listening");
   });

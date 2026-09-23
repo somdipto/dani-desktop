@@ -1,3 +1,5 @@
+import { sentenceBoundary } from "../../shared/speech-boundaries.ts";
+
 // The spoken register — turning an agent's answer into something worth
 // hearing.
 //
@@ -129,8 +131,12 @@ export function speakable(input: string): string {
 }
 
 /** Sentence-ish boundary: `.`/`!`/`?` followed by space, but not inside a
- * decimal, an ellipsis, or a common abbreviation. */
-const BOUNDARY = /(?<!\b(?:e\.g|i\.e|etc|vs|Dr|Mr|Mrs|Ms|No|approx))(?<![.\d])([.!?])(["')\]]*)\s+/g;
+ * decimal, an ellipsis, or a common abbreviation.
+ *
+ * Shared with the renderer's streaming splitter, so a reply is chunked the
+ * same way whether it was streamed into a live call or synthesized in one go.
+ * Two copies of this rule would drift, and the drift would be audible. */
+const BOUNDARY = sentenceBoundary();
 
 /**
  * Split speakable text into utterances a synthesizer can start on.

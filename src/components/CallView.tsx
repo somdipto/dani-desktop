@@ -32,6 +32,7 @@ import { cn } from "@/lib/cn";
 import { track } from "@/lib/analytics";
 import { spokenApprovalDecision } from "@/lib/spoken-approval";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
+import { LocalDuplexCallView } from "./LocalDuplexCallView";
 import { RealtimeCallView } from "./RealtimeCallView";
 
 type Phase = "listening" | "sending" | "working" | "speaking";
@@ -194,11 +195,44 @@ export function CallTargetButton({
   );
 }
 
+/** Whether the local speech runtime can actually run a call right now.
+ *
+ * Asked of the server rather than inferred from the feature flag: the flag
+ * only says local speech is wanted, while readiness also needs the packaged
+ * executables and the pinned models to be present. Offering a local call that
+ * cannot start is worse than not offering it. */
+function useLocalSpeechReady(active: boolean): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    let alive = true;
+    void fetch("/api/live-call/local/status")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((status: { ready?: boolean } | null) => {
+        if (alive) setReady(status?.ready === true);
+      })
+      .catch(() => {
+        if (alive) setReady(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [active]);
+  return ready;
+}
+
 export function CallOverlay({ bot }: { bot: Bot }) {
   const active = useOnCall() === bot.id;
   const { state } = useStore();
+  // Asked unconditionally so the hook order never changes between renders.
+  const localDuplex = useLocalSpeechReady(active);
   if (!active) return null;
-  return state.config?.liveCall?.provider === "openai-realtime" ? <RealtimeCallView bot={bot} /> : <Call bot={bot} />;
+  if (state.config?.liveCall?.provider === "openai-realtime") return <RealtimeCallView bot={bot} />;
+  // A ready local runtime means a real full-duplex call with nothing leaving
+  // the machine. Without it the older push-to-talk path still answers, which
+  // is half duplex but always available.
+  if (localDuplex) return <LocalDuplexCallView bot={bot} />;
+  return <Call bot={bot} />;
 }
 
 function Call({ bot }: { bot: Bot }) {

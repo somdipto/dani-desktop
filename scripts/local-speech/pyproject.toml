@@ -1,0 +1,19 @@
+[project]
+name = "dani-kokoro-cli"
+version = "0.1.0"
+description = "Kokoro text-to-speech CLI matching the contract Dani's local speech runtime invokes."
+requires-python = ">=3.10"
+# Exact, because the whole reason this package exists is that a loose pin let a
+# library and a model drift until synthesis silently produced nothing.
+# requirements.txt carries the same versions with hashes for a verified install.
+dependencies = ["kokoro-onnx==0.6.1", "soundfile==0.14.0"]
+
+[project.scripts]
+kokoro-cli = "dani_kokoro_cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["dani_kokoro_cli"]

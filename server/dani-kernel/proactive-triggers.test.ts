@@ -8,7 +8,14 @@ import { ProactiveTriggerEvaluator } from "./proactive-triggers.ts";
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach(root => rmSync(root, { recursive: true, force: true })));
 const open = () => { const root = mkdtempSync(join(tmpdir(), "dani-trigger-")); roots.push(root); const repository = new DaniKernelRepository(join(root, "kernel.sqlite")); return { root, repository, evaluator: new ProactiveTriggerEvaluator(repository) }; };
-const input = (key = "daily:1") => ({ ownerId: "owner", botId: "bot", threadId: "thread", triggerKey: key, triggerKind: "daily-brief", reason: "Your daily brief is ready", objective: "Review the day", occurredAt: "2026-09-21T22:00:00Z", expiresAt: "2026-09-23T00:00:00Z", evidenceReferences: ["calendar:1"] });
+// The scheduling assertions below drive simulated clocks, but the repository
+// validates expiry against the real one, so a fixed date here is a time bomb:
+// this suite began failing the moment wall-clock time passed it. The horizon
+// is relative so a valid proposal stays valid on every future run. The
+// deliberately expired case further down keeps its fixed past date, which
+// cannot rot.
+const VALID_EXPIRY_HORIZON_MS = 24 * 60 * 60 * 1000;
+const input = (key = "daily:1") => ({ ownerId: "owner", botId: "bot", threadId: "thread", triggerKey: key, triggerKind: "daily-brief", reason: "Your daily brief is ready", objective: "Review the day", occurredAt: "2026-09-21T22:00:00Z", expiresAt: new Date(Date.now() + VALID_EXPIRY_HORIZON_MS).toISOString(), evidenceReferences: ["calendar:1"] });
 
 describe("serving proactive trigger evaluator", () => {
   it("normalizes schedule, routine and in-app sources with exact provenance", () => {

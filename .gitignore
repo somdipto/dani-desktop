@@ -35,3 +35,7 @@ cloudflare/control-plane/worker-configuration.d.ts
 
 # per-tenant deploy settings (see deploy/.env.example)
 deploy/.env
+
+# Python build artefacts from staging the local speech CLI
+scripts/local-speech/build/
+scripts/local-speech/*.egg-info/
