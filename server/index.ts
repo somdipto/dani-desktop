@@ -7482,6 +7482,21 @@ async function reloadProviders() {
   createLayaStack();
   attachProactiveProposalListener();
   reconcileProactiveProposalCards();
+  // Room turns wait on the bus for their provider's turn.completed. The old
+  // fleet was detached before it was disposed, so that event can never come:
+  // without this, a room that was mid-reply stays "working" until its room
+  // timeout and every later message queues behind it. Settle each live room
+  // speaker through the same stall path the watchdog uses, and release the
+  // room now: its process is already gone, so there is nothing to wait for.
+  for (const [threadId, speaker] of [...groupSpeakers]) {
+    roomStallCompletions.stall(threadId);
+    const group = store.groupByThread(threadId);
+    if (group?.busyBotId === speaker.botId) {
+      store.patchGroup(group.id, { busyBotId: null, unread: true });
+    }
+    groupSpeakers.delete(threadId);
+    watchdog.settle(threadId);
+  }
   // A killed turn's terminal events can die with the old fleet (dispose is
   // async under the hood), stranding the bot busy — and its screen poller —
   // forever. Settle anything still marked busy.
