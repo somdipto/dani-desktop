@@ -33,6 +33,7 @@ jobs:
     outputs:
       sha: ${{ steps.release.outputs.sha }}
       version: ${{ steps.release.outputs.version }}
+      published: ${{ steps.release.outputs.published }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,6 +42,8 @@ jobs:
           persist-credentials: false
       - id: release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           sha=$(git rev-parse HEAD)
@@ -61,8 +64,22 @@ jobs:
               exit 1
             }
           fi
+          # A branch push whose package.json version is already published has
+          # nothing new to release: still build every package (that is the
+          # cross-platform packaging signal), but skip the draft step instead
+          # of failing on "already published". Bump package.json to cut the
+          # next release. A tag push for a published version still fails.
+          published=false
+          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
+            is_draft=$(gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || true)
+            if [[ "$is_draft" == false ]]; then
+              published=true
+              echo "::notice::$release_tag is already published; packages are built but no draft release is created. Bump package.json to release."
+            fi
+          fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "published=$published" >> "$GITHUB_OUTPUT"
 
   linux:
     name: Linux x64 (AppImage + deb)
@@ -229,6 +246,7 @@ jobs:
   release:
     name: Create draft release
     needs: [prepare, linux, windows, macos]
+    if: needs.prepare.outputs.published != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
