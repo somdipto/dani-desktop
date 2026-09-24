@@ -165,8 +165,9 @@ const mintCapability = async (botId: string, threadId: string): Promise<string> 
 const hideSeededBot = async () => {
   // the seeded bot would otherwise join the unsectioned team and make the
   // roster and listing assertions depend on install order
+  // (a fresh boot without a live model route seeds none: issue #18)
   const seeded = (await api("GET", "/api/bots?messages=0")).body.bots[0];
-  await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+  if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
 };
 
 const peerNames = async (selfId: string, token: string) => {

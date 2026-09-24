@@ -172,6 +172,11 @@ beforeAll(async () => {
     if (harness.exitCode !== null) throw new Error(`harness exited ${harness.exitCode}:\n${stderr}`);
     await new Promise((r) => setTimeout(r, 150));
   }
+  // A fresh harness no longer seeds a starter bot before a live model route
+  // exists (issue #18), so the owner creates one on the desktop, over the
+  // loopback owner API, the way a real user does before pairing a phone.
+  const created = await fetch(`${HARNESS}/api/bots`, { method: "POST", headers: { "x-danibot-desktop-owner": OWNER_TOKEN } });
+  if (created.status !== 201 && created.status !== 200) throw new Error(`owner could not create a bot: ${created.status}`);
 
   sidecar = createServer(
     createProxyHandler({

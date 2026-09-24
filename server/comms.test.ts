@@ -274,7 +274,8 @@ describe("comms e2e (fake ACP fleet)", () => {
     async () => {
       // deterministic roster: hide the seeded bot, add Asker + Helper
       const seeded = (await api("GET", "/api/bots")).body.bots[0];
-      await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+      // a fresh boot without a live model route seeds none (issue #18)
+      if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
       const selection = { instanceId: "grok", model: "fake-model" };
       const helper = (await api("POST", "/api/bots")).body.bot;
       await api("PATCH", `/api/bots/${helper.id}`, { name: "Helper", modelSelection: selection });
@@ -475,7 +476,8 @@ describe("comms e2e (fake ACP fleet)", () => {
     "hands the task off async via delegate_bot and lets B run after A's turn settles",
     async () => {
       const seeded = (await api("GET", "/api/bots")).body.bots[0];
-      await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+      // a fresh boot without a live model route seeds none (issue #18)
+      if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
       const helperSelection = { instanceId: "grok", model: "fake-model" };
       const askerSelection = { instanceId: "askerDelegate", model: "fake-model" };
       const helper = (await api("POST", "/api/bots")).body.bot;
@@ -923,7 +925,8 @@ describe("comms e2e (fake ACP fleet)", () => {
     "mirrors a successful delegated turn with no reply as a completed terminal chip",
     async () => {
       const seeded = (await api("GET", "/api/bots")).body.bots[0];
-      await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+      // a fresh boot without a live model route seeds none (issue #18)
+      if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
       const helper = (await api("POST", "/api/bots")).body.bot;
       await api("PATCH", `/api/bots/${helper.id}`, {
         name: "Helper",
@@ -973,7 +976,8 @@ describe("comms e2e (fake ACP fleet)", () => {
     "finalizes a delegated turn interrupted by provider reload",
     async () => {
       const seeded = (await api("GET", "/api/bots")).body.bots[0];
-      await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+      // a fresh boot without a live model route seeds none (issue #18)
+      if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
       const helper = (await api("POST", "/api/bots")).body.bot;
       await api("PATCH", `/api/bots/${helper.id}`, {
         name: "Helper",
@@ -1037,7 +1041,8 @@ describe("comms e2e (fake ACP fleet)", () => {
     "mirrors a crashed delegated turn into the channel as a failed terminal chip",
     async () => {
       const seeded = (await api("GET", "/api/bots")).body.bots[0];
-      await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+      // a fresh boot without a live model route seeds none (issue #18)
+      if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
       const helper = (await api("POST", "/api/bots")).body.bot;
       await api("PATCH", `/api/bots/${helper.id}`, {
         name: "Helper",
@@ -1091,7 +1096,8 @@ describe("comms e2e (fake ACP fleet)", () => {
     "mirrors a delegation that could not start into the channel",
     async () => {
       const seeded = (await api("GET", "/api/bots")).body.bots[0];
-      await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+      // a fresh boot without a live model route seeds none (issue #18)
+      if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
       const helper = (await api("POST", "/api/bots")).body.bot;
       // no such instance — startTurn rejects, so B's turn never starts
       await api("PATCH", `/api/bots/${helper.id}`, {
@@ -1148,7 +1154,8 @@ describe("comms e2e (fake ACP fleet)", () => {
     "blocks ask_bot behind a card and only runs B after the user allows",
     async () => {
       const seeded = (await api("GET", "/api/bots")).body.bots[0];
-      await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+      // a fresh boot without a live model route seeds none (issue #18)
+      if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
       const selection = { instanceId: "grok", model: "fake-model" };
       const helper = (await api("POST", "/api/bots")).body.bot;
       await api("PATCH", `/api/bots/${helper.id}`, { name: "Helper", modelSelection: selection });
@@ -1239,7 +1246,7 @@ describe("comms e2e (fake ACP fleet)", () => {
 
   it("refuses ask_bot with a denial chip and never starts B when the user denies", async () => {
     const seeded = (await api("GET", "/api/bots")).body.bots[0];
-    await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+    if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
     const selection = { instanceId: "grok", model: "fake-model" };
     const helper = (await api("POST", "/api/bots")).body.bot;
     await api("PATCH", `/api/bots/${helper.id}`, { name: "Helper", modelSelection: selection });
@@ -1328,7 +1335,7 @@ describe("comms e2e (fake ACP fleet)", () => {
   // the regression signal.
   it("does not inject the agents integration into a depth-1 turn", async () => {
     const seeded = (await api("GET", "/api/bots")).body.bots[0];
-    await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
+    if (seeded) await api("PATCH", `/api/bots/${seeded.id}`, { hidden: true });
     // A runs delegate-peer and hands off to B, which runs ask-peer. If the
     // depth guard broke, B's depth-1 turn would call ask_bot and its reply
     // would carry the "one hop" refusal — the regression signal.

@@ -118,8 +118,9 @@ posixOnly("routine failure notification wiring", () => {
   it(
     "emits one routine-failed notification for the detached task and no generic done notification",
     async () => {
-      const listed = await api("GET", "/api/bots");
-      const bot = listed.body.bots[0];
+      // A fresh boot without a live model route seeds no starter (issue #18),
+      // so create the bot this routine runs on.
+      const bot = (await api("POST", "/api/bots")).body.bot;
       expect(
         (
           await api("PATCH", `/api/bots/${bot.id}`, {
