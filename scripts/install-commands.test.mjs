@@ -13,8 +13,8 @@ const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 const installSh = readFileSync(new URL("../install.sh", import.meta.url), "utf8");
 const installPs1 = readFileSync(new URL("../install.ps1", import.meta.url), "utf8");
 
-const SH_COMMAND = "curl -fsSL https://raw.githubusercontent.com/somdipto/dani-desktop/prod/install.sh | sh";
-const PS_COMMAND = "irm https://raw.githubusercontent.com/somdipto/dani-desktop/prod/install.ps1 | iex";
+const SH_COMMAND = "curl -fsSL https://raw.githubusercontent.com/somdipto/dani-desktop/main/install.sh | sh";
+const PS_COMMAND = "irm https://raw.githubusercontent.com/somdipto/dani-desktop/main/install.ps1 | iex";
 
 function stubBin(entries) {
   const dir = mkdtempSync(join(tmpdir(), "dani-install-stub-"));
@@ -72,10 +72,10 @@ describe("spec 080 one-command install", () => {
     }
     // The scripts publish the same raw-URL branch the README points at, so a
     // branch rename breaks this test instead of the install command.
-    expect(installSh).toContain('BRANCH="prod"');
-    expect(installPs1).toContain('$Branch = "prod"');
-    expect(installSh).toContain("raw.githubusercontent.com/somdipto/dani-desktop/prod/install.sh");
-    expect(installPs1).toContain("raw.githubusercontent.com/somdipto/dani-desktop/prod/install.ps1");
+    expect(installSh).toContain('BRANCH="main"');
+    expect(installPs1).toContain('$Branch = "main"');
+    expect(installSh).toContain("raw.githubusercontent.com/somdipto/dani-desktop/main/install.sh");
+    expect(installPs1).toContain("raw.githubusercontent.com/somdipto/dani-desktop/main/install.ps1");
   });
 
   posixIt("install.sh is valid sh syntax and install.ps1 carries the same contract markers", () => {

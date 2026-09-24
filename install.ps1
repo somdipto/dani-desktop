@@ -1,6 +1,6 @@
 # Dani Bot - first-run install: one command from nothing to a running app.
 #
-#   irm https://raw.githubusercontent.com/somdipto/dani-desktop/prod/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/somdipto/dani-desktop/main/install.ps1 | iex
 #
 # Idempotent: re-running reuses the existing checkout, dependencies and build
 # cache, and completes whatever an interrupted run left unfinished.
@@ -9,7 +9,7 @@ param([switch]$CheckOnly)
 
 $ErrorActionPreference = "Stop"
 $RepoUrl = "https://github.com/somdipto/dani-desktop"
-$Branch = "prod"
+$Branch = "main"
 $Dest = if ($env:DANI_INSTALL_DIR) { $env:DANI_INSTALL_DIR } else { "dani-desktop" }
 $DataDir = if ($env:DANI_DATA_DIR) { $env:DANI_DATA_DIR } else { Join-Path $HOME ".danibot" }
 
@@ -43,7 +43,7 @@ if ($inCheckout) {
 } elseif (Test-Path "$Dest\.git") {
   Write-Host "reusing existing checkout at $Dest (idempotent re-run)"
   Set-Location $Dest
-  git fetch origin $Branch --quiet 2>$null; git merge --ff-only "origin/$Branch" --quiet 2>$null
+  git fetch origin "+refs/heads/${Branch}:refs/remotes/origin/${Branch}" --quiet 2>$null; git merge --ff-only "origin/$Branch" --quiet 2>$null
   if ($LASTEXITCODE -ne 0) { Write-Host "note: checkout is not fast-forwardable; continuing with what is here" }
 } else {
   Write-Host "cloning $RepoUrl ($Branch) into $Dest"

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Dani Bot - first-run install: one command from nothing to a running app.
 #
-#   curl -fsSL https://raw.githubusercontent.com/somdipto/dani-desktop/prod/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/somdipto/dani-desktop/main/install.sh | sh
 #
 # Idempotent: re-running reuses the existing checkout, dependencies and build
 # cache, and completes whatever an interrupted run left unfinished.
@@ -9,7 +9,7 @@
 set -eu
 
 REPO_URL="https://github.com/somdipto/dani-desktop"
-BRANCH="prod"
+BRANCH="main"
 DEST="${DANI_INSTALL_DIR:-dani-desktop}"
 DATA_DIR="${DANI_DATA_DIR:-${HOME:-/tmp}/.danibot}"
 CHECK_ONLY=0
@@ -52,7 +52,7 @@ prepare_checkout() {
   if [ -d "$DEST/.git" ]; then
     say "reusing existing checkout at $DEST (idempotent re-run)"
     cd "$DEST"
-    git fetch origin "$BRANCH" --quiet 2>/dev/null && git merge --ff-only "origin/$BRANCH" --quiet 2>/dev/null \
+    git fetch origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" --quiet 2>/dev/null && git merge --ff-only "origin/$BRANCH" --quiet 2>/dev/null \
       || say "note: checkout is not fast-forwardable; continuing with what is here"
   else
     say "cloning $REPO_URL ($BRANCH) into $DEST"

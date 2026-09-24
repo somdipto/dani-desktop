@@ -4,7 +4,7 @@ Friend-machine first builds and agent steps: [`docs/packaging.md`](packaging.md)
 
 For a normal release, run **Actions → Prepare next release → Run workflow** and
 choose a patch, minor, or custom version. It opens a tiny version-bump PR
-against prod. After merging, tag `v<version>` at the merge commit — pushing the
+against main. After merging, tag `v<version>` at the merge commit — pushing the
 tag starts **Release** — or run **Actions → Release → Run workflow** against the
 merge commit directly. Either path assembles a draft from that exact commit.
 Review and publish the draft when it is ready.

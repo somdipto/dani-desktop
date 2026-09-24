@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: prod
+          ref: main
           fetch-depth: 0
 
       - name: Choose the next version
@@ -103,10 +103,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.next }}
         run: |
           url=$(gh pr create \
-            --base prod \
+            --base main \
             --head "release/v$VERSION" \
             --title "chore(release): bump version to $VERSION" \
-            --body "Bumps Dani Bot to \`$VERSION\` on prod. After merging, tag \`v$VERSION\` at the merge commit (or run the Release workflow against it) to assemble a draft release from that exact commit.")
+            --body "Bumps Dani Bot to \`$VERSION\` on main. After merging, tag \`v$VERSION\` at the merge commit (or run the Release workflow against it) to assemble a draft release from that exact commit.")
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "### Release PR" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"

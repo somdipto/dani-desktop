@@ -222,13 +222,13 @@ Any desktop build can also pair as a client to another Windows, macOS, or Ubuntu
 macOS / Ubuntu:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/somdipto/dani-desktop/prod/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/somdipto/dani-desktop/main/install.sh | sh
 ```
 
 Windows (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/somdipto/dani-desktop/prod/install.ps1 | iex
+irm https://raw.githubusercontent.com/somdipto/dani-desktop/main/install.ps1 | iex
 ```
 
 The script clones (or reuses) the repo, installs dependencies, packages the
