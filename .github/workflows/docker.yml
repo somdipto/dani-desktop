@@ -89,7 +89,12 @@ jobs:
           grep -q 'pair this device' <<<"$(body $H/api/health)"
           grep -qi '<html' <<<"$(body $H/pair)"                                    # the UI shell is served so /pair can load
           test "$(code http://localhost/)" = 308                                   # HTTP redirects to HTTPS
-          pairing=$(docker compose -f deploy/docker-compose.yml exec -T omb node dist-server/pair-cli.js --label ci)
+          # Minting a pairing code is an owner action. The server prints its
+          # per-launch owner capability on boot; that line is the distribution
+          # channel (security epic-9-B), so read it from the logs.
+          owner=$(docker compose -f deploy/docker-compose.yml logs omb | sed -n 's/.*\[owner\] DANI_OWNER_TOKEN=//p' | tail -1 | tr -d '\r')
+          test -n "$owner"
+          pairing=$(docker compose -f deploy/docker-compose.yml exec -T -e DANI_OWNER_TOKEN="$owner" omb node dist-server/pair-cli.js --label ci)
           echo "$pairing"
           pcode=$(grep -o 'code=[A-Z2-9-]*' <<<"$pairing" | head -1 | cut -d= -f2)
           test -n "$pcode"

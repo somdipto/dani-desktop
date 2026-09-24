@@ -80,8 +80,12 @@ pairing code for your first device:
 
 ```sh
 docker compose exec omb claude                       # each CLI you listed in ENGINES
-docker compose exec omb node dist-server/dani-agent.js pair # prints a code, a link and a QR
+# Pairing is an owner action: the server prints its per-launch owner token on boot.
+owner=$(docker compose logs omb | sed -n 's/.*\[owner\] DANI_OWNER_TOKEN=//p' | tail -1 | tr -d '\r')
+docker compose exec -e DANI_OWNER_TOKEN="$owner" omb node dist-server/dani-agent.js pair # prints a code, a link and a QR
 ```
+
+The token changes on every restart, so read it again after one.
 
 Open the link (`https://<DOMAIN>/pair#code=…`) in a browser and it is
 paired; see "Using it from your computer" for what a session is. Webhook
