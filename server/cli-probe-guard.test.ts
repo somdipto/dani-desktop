@@ -3,7 +3,7 @@
 // (symlinks/traversal), and the endpoint's dependence on the existing
 // request-auth owner-token mutation guard.
 import type { IncomingMessage } from "node:http";
-import { chmodSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -22,7 +22,9 @@ let dir: string;
 let savedPath: string | undefined;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "cli-probe-guard-"));
+  // Canonical paths are realpaths: on macOS the temp dir lives under the
+  // /var -> /private/var symlink, so compare against the resolved directory.
+  dir = realpathSync(mkdtempSync(join(tmpdir(), "cli-probe-guard-")));
   savedPath = process.env.PATH;
 });
 
@@ -35,8 +37,9 @@ afterEach(() => {
 
 /** Put `name` on PATH as an executable script; returns its absolute path. */
 function fakeCliOnPath(name: string, body = `#!/bin/sh\necho hi\n`): string {
-  const p = join(dir, name);
-  writeFileSync(p, body, { mode: 0o755 });
+  // Windows PATH lookup only finds names with a PATHEXT extension.
+  const p = join(dir, process.platform === "win32" ? `${name}.cmd` : name);
+  writeFileSync(p, process.platform === "win32" ? "@echo hi\r\n" : body, { mode: 0o755 });
   chmodSync(p, 0o755);
   process.env.PATH = `${dir}${delimiter}${process.env.PATH ?? ""}`;
   resetPathCacheForTests();

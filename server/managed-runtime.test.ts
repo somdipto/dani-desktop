@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MANAGED_OPENCODE_PROMPT_TIMEOUT_MS, managedRuntimeReadiness, parseManagedRuntimeManifest, safeManagedRuntimeRelativePath, safeManagedRuntimeSymlinkTarget } from "./managed-runtime.ts";
 const valid = {
@@ -29,8 +30,8 @@ describe("managed runtime manifest", () => {
     expect(safeManagedRuntimeRelativePath("bin/hermes")).toBe("bin/hermes");
   });
   it("allows contained relative symlinks and rejects absolute or escaping targets", () => {
-    expect(safeManagedRuntimeSymlinkTarget("/payload", "/payload/runtime/bin/python", "python3.11")).toBe("/payload/runtime/bin/python3.11");
-    expect(safeManagedRuntimeSymlinkTarget("/payload", "/payload/terminfo/x/xterm", "../../share/terminfo/x/xterm")).toBe("/payload/share/terminfo/x/xterm");
+    expect(safeManagedRuntimeSymlinkTarget("/payload", "/payload/runtime/bin/python", "python3.11")).toBe(resolve("/payload/runtime/bin/python3.11")); // native path: D:\\payload\\... on Windows
+    expect(safeManagedRuntimeSymlinkTarget("/payload", "/payload/terminfo/x/xterm", "../../share/terminfo/x/xterm")).toBe(resolve("/payload/share/terminfo/x/xterm"));
     for (const target of ["/usr/bin/python", "C:\\Python\\python.exe", "../../../../outside"]) {
       expect(() => safeManagedRuntimeSymlinkTarget("/payload", "/payload/runtime/bin/python", target), target).toThrow();
     }

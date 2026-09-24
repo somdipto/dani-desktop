@@ -35,6 +35,11 @@ function runCheck(env) {
   }
 }
 
+// install.sh is the macOS/Linux installer and these cases execute it with sh.
+// Windows runners have no sh and use install.ps1 instead, so they are skipped
+// there (skipped, not faked).
+const posixIt = it.skipIf(process.platform === "win32");
+
 describe("spec 080 one-command install", () => {
   it("failure and success text names the real app log locations, never a logs dir under the data dir", () => {
     // The desktop app writes logs to the Electron logs path (pinned in
@@ -73,7 +78,7 @@ describe("spec 080 one-command install", () => {
     expect(installPs1).toContain("raw.githubusercontent.com/somdipto/dani-desktop/prod/install.ps1");
   });
 
-  it("install.sh is valid sh syntax and install.ps1 carries the same contract markers", () => {
+  posixIt("install.sh is valid sh syntax and install.ps1 carries the same contract markers", () => {
     execFileSync("sh", ["-n", "install.sh"], { cwd: new URL("..", import.meta.url).pathname });
     for (const marker of ["SUCCESS - Dani Bot packaged", "install failed:", "what to do:", "idempotent"]) {
       expect(installSh).toContain(marker);
@@ -81,7 +86,7 @@ describe("spec 080 one-command install", () => {
     }
   });
 
-  it("--check accepts a complete toolchain and prints what it found", () => {
+  posixIt("--check accepts a complete toolchain and prints what it found", () => {
     const bin = stubBin({
       git: "#!/bin/sh\necho 'git version 2.46.0'\n",
       node: "#!/bin/sh\nif [ \"$1\" = \"-p\" ]; then echo 24; else echo v24.8.0; fi\n",
@@ -92,7 +97,7 @@ describe("spec 080 one-command install", () => {
     expect(result.out).toContain("prerequisites ok");
   });
 
-  it("--check refuses Node older than 24 with an actionable reason", () => {
+  posixIt("--check refuses Node older than 24 with an actionable reason", () => {
     const bin = stubBin({
       git: "#!/bin/sh\necho 'git version 2.46.0'\n",
       node: "#!/bin/sh\nif [ \"$1\" = \"-p\" ]; then echo 22; else echo v22.1.0; fi\n",
@@ -104,7 +109,7 @@ describe("spec 080 one-command install", () => {
     expect(result.out).toContain("Node 24");
   });
 
-  it("--check reports every missing prerequisite instead of a bare crash", () => {
+  posixIt("--check reports every missing prerequisite instead of a bare crash", () => {
     const result = runCheck({ PATH: "/nonexistent", HOME: "/tmp/install-test-home" });
     expect(result.code).toBe(1);
     expect(result.out).toMatch(/git is not installed|Node\.js is not installed/);
