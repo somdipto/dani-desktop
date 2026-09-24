@@ -59,7 +59,14 @@ export class ProviderRegistry {
     this.driversByKind = new Map(drivers.map((d) => [d.driverKind, d]));
   }
 
+  /** Load the fleet into an EMPTY registry: once at boot, or inside the
+   * server's reloadProviders() after disposeAll(). Loading over live instances
+   * would replace them without disposing their processes or re-attaching the
+   * event bus (the fcc51d1 fresh-install bug), so it fails loudly instead. */
   async load(configs: InstanceConfigMap) {
+    if (this.instances().length > 0) {
+      throw new Error("ProviderRegistry.load() over a live fleet: dispose it first (use the server's reloadProviders())");
+    }
     for (const [instanceId, entry] of Object.entries(configs)) {
       const driver = this.driversByKind.get(entry.driver);
       if (!driver) {
